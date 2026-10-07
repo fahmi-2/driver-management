@@ -58,9 +58,9 @@ function Badge({ role, id }: { role: Role; id: string }) {
   const { db } = useStore()
   const n = role === 'admin' && (id === 'scheduling' || id === 'approval') ? db.trips.filter((t) => t.status === 'WAITING_ASSIGN').length
     : role === 'security' && id === 'gate' ? db.trips.filter((t) => t.status === 'READY' || t.status === 'ON_TRIP').length
-    : role === 'coupon' && id === 'pending' ? db.trips.filter((t) => t.coupon === 'CLAIMED').length
-    : role === 'requester' && id === 'inbox' ? db.trips.filter((t) => t.status === 'READY').length
-    : 0
+      : role === 'coupon' && id === 'pending' ? db.trips.filter((t) => t.coupon === 'CLAIMED').length
+        : role === 'requester' && id === 'inbox' ? db.trips.filter((t) => t.status === 'READY').length
+          : 0
   return n ? <span className="rounded-md bg-[#126d4a] px-1.5 py-0.5 text-[9px] font-bold text-white">{n}</span> : null
 }
 
@@ -110,7 +110,7 @@ function Shell({ user, onLogout }: { user: Account; onLogout: () => void }) {
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-[17px] font-extrabold tracking-tight text-white">FleetFlow</span>
+                <span className="text-[17px] font-extrabold tracking-tight text-white">JAI - Driver Management </span>
                 <span className="hidden rounded-full border border-[#a3e635]/25 bg-[#a3e635]/10 px-2.5 py-0.5 text-[10px] font-bold text-[#a3e635] md:inline">
                   {ROLE_LABEL[user.role]}
                 </span>
@@ -129,11 +129,10 @@ function Shell({ user, onLogout }: { user: Account; onLogout: () => void }) {
                     <button
                       type="button"
                       onClick={() => setDropdownOpen(!dropdownOpen)}
-                      className={`flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold transition-all whitespace-nowrap ${
-                        isChildActive
+                      className={`flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold transition-all whitespace-nowrap ${isChildActive
                           ? 'bg-[#075b3d] text-white shadow-md shadow-[#075b3d]/20'
                           : 'text-[#64746b] hover:bg-[#eef5f0] hover:text-[#087348]'
-                      }`}
+                        }`}
                     >
                       <item.icon size={15} />
                       <span>{item.label}</span>
@@ -159,15 +158,13 @@ function Shell({ user, onLogout }: { user: Account; onLogout: () => void }) {
                                   setPage(child.id)
                                   setDropdownOpen(false)
                                 }}
-                                className={`flex w-full items-start gap-3 rounded-xl p-2.5 text-left transition ${
-                                  isSubActive
+                                className={`flex w-full items-start gap-3 rounded-xl p-2.5 text-left transition ${isSubActive
                                     ? 'bg-[#eef5f0] text-[#075b3d] font-bold'
                                     : 'text-[#4b5b52] hover:bg-[#f7faf8]'
-                                }`}
+                                  }`}
                               >
-                                <div className={`mt-0.5 flex size-7 items-center justify-center rounded-lg ${
-                                  isSubActive ? 'bg-[#075b3d] text-white' : 'bg-[#eaf3ee] text-[#075b3d]'
-                                }`}>
+                                <div className={`mt-0.5 flex size-7 items-center justify-center rounded-lg ${isSubActive ? 'bg-[#075b3d] text-white' : 'bg-[#eaf3ee] text-[#075b3d]'
+                                  }`}>
                                   <child.icon size={14} />
                                 </div>
                                 <div>
@@ -189,11 +186,10 @@ function Shell({ user, onLogout }: { user: Account; onLogout: () => void }) {
                 <button
                   key={item.id}
                   onClick={() => setPage(item.id)}
-                  className={`flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold transition-all whitespace-nowrap ${
-                    active
+                  className={`flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold transition-all whitespace-nowrap ${active
                       ? 'bg-[#075b3d] text-white shadow-md shadow-[#075b3d]/20'
                       : 'text-[#64746b] hover:bg-[#eef5f0] hover:text-[#087348]'
-                  }`}
+                    }`}
                 >
                   <item.icon size={15} />
                   <span>{item.label}</span>
@@ -286,11 +282,10 @@ function Shell({ user, onLogout }: { user: Account; onLogout: () => void }) {
                             setPage(child.id)
                             setOpen(false)
                           }}
-                          className={`flex w-full items-center justify-between rounded-xl px-3.5 py-2.5 text-left text-xs font-semibold transition ${
-                            page === child.id
+                          className={`flex w-full items-center justify-between rounded-xl px-3.5 py-2.5 text-left text-xs font-semibold transition ${page === child.id
                               ? 'bg-[#dff4e8] font-bold text-[#087348]'
                               : 'text-[#64746b] hover:bg-[#f5f8f6]'
-                          }`}
+                            }`}
                         >
                           <span className="flex items-center gap-3">
                             <child.icon size={16} />
@@ -310,11 +305,10 @@ function Shell({ user, onLogout }: { user: Account; onLogout: () => void }) {
                       setPage(item.id)
                       setOpen(false)
                     }}
-                    className={`flex items-center justify-between rounded-xl px-3.5 py-2.5 text-left text-xs font-semibold transition ${
-                      active
+                    className={`flex items-center justify-between rounded-xl px-3.5 py-2.5 text-left text-xs font-semibold transition ${active
                         ? 'bg-[#dff4e8] font-bold text-[#087348]'
                         : 'text-[#64746b] hover:bg-[#f5f8f6]'
-                    }`}
+                      }`}
                   >
                     <span className="flex items-center gap-3">
                       <item.icon size={16} />

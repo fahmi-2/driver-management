@@ -237,6 +237,18 @@ input:focus, select:focus, textarea:focus { border-color: var(--lime) !important
 select option { background: #0a2418; color: var(--ink); }
 input[type='checkbox'], input[type='radio'] { accent-color: var(--lime); }
 
+/* Login Page inputs: high contrast dark text on glass background */
+.login-input {
+  color: #052313 !important;
+  font-weight: 600 !important;
+  color-scheme: light !important;
+}
+.login-input::placeholder {
+  color: #2d4a39 !important;
+  font-weight: 500 !important;
+  opacity: 0.8 !important;
+}
+
 /* tables */
 table { border-collapse: collapse; }
 tbody tr { transition: background .2s ease; }

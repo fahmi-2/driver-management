@@ -16,7 +16,7 @@ function Approve() {
       <div className="w-full max-w-md rounded-3xl bg-white p-7 shadow-[0_20px_60px_rgba(19,45,33,0.12)]">
         <div className="mb-5 flex items-center gap-3">
           <div className="flex size-10 items-center justify-center rounded-full border-[3px] border-[#138053] text-[#138053]"><BusFront size={20} /></div>
-          <div><p className="font-bold">FleetFlow</p><p className="text-[11px] text-[#93a097]">E-Sign Persetujuan SPV · tanpa login</p></div>
+          <div><p className="font-bold">JAI - Driver Management </p><p className="text-[11px] text-[#93a097]">E-Sign Persetujuan SPV · tanpa login</p></div>
         </div>
         {!ready ? null : !trip ? (
           <p className="text-sm text-[#b83a31]">Link tidak valid atau pengajuan tidak ditemukan.</p>

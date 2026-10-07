@@ -5,6 +5,6 @@ export default function Page() {
 }
 
 export const metadata = {
-  title: 'FleetFlow · GA Operations',
+  title: 'JAI - Driver Management  · GA Operations',
   description: 'Fleet allocation, gate clearance, and driver operations dashboard.',
 }

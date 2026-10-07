@@ -49,8 +49,8 @@ export default function LoginPage() {
     }, 150)
   }
 
-  const inputWrap = 'relative rounded-2xl bg-white/55 shadow-[inset_0_2px_4px_rgba(0,0,0,.12),0_1px_0_rgba(255,255,255,.6)] ring-1 ring-white/60 transition focus-within:bg-white/75 focus-within:ring-2 focus-within:ring-[#84cc16]'
-  const inputCls = 'h-11 w-full rounded-2xl bg-transparent pl-10 pr-10 text-sm text-[#0b2416] placeholder:text-[#4b6356] outline-none !shadow-none !border-0'
+  const inputWrap = 'relative rounded-2xl bg-white/70 shadow-[inset_0_2px_4px_rgba(0,0,0,.15),0_1px_0_rgba(255,255,255,.9)] ring-1 ring-white/80 transition-all duration-200 hover:bg-white/80 focus-within:bg-white/95 focus-within:ring-2 focus-within:ring-[#4d7c0f]'
+  const inputCls = 'login-input h-11 w-full rounded-2xl bg-transparent pl-10 pr-10 text-sm font-semibold text-[#052313] placeholder:text-[#2d4a39] outline-none !shadow-none !border-0'
 
   return (
     <main className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-[#0b1f15] p-4 sm:p-8">
@@ -59,14 +59,13 @@ export default function LoginPage() {
       <div className="absolute inset-0 bg-gradient-to-b from-[#06170e]/70 via-[#0b2416]/50 to-[#04110a]/80" />
 
       <h1 className="anim-fade-up relative z-10 mb-6 text-xl font-bold tracking-tight text-[#e8f5ec] sm:text-2xl">
-        FleetFlow · <span className="text-[#a3e635]">Log In</span>
+        JAI - Driver Management  · <span className="text-[#a3e635]">Log In</span>
       </h1>
 
       {/* Main framed card with car photo */}
       <div
-        className={`anim-fade-up relative z-10 w-full max-w-5xl overflow-hidden rounded-[28px] border border-white/25 shadow-[0_40px_80px_-20px_rgba(0,0,0,.75)] transition-all duration-700 ${
-          isSuccess ? 'scale-[1.01] shadow-[0_0_80px_rgba(163,230,53,0.35)]' : ''
-        }`}
+        className={`anim-fade-up relative z-10 w-full max-w-5xl overflow-hidden rounded-[28px] border border-white/25 shadow-[0_40px_80px_-20px_rgba(0,0,0,.75)] transition-all duration-700 ${isSuccess ? 'scale-[1.01] shadow-[0_0_80px_rgba(163,230,53,0.35)]' : ''
+          }`}
         style={{ animationDelay: '.1s' }}
       >
         <div className="login-bg absolute inset-0 bg-cover bg-center" style={{ backgroundImage: 'url(/login-car.jpg)' }} />
@@ -77,7 +76,7 @@ export default function LoginPage() {
           <div className="hidden self-start pt-6 md:block">
             <div className="flex items-center gap-3">
               <div className="btn-lime flex size-12 items-center justify-center rounded-2xl shadow-lg"><BusFront size={24} /></div>
-              <span className="text-4xl font-extrabold tracking-tight text-white drop-shadow-[0_4px_16px_rgba(0,0,0,.6)]">FleetFlow</span>
+              <span className="text-4xl font-extrabold tracking-tight text-white drop-shadow-[0_4px_16px_rgba(0,0,0,.6)]">JAI - Driver Management </span>
             </div>
             <p className="mt-3 max-w-xs text-sm font-medium text-white/90 drop-shadow-[0_2px_8px_rgba(0,0,0,.7)]">
               Manajemen armada &amp; driver pabrik — alokasi kendaraan, gerbang, dan klaim dalam satu sistem.
@@ -90,32 +89,31 @@ export default function LoginPage() {
             <form
               key={shakeKey}
               onSubmit={submit}
-              className={`relative rounded-[26px] border border-white/50 bg-white/30 p-7 shadow-[0_30px_60px_-15px_rgba(0,0,0,.55),inset_0_1px_0_rgba(255,255,255,.7)] backdrop-blur-xl backdrop-saturate-150 transition-all duration-500 ${
-                isSuccess ? 'pointer-events-none scale-95 opacity-0 blur-sm' : ''
-              } ${shakeKey ? 'anim-shake' : 'anim-fade-up'}`}
+              className={`relative rounded-[26px] border border-white/50 bg-white/35 p-7 shadow-[0_30px_60px_-15px_rgba(0,0,0,.55),inset_0_1px_0_rgba(255,255,255,.7)] backdrop-blur-xl backdrop-saturate-150 transition-all duration-500 ${isSuccess ? 'pointer-events-none scale-95 opacity-0 blur-sm' : ''
+                } ${shakeKey ? 'anim-shake' : 'anim-fade-up'}`}
               style={{ animationDelay: '.25s' }}
             >
               <div className="text-center">
-                <h2 className="text-2xl font-bold text-[#0b2416]">Masuk ke Akun</h2>
-                <p className="mt-1 text-xs text-[#1f3b2b]">Gunakan akun sesuai peran Anda</p>
+                <h2 className="text-2xl font-bold text-[#052313]">Masuk ke Akun</h2>
+                <p className="mt-1 text-xs font-semibold text-[#183925]">Gunakan akun sesuai peran Anda</p>
               </div>
 
               <div className="mt-6 space-y-3">
                 <div className={inputWrap}>
-                  <User size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#2f5a3f]" />
+                  <User size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#0f3d24]" />
                   <input id="username" placeholder="Username" value={username} onChange={(e) => setUsername(e.target.value)} autoComplete="username" className={inputCls} required />
                 </div>
                 <div className={inputWrap}>
-                  <Lock size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#2f5a3f]" />
+                  <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#0f3d24]" />
                   <input id="password" type={show ? 'text' : 'password'} placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" className={inputCls} required />
-                  <button type="button" aria-label="Tampilkan password" onClick={() => setShow(!show)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#2f5a3f] hover:text-[#052e16]">
+                  <button type="button" aria-label="Tampilkan password" onClick={() => setShow(!show)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#0f3d24] transition hover:text-[#052313] hover:scale-110">
                     {show ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
               </div>
 
-              <label className="mt-3 flex items-center gap-2 text-[11px] font-medium text-[#0b2416]">
-                <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} className="size-3.5" />
+              <label className="mt-3 flex items-center gap-2 text-[11px] font-bold text-[#052313] cursor-pointer">
+                <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} className="size-3.5 accent-[#166534]" />
                 Ingat saya
               </label>
 
