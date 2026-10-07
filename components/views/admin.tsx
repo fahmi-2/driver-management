@@ -87,22 +87,38 @@ export function AdminLiveData() {
       <PageHeader title="Live Data" desc="Tabel operasional otomatis dari klik Security." action={<button id="export-excel" onClick={() => exportExcel(rows, dn)} className={btnPrimary}><Download size={14} />Export to Excel</button>} />
       <Card title="Data Operasional" subtitle={`${rows.length} baris`} action={<input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cari user / tujuan / driver…" className="h-8 w-56 rounded-lg bg-[#f5f7f5] px-3 text-[11px] outline-none" />}>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[900px] border-collapse text-left">
-            <thead className="bg-[#eaf3ed]"><tr>{['TGL', 'USER', 'TUJUAN', 'TIME GO', 'TIME BACK', 'DURATION', 'DRIVER', 'NO. POL', 'STATUS', 'KUPON'].map((h) => <th key={h} className={`${thCls} border border-[#dbe7df]`}>{h}</th>)}</tr></thead>
-            <tbody>{rows.map((t) => (
-              <tr key={t.id} className="odd:bg-white even:bg-[#fafcfb]">
-                <td className={`${tdCls} border border-[#e8efea]`}>{fmtDate(t.date)}</td>
-                <td className={`${tdCls} border border-[#e8efea] font-semibold`}>{t.guest}</td>
-                <td className={`${tdCls} border border-[#e8efea]`}>{t.destination}</td>
-                <td className={`${tdCls} border border-[#e8efea]`}>{fmtTime(t.timeGo)}</td>
-                <td className={`${tdCls} border border-[#e8efea]`}>{fmtTime(t.timeBack)}</td>
-                <td className={`${tdCls} border border-[#e8efea] font-bold`}>{fmtDur(t.durationMin)}</td>
-                <td className={`${tdCls} border border-[#e8efea]`}>{dn(t.driverId)}</td>
-                <td className={`${tdCls} border border-[#e8efea]`}>{t.plate ?? '—'}</td>
-                <td className={`${tdCls} border border-[#e8efea]`}><Pill label={STATUS_LABEL[t.status]} tone={tripTone(t.status)} /></td>
-                <td className={`${tdCls} border border-[#e8efea]`}>{t.coupon === 'NONE' ? '—' : <Pill label={COUPON_LABEL[t.coupon]} tone={couponTone(t.coupon)} />}</td>
+          <table className="w-full min-w-[900px] text-left text-xs">
+            <thead className="border-b border-[#edf1ee] bg-[#f7faf8] text-[10px] font-bold uppercase tracking-wider text-[#9aa7a0]">
+              <tr>
+                {['TGL', 'USER', 'TUJUAN', 'TIME GO', 'TIME BACK', 'DURATION', 'DRIVER', 'NO. POL', 'STATUS', 'KUPON'].map((h) => (
+                  <th key={h} className="px-4 py-3">{h}</th>
+                ))}
               </tr>
-            ))}</tbody>
+            </thead>
+            <tbody className="divide-y divide-[#edf1ee]">
+              {rows.length === 0 ? (
+                <tr>
+                  <td colSpan={10} className="py-8 text-center text-[#93a097]">
+                    Tidak ada data operasional.
+                  </td>
+                </tr>
+              ) : (
+                rows.map((t) => (
+                  <tr key={t.id} className="hover:bg-[#fafcfb] transition">
+                    <td className="px-4 py-3.5 text-[#9bb7a8] whitespace-nowrap">{fmtDate(t.date)}</td>
+                    <td className="px-4 py-3.5 font-bold text-[#10251c] whitespace-nowrap">{t.guest}</td>
+                    <td className="px-4 py-3.5 text-[#ecfdf5] font-medium whitespace-nowrap">{t.destination}</td>
+                    <td className="px-4 py-3.5 text-[#9bb7a8] whitespace-nowrap">{fmtTime(t.timeGo)}</td>
+                    <td className="px-4 py-3.5 text-[#9bb7a8] whitespace-nowrap">{fmtTime(t.timeBack)}</td>
+                    <td className="px-4 py-3.5 font-bold text-[#bef264] whitespace-nowrap">{fmtDur(t.durationMin)}</td>
+                    <td className="px-4 py-3.5 font-medium text-[#ecfdf5] whitespace-nowrap">{dn(t.driverId)}</td>
+                    <td className="px-4 py-3.5 font-mono font-bold text-[#a3e635] whitespace-nowrap">{t.plate ?? '—'}</td>
+                    <td className="px-4 py-3.5 whitespace-nowrap"><Pill label={STATUS_LABEL[t.status]} tone={tripTone(t.status)} /></td>
+                    <td className="px-4 py-3.5 whitespace-nowrap">{t.coupon === 'NONE' ? '—' : <Pill label={COUPON_LABEL[t.coupon]} tone={couponTone(t.coupon)} />}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
           </table>
         </div>
       </Card>

@@ -232,9 +232,9 @@ function Shell({ user, onLogout }: { user: Account; onLogout: () => void }) {
               id="logout"
               onClick={onLogout}
               title="Keluar / Logout"
-              className="flex size-9 items-center justify-center rounded-xl border border-[#dce7df] text-[#839089] hover:bg-[#fde5e3] hover:border-[#f9cbc7] hover:text-[#b83a31] transition"
+              className="flex h-9 items-center justify-center gap-1.5 rounded-xl border border-red-500/30 bg-red-500/10 px-3 text-xs font-semibold text-red-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.1),0_4px_12px_rgba(239,68,68,0.1)] backdrop-blur-md transition-all duration-200 hover:border-red-400/50 hover:bg-red-500/20 hover:text-red-200 hover:shadow-[0_0_15px_rgba(239,68,68,0.25)] active:scale-95"
             >
-              <LogOut size={16} />
+              Logout
             </button>
 
             {/* Mobile Hamburger Button */}
