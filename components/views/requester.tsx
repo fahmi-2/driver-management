@@ -46,35 +46,141 @@ function PlaceInput({ value, onChange }: { value: string; onChange: (v: string) 
 export function RequesterForm({ user }: { user: Account }) {
   const { db, createTrip } = useStore()
   const notify = useToast()
-  const [f, setF] = useState({ category: 'Dinas' as Category, guest: '', destination: '', purpose: '', estDeparture: '08:00' })
+  const [f, setF] = useState({
+    category: 'Dinas' as Category,
+    guest: user.name || '',
+    dept: user.dept ?? 'Procurement',
+    destination: '',
+    purpose: '',
+    estDeparture: '08:00',
+    estReturn: '12:00',
+  })
   const mine = db.trips.filter((t) => t.requesterUser === user.username).slice().reverse()
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault()
-    createTrip({ ...f, requesterUser: user.username, requesterName: user.name, dept: user.dept ?? '-' })
-    notify(`Terkirim. Email e-sign dikirim ke SPV ${user.dept}.`)
-    setF({ category: 'Dinas', guest: '', destination: '', purpose: '', estDeparture: '08:00' })
+    createTrip({
+      category: f.category,
+      guest: f.guest,
+      destination: f.destination,
+      purpose: f.purpose,
+      estDeparture: f.estDeparture,
+      estReturn: f.estReturn,
+      requesterUser: user.username,
+      requesterName: user.name,
+      dept: f.dept || user.dept || '-',
+    })
+    notify(`Terkirim. Email e-sign dikirim ke SPV ${f.dept || user.dept}.`)
+    setF({
+      category: 'Dinas',
+      guest: user.name || '',
+      dept: user.dept ?? 'Procurement',
+      destination: '',
+      purpose: '',
+      estDeparture: '08:00',
+      estReturn: '12:00',
+    })
   }
 
   return (
     <>
       <PageHeader title="Ajukan Kendaraan" desc="Pengajuan akan dikirim ke SPV via Magic Link email untuk e-sign." />
-      <div className="grid gap-4 xl:grid-cols-[1fr_1.4fr]">
-        <Card title="Formulir Pengajuan">
-          <form onSubmit={submit} className="grid gap-3 p-5">
+      <div className="grid gap-4 xl:grid-cols-[1.1fr_1.3fr]">
+        <Card title="Formulir Pengajuan Kendaraan" subtitle="Isi rincian keperluan perjalanan dinas / operasional pabrik">
+          <form onSubmit={submit} className="grid gap-3.5 p-5">
+            {/* 1. Kategori / Pilihan Keperluan */}
             <div>
-              <p className="text-xs font-semibold text-[#66766d]">Kategori</p>
+              <p className="text-xs font-semibold text-[#8fa99b]">Kategori / Jenis Perjalanan</p>
               <div className="mt-1.5 grid gap-2 sm:grid-cols-3">
                 {CATS.map((c, i) => (
-                  <button type="button" key={c} onClick={() => setF({ ...f, category: c })} className={`rounded-lg border px-2 py-2.5 text-[11px] font-semibold transition ${f.category === c ? 'border-[#075b3d] bg-[#dff4e8] text-[#075b3d]' : 'border-[#dce7df] text-[#708078] hover:bg-[#f5f8f6]'}`}>{i + 1}. {c}</button>
+                  <button
+                    type="button"
+                    key={c}
+                    onClick={() => setF({ ...f, category: c })}
+                    className={`rounded-xl border px-2.5 py-2.5 text-[11px] font-semibold transition ${
+                      f.category === c
+                        ? 'border-[#a3e635] bg-[#a3e635]/20 text-white font-bold ring-1 ring-[#a3e635]/40 shadow-xs'
+                        : 'border-[#a3e635]/20 bg-white/[0.03] text-[#8fa99b] hover:bg-[#a3e635]/10'
+                    }`}
+                  >
+                    {i + 1}. {c}
+                  </button>
                 ))}
               </div>
             </div>
-            <label className="text-xs font-semibold text-[#66766d]">Nama Tamu / User<input value={f.guest} onChange={(e) => setF({ ...f, guest: e.target.value })} className={inputCls} required /></label>
-            <label className="text-xs font-semibold text-[#66766d]">Tujuan<PlaceInput value={f.destination} onChange={(v) => setF((p) => ({ ...p, destination: v }))} /></label>
-            <label className="text-xs font-semibold text-[#66766d]">Keperluan<input value={f.purpose} onChange={(e) => setF({ ...f, purpose: e.target.value })} className={inputCls} required /></label>
-            <label className="text-xs font-semibold text-[#66766d]">Estimasi Jam Keberangkatan<input type="time" value={f.estDeparture} onChange={(e) => setF({ ...f, estDeparture: e.target.value })} className={inputCls} required /></label>
-            <button id="submit-request" className={`${btnPrimary} mt-2`}><Plus size={15} />Kirim Pengajuan</button>
+
+            {/* 2. Grid Baris: Nama & Departemen/Bagian */}
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="text-xs font-semibold text-[#8fa99b]">
+                Nama Tamu / Pemohon
+                <input
+                  value={f.guest}
+                  onChange={(e) => setF({ ...f, guest: e.target.value })}
+                  placeholder="Contoh: Bpk. Joko / Vendor"
+                  className={inputCls}
+                  required
+                />
+              </label>
+
+              <label className="text-xs font-semibold text-[#8fa99b]">
+                Departemen / Bagian
+                <input
+                  value={f.dept}
+                  onChange={(e) => setF({ ...f, dept: e.target.value })}
+                  placeholder="Contoh: Procurement / HRD"
+                  className={inputCls}
+                  required
+                />
+              </label>
+            </div>
+
+            {/* 3. Tujuan */}
+            <label className="text-xs font-semibold text-[#8fa99b]">
+              Tujuan Lokasi
+              <PlaceInput value={f.destination} onChange={(v) => setF((p) => ({ ...p, destination: v }))} />
+            </label>
+
+            {/* 4. Keperluan */}
+            <label className="text-xs font-semibold text-[#8fa99b]">
+              Keperluan / Alasan Kunjungan
+              <input
+                value={f.purpose}
+                onChange={(e) => setF({ ...f, purpose: e.target.value })}
+                placeholder="Contoh: Survey lokasi vendor / Pengambilan dokumen"
+                className={inputCls}
+                required
+              />
+            </label>
+
+            {/* 5. Grid Baris: Estimasi Jam Berangkat & Estimasi Jam Kembali */}
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="text-xs font-semibold text-[#8fa99b]">
+                Estimasi Jam Berangkat
+                <input
+                  type="time"
+                  value={f.estDeparture}
+                  onChange={(e) => setF({ ...f, estDeparture: e.target.value })}
+                  className={inputCls}
+                  required
+                />
+              </label>
+
+              <label className="text-xs font-semibold text-[#8fa99b]">
+                Estimasi Jam Kembali
+                <input
+                  type="time"
+                  value={f.estReturn}
+                  onChange={(e) => setF({ ...f, estReturn: e.target.value })}
+                  className={inputCls}
+                  required
+                />
+              </label>
+            </div>
+
+            <button id="submit-request" className={`${btnPrimary} mt-2 w-full py-3 text-xs`}>
+              <Plus size={16} />
+              Kirim Pengajuan Kendaraan
+            </button>
           </form>
         </Card>
         <Card title="Riwayat Pengajuan Saya" subtitle={`Departemen ${user.dept}`}>
@@ -83,9 +189,14 @@ export function RequesterForm({ user }: { user: Account }) {
               {mine.map((t) => (
                 <li key={t.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 text-xs">
                   <div>
-                    <p className="font-bold">{t.destination}</p>
-                    <p className="mt-0.5 text-[11px] text-[#93a097]">{t.id} · {t.category} · {fmtDate(t.date)} {t.estDeparture} · {t.guest}</p>
-                    {t.driverId && <p className="mt-0.5 text-[11px] text-[#708078]">{db.drivers.find((d) => d.id === t.driverId)?.name} · {t.plate}</p>}
+                    <div className="flex items-center gap-2">
+                      <p className="font-bold text-white">{t.destination}</p>
+                      <span className="rounded-md bg-white/10 px-1.5 py-0.5 text-[9px] font-semibold text-[#a3e635]">{t.dept}</span>
+                    </div>
+                    <p className="mt-0.5 text-[11px] text-[#93a097]">
+                      {t.id} · {t.category} · {fmtDate(t.date)} · Jam {t.estDeparture}{t.estReturn ? ` – ${t.estReturn}` : ''} WIB · Pemohon: {t.guest}
+                    </p>
+                    {t.driverId && <p className="mt-0.5 text-[11px] text-[#bef264]">{db.drivers.find((d) => d.id === t.driverId)?.name} · {t.plate}</p>}
                   </div>
                   <div className="flex items-center gap-2">
                     <Pill label={STATUS_LABEL[t.status]} tone={tripTone(t.status)} />

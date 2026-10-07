@@ -148,7 +148,7 @@ function seed(): DB {
 }
 
 // ---------- context ----------
-type NewTrip = Pick<Trip, 'category' | 'guest' | 'destination' | 'purpose' | 'estDeparture' | 'requesterUser' | 'requesterName' | 'dept'>
+type NewTrip = Pick<Trip, 'category' | 'guest' | 'destination' | 'purpose' | 'estDeparture' | 'estReturn' | 'requesterUser' | 'requesterName' | 'dept'>
 
 type Ctx = {
   ready: boolean

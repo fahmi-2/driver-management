@@ -32,10 +32,20 @@ export function findAccount(username: string, password: string) {
 const KEY = 'ff_session'
 export function getSession(): Account | null {
   if (typeof window === 'undefined') return null
-  const u = window.localStorage.getItem(KEY)
+  // Cek sessionStorage terlebih dahulu (per tab aktif)
+  const u = window.sessionStorage.getItem(KEY)
+  if (!u) return null
   return ACCOUNTS.find((a) => a.username === u) ?? null
 }
-export function setSession(username: string | null) {
-  if (username) window.localStorage.setItem(KEY, username)
-  else window.localStorage.removeItem(KEY)
+export function setSession(username: string | null, remember: boolean = true) {
+  if (typeof window === 'undefined') return
+  if (username) {
+    window.sessionStorage.setItem(KEY, username)
+    if (remember) {
+      window.localStorage.setItem(KEY, username)
+    }
+  } else {
+    window.sessionStorage.removeItem(KEY)
+    window.localStorage.removeItem(KEY)
+  }
 }

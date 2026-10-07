@@ -30,7 +30,7 @@ export default function LoginPage() {
     }
 
     // Set session
-    setSession(acc.username)
+    setSession(acc.username, remember)
     setLoggedInUser(acc)
     setIsSuccess(true)
     setError('')
