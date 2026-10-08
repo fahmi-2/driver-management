@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { BusFront, CalendarDays, ChevronDown, Contact, Database, FileText, Inbox, LayoutDashboard, ListChecks, LogOut, Menu, RotateCcw, ShieldCheck, Table2, Ticket, Truck, UsersRound, X, type LucideIcon } from 'lucide-react'
 import { ROLE_LABEL, getSession, setSession, type Account, type Role } from '@/lib/accounts'
 import { YazakiBadge, YazakiEmblem } from '@/components/yazaki-logo'
+import { ProfileSettingsModal } from '@/components/profile-settings-modal'
 import { StoreProvider, useStore } from '@/lib/store'
 import { ToastProvider } from './ui-bits'
 import { Dashboard } from './views/dashboard'
@@ -67,11 +68,26 @@ function Badge({ role, id }: { role: Role; id: string }) {
 
 function Shell({ user, onLogout }: { user: Account; onLogout: () => void }) {
   const { resetDemo } = useStore()
-  const nav = NAV[user.role]
+  const [currentUser, setCurrentUser] = useState<Account>(user)
+  const [profileModalOpen, setProfileModalOpen] = useState(false)
+  const nav = NAV[currentUser.role]
   const [page, setPage] = useState('dashboard')
   const [open, setOpen] = useState(false)
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    setCurrentUser(user)
+  }, [user])
+
+  useEffect(() => {
+    const handleProfileUpdated = () => {
+      const fresh = getSession()
+      if (fresh) setCurrentUser(fresh)
+    }
+    window.addEventListener('profile_updated', handleProfileUpdated)
+    return () => window.removeEventListener('profile_updated', handleProfileUpdated)
+  }, [])
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -84,18 +100,18 @@ function Shell({ user, onLogout }: { user: Account; onLogout: () => void }) {
   }, [])
 
   let view
-  if (page === 'request') view = <RequesterForm user={user} />
-  else if (page === 'inbox') view = <RequesterInbox user={user} />
-  else if (page === 'coupons') view = <RequesterCoupons user={user} />
-  else if (page === 'scheduling' || page === 'approval') view = <AdminSchedulingCenter user={user} />
+  if (page === 'request') view = <RequesterForm user={currentUser} />
+  else if (page === 'inbox') view = <RequesterInbox user={currentUser} />
+  else if (page === 'coupons') view = <RequesterCoupons user={currentUser} />
+  else if (page === 'scheduling' || page === 'approval') view = <AdminSchedulingCenter user={currentUser} />
   else if (page === 'vehicles') view = <AdminVehicles />
   else if (page === 'drivers') view = <AdminDrivers />
   else if (page === 'live') view = <AdminLiveData />
   else if (page === 'workload') view = <AdminWorkload />
-  else if (page === 'gate') view = <SecurityGate user={user} />
-  else if (page === 'pending') view = <CouponPending user={user} />
+  else if (page === 'gate') view = <SecurityGate user={currentUser} />
+  else if (page === 'pending') view = <CouponPending user={currentUser} />
   else if (page === 'history') view = <CouponHistory />
-  else view = <Dashboard user={user} />
+  else view = <Dashboard user={currentUser} />
 
   return (
     <div className="relative min-h-screen text-[#e8f5ec]">
@@ -208,24 +224,39 @@ function Shell({ user, onLogout }: { user: Account; onLogout: () => void }) {
               </button>
             )}
 
-            <div className="flex items-center gap-2.5 rounded-2xl bg-[#f7faf8] border border-[#e4ece6] p-1.5 sm:px-3">
-              <div className="flex size-8 items-center justify-center rounded-full bg-[#f5c8a9] text-xs font-bold text-[#663d28]">
-                {user.name
-                  .split(' ')
-                  .map((w) => w[0])
-                  .slice(0, 2)
-                  .join('')}
+            {/* User Profile Button / Trigger for Settings */}
+            <button
+              type="button"
+              onClick={() => setProfileModalOpen(true)}
+              title="Klik untuk Pengaturan Profil (Ganti Nama / Foto)"
+              className="group flex items-center gap-2.5 rounded-2xl bg-[#f7faf8] border border-[#e4ece6] p-1.5 sm:px-3 text-left transition-all hover:bg-[#eef5f0] hover:border-[#a3e635]/40 hover:shadow-md cursor-pointer"
+            >
+              <div className="relative flex size-8 items-center justify-center overflow-hidden rounded-full bg-[#f5c8a9] text-xs font-bold text-[#663d28] border border-white/60 shadow-sm shrink-0">
+                {currentUser.avatar ? (
+                  <img src={currentUser.avatar} alt={currentUser.name} className="size-full object-cover" />
+                ) : (
+                  <span>
+                    {currentUser.name
+                      .split(' ')
+                      .filter(Boolean)
+                      .map((w) => w[0])
+                      .slice(0, 2)
+                      .join('')}
+                  </span>
+                )}
               </div>
               <div className="hidden sm:block text-left">
-                <div className="flex items-center gap-1.5">
-                  <p className="text-xs font-bold leading-tight text-[#10251c]">{user.name}</p>
+                <p className="text-xs font-bold leading-tight text-[#10251c] group-hover:text-[#075b3d] transition-colors">{currentUser.name}</p>
+                <div className="flex items-center gap-1 mt-0.5">
                   <span className="rounded-full bg-[#075b3d]/10 px-1.5 py-0.2 text-[9px] font-bold text-[#075b3d]">
-                    {ROLE_LABEL[user.role]}
+                    {ROLE_LABEL[currentUser.role]}
                   </span>
+                  {currentUser.dept && (
+                    <span className="text-[10px] text-[#708078] truncate max-w-[90px]">· {currentUser.dept}</span>
+                  )}
                 </div>
-                <p className="text-[10px] text-[#708078] truncate max-w-[150px]">{user.title}</p>
               </div>
-            </div>
+            </button>
 
             <button
               id="logout"
@@ -326,6 +357,14 @@ function Shell({ user, onLogout }: { user: Account; onLogout: () => void }) {
       <main key={page} className="page-enter relative z-10 mx-auto max-w-[1440px] p-4 sm:p-6 lg:p-8">
         {view}
       </main>
+
+      {/* Profile Settings Modal */}
+      <ProfileSettingsModal
+        user={currentUser}
+        isOpen={profileModalOpen}
+        onClose={() => setProfileModalOpen(false)}
+        onUpdate={(updated) => setCurrentUser(updated)}
+      />
     </div>
   )
 }

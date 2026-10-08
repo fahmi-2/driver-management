@@ -7,6 +7,7 @@ export type Account = {
   role: Role
   dept?: string
   title: string
+  avatar?: string
 }
 
 // Akun demo (client-side only). SPV tidak punya akun: approval via Magic Link email.
@@ -25,18 +26,52 @@ export const ROLE_LABEL: Record<Role, string> = {
   coupon: 'Admin Kupon',
 }
 
+const PROFILES_KEY = 'ff_custom_profiles'
+
+export function getCustomProfiles(): Record<string, Partial<Account>> {
+  if (typeof window === 'undefined') return {}
+  try {
+    const raw = window.localStorage.getItem(PROFILES_KEY)
+    return raw ? JSON.parse(raw) : {}
+  } catch {
+    return {}
+  }
+}
+
+export function saveUserProfile(username: string, updates: Partial<Account>) {
+  if (typeof window === 'undefined') return
+  try {
+    const current = getCustomProfiles()
+    current[username] = { ...current[username], ...updates }
+    window.localStorage.setItem(PROFILES_KEY, JSON.stringify(current))
+    // Trigger custom event so any listener updates state
+    window.dispatchEvent(new Event('profile_updated'))
+  } catch (err) {
+    console.error('Failed to save profile', err)
+  }
+}
+
 export function findAccount(username: string, password: string) {
-  return ACCOUNTS.find((a) => a.username === username.trim().toLowerCase() && a.password === password)
+  const base = ACCOUNTS.find((a) => a.username === username.trim().toLowerCase() && a.password === password)
+  if (!base) return null
+  const customs = getCustomProfiles()
+  const custom = customs[base.username]
+  return custom ? { ...base, ...custom } : base
 }
 
 const KEY = 'ff_session'
 export function getSession(): Account | null {
   if (typeof window === 'undefined') return null
   // Cek sessionStorage terlebih dahulu (per tab aktif)
-  const u = window.sessionStorage.getItem(KEY)
+  const u = window.sessionStorage.getItem(KEY) || window.localStorage.getItem(KEY)
   if (!u) return null
-  return ACCOUNTS.find((a) => a.username === u) ?? null
+  const base = ACCOUNTS.find((a) => a.username === u)
+  if (!base) return null
+  const customs = getCustomProfiles()
+  const custom = customs[base.username]
+  return custom ? { ...base, ...custom } : base
 }
+
 export function setSession(username: string | null, remember: boolean = true) {
   if (typeof window === 'undefined') return
   if (username) {
