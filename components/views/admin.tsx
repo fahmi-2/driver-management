@@ -62,8 +62,8 @@ export function AdminApproval() {
 }
 
 function exportExcel(rows: Trip[], driverName: (id?: string) => string) {
-  const head = ['TGL', 'USER', 'TUJUAN', 'TIME GO', 'TIME BACK', 'DURATION', 'DRIVER', 'NO POL', 'KUPON']
-  const lines = rows.map((t) => [t.date, t.guest, t.destination, fmtTime(t.timeGo), fmtTime(t.timeBack), fmtDur(t.durationMin), driverName(t.driverId), t.plate ?? '', COUPON_LABEL[t.coupon]])
+  const head = ['TGL', 'USER', 'TUJUAN', 'JARAK (KM)', 'TIME GO', 'TIME BACK', 'DURATION', 'DRIVER', 'NO POL', 'KUPON']
+  const lines = rows.map((t) => [t.date, t.guest, t.destination, t.distance_km ? `${t.distance_km} KM` : '—', fmtTime(t.timeGo), fmtTime(t.timeBack), fmtDur(t.durationMin), driverName(t.driverId), t.plate ?? '', COUPON_LABEL[t.coupon]])
   const csv = [head, ...lines].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(';')).join('\r\n')
   const url = URL.createObjectURL(new Blob(['\ufeffsep=;\r\n' + csv], { type: 'text/csv;charset=utf-8' }))
   const a = document.createElement('a')
@@ -87,10 +87,10 @@ export function AdminLiveData() {
       <PageHeader title="Live Data" desc="Tabel operasional otomatis dari klik Security." action={<button id="export-excel" onClick={() => exportExcel(rows, dn)} className={btnPrimary}><Download size={14} />Export to Excel</button>} />
       <Card title="Data Operasional" subtitle={`${rows.length} baris`} action={<input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cari user / tujuan / driver…" className="h-8 w-56 rounded-lg bg-[#f5f7f5] px-3 text-[11px] outline-none" />}>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[900px] text-left text-xs">
+          <table className="w-full min-w-[960px] text-left text-xs">
             <thead className="border-b border-[#edf1ee] bg-[#f7faf8] text-[10px] font-bold uppercase tracking-wider text-[#9aa7a0]">
               <tr>
-                {['TGL', 'USER', 'TUJUAN', 'TIME GO', 'TIME BACK', 'DURATION', 'DRIVER', 'NO. POL', 'STATUS', 'KUPON'].map((h) => (
+                {['TGL', 'USER', 'TUJUAN', 'JARAK', 'TIME GO', 'TIME BACK', 'DURATION', 'DRIVER', 'NO. POL', 'STATUS', 'KUPON'].map((h) => (
                   <th key={h} className="px-4 py-3">{h}</th>
                 ))}
               </tr>
@@ -98,7 +98,7 @@ export function AdminLiveData() {
             <tbody className="divide-y divide-[#edf1ee]">
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="py-8 text-center text-[#93a097]">
+                  <td colSpan={11} className="py-8 text-center text-[#93a097]">
                     Tidak ada data operasional.
                   </td>
                 </tr>
@@ -108,6 +108,7 @@ export function AdminLiveData() {
                     <td className="px-4 py-3.5 text-[#9bb7a8] whitespace-nowrap">{fmtDate(t.date)}</td>
                     <td className="px-4 py-3.5 font-bold text-[#10251c] whitespace-nowrap">{t.guest}</td>
                     <td className="px-4 py-3.5 text-[#ecfdf5] font-medium whitespace-nowrap">{t.destination}</td>
+                    <td className="px-4 py-3.5 font-semibold text-[#bef264] whitespace-nowrap">{t.distance_km ? `${t.distance_km} KM` : '—'}</td>
                     <td className="px-4 py-3.5 text-[#9bb7a8] whitespace-nowrap">{fmtTime(t.timeGo)}</td>
                     <td className="px-4 py-3.5 text-[#9bb7a8] whitespace-nowrap">{fmtTime(t.timeBack)}</td>
                     <td className="px-4 py-3.5 font-bold text-[#bef264] whitespace-nowrap">{fmtDur(t.durationMin)}</td>

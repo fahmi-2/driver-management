@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { BusFront, Clock3, FileText, Truck, UserRound } from 'lucide-react'
 import type { Account } from '@/lib/accounts'
 import { driverState, fmtDur, fmtTime, useStore, vehicleState, ymd } from '@/lib/store'
@@ -14,27 +15,94 @@ const COLS = [
 
 export function WorkloadCard() {
   const { db } = useStore()
+  const [period, setPeriod] = useState<'day' | 'month'>('day')
   const today = ymd()
+  const currentMonthPrefix = today.slice(0, 7) // YYYY-MM
   const now = Date.now()
+
   const rows = db.drivers.map((d) => {
-    const mins = db.trips
-      .filter((t) => t.driverId === d.id && t.date === today)
-      .reduce((s, t) => s + (t.status === 'DONE' ? t.durationMin ?? 0 : t.status === 'ON_TRIP' && t.timeGo ? Math.round((now - +new Date(t.timeGo)) / 60000) : 0), 0)
-    const trips = db.trips.filter((t) => t.driverId === d.id && t.date === today && t.status !== 'READY').length
-    return { d, mins, trips }
+    const driverTrips = db.trips.filter((t) => {
+      if (t.driverId !== d.id || t.status === 'READY') return false
+      return period === 'day' ? t.date === today : t.date.startsWith(currentMonthPrefix)
+    })
+
+    const totalMins = driverTrips.reduce((s, t) => {
+      if (t.status === 'DONE') return s + (t.durationMin ?? 0)
+      if (t.status === 'ON_TRIP' && t.timeGo) return s + Math.round((now - +new Date(t.timeGo)) / 60000)
+      return s
+    }, 0)
+
+    const totalKm = driverTrips.reduce((s, t) => s + (t.distance_km ?? 0), 0)
+    const tripCount = driverTrips.length
+
+    return {
+      d,
+      mins: totalMins,
+      km: Math.round(totalKm * 10) / 10,
+      trips: tripCount,
+    }
   })
-  const max = Math.max(480, ...rows.map((r) => r.mins))
+
+  const maxKm = Math.max(100, ...rows.map((r) => r.km))
+
   return (
-    <Card title="Statistik Beban Kerja" subtitle="Akumulasi durasi kerja driver hari ini (Operational Day Work)">
+    <Card
+      title="Statistik Beban Kerja & Jarak Tempuh Driver"
+      subtitle={`Akumulasi durasi kerja dan jarak tempuh (${period === 'day' ? 'Hari Ini' : 'Bulan Ini'})`}
+      action={
+        <div className="flex items-center gap-1 rounded-xl bg-black/30 border border-white/10 p-1">
+          <button
+            type="button"
+            onClick={() => setPeriod('day')}
+            className={`rounded-lg px-2.5 py-1 text-[11px] font-semibold transition ${
+              period === 'day'
+                ? 'bg-[#a3e635] text-[#052e16] font-bold shadow-xs'
+                : 'text-[#8fa99b] hover:text-white'
+            }`}
+          >
+            Hari Ini
+          </button>
+          <button
+            type="button"
+            onClick={() => setPeriod('month')}
+            className={`rounded-lg px-2.5 py-1 text-[11px] font-semibold transition ${
+              period === 'month'
+                ? 'bg-[#a3e635] text-[#052e16] font-bold shadow-xs'
+                : 'text-[#8fa99b] hover:text-white'
+            }`}
+          >
+            Bulan Ini
+          </button>
+        </div>
+      }
+    >
       <div className="space-y-4 p-5">
-        {rows.map(({ d, mins, trips }, i) => (
-          <div key={d.id}>
-            <div className="mb-1.5 flex items-center justify-between text-xs">
-              <span className="font-semibold">{d.name}</span>
-              <span className="text-[#708078]">{fmtDur(mins)} · {trips} trip</span>
+        {rows.map(({ d, mins, km, trips }, i) => (
+          <div key={d.id} className="rounded-xl border border-white/5 bg-white/[0.02] p-3 transition hover:border-[#a3e635]/25">
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-xs">
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-white text-[13px]">{d.name}</span>
+                {d.defaultPlate && (
+                  <span className="font-mono text-[10px] text-[#8fa99b] bg-white/5 px-1.5 py-0.5 rounded">
+                    {d.defaultPlate}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-3 text-xs">
+                <span className="font-bold text-[#bef264] flex items-center gap-1 bg-[#a3e635]/15 border border-[#a3e635]/30 px-2 py-0.5 rounded-full">
+                  🚗 {km} KM
+                </span>
+                <span className="text-[#8fa99b]">{fmtDur(mins)}</span>
+                <span className="text-[11px] text-[#708078]">{trips} trip</span>
+              </div>
             </div>
-            <div className="h-3 overflow-hidden rounded-full bg-black/40 shadow-[inset_0_2px_4px_rgba(0,0,0,.6)]">
-              <div className="anim-grow-x relative h-full rounded-full bg-gradient-to-r from-[#4d7c0f] via-[#84cc16] to-[#d9f99d] shadow-[0_0_18px_rgba(163,230,53,.55),inset_0_2px_0_rgba(255,255,255,.35)]" style={{ width: `${(mins / max) * 100}%`, animationDelay: `${i * 0.08}s` }}>
+
+            {/* Progress bar normalized to KM */}
+            <div className="h-2.5 overflow-hidden rounded-full bg-black/40 shadow-[inset_0_2px_4px_rgba(0,0,0,.6)]">
+              <div
+                className="anim-grow-x relative h-full rounded-full bg-gradient-to-r from-[#4d7c0f] via-[#84cc16] to-[#d9f99d] shadow-[0_0_18px_rgba(163,230,53,.55),inset_0_2px_0_rgba(255,255,255,.35)]"
+                style={{ width: `${Math.min(100, (km / maxKm) * 100)}%`, animationDelay: `${i * 0.08}s` }}
+              >
                 <span className="shimmer absolute inset-0 rounded-full" />
               </div>
             </div>

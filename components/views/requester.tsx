@@ -43,6 +43,8 @@ function PlaceInput({ value, onChange }: { value: string; onChange: (v: string) 
   )
 }
 
+import { DestinationAutocomplete } from '../destination-autocomplete'
+
 export function RequesterForm({ user }: { user: Account }) {
   const { db, createTrip } = useStore()
   const notify = useToast()
@@ -54,6 +56,8 @@ export function RequesterForm({ user }: { user: Account }) {
     purpose: '',
     estDeparture: '08:00',
     estReturn: '12:00',
+    distance_km: undefined as number | undefined,
+    estimated_duration_minutes: undefined as number | undefined,
   })
   const mine = db.trips.filter((t) => t.requesterUser === user.username).slice().reverse()
 
@@ -66,6 +70,8 @@ export function RequesterForm({ user }: { user: Account }) {
       purpose: f.purpose,
       estDeparture: f.estDeparture,
       estReturn: f.estReturn,
+      distance_km: f.distance_km,
+      estimated_duration_minutes: f.estimated_duration_minutes,
       requesterUser: user.username,
       requesterName: user.name,
       dept: f.dept || user.dept || '-',
@@ -79,6 +85,8 @@ export function RequesterForm({ user }: { user: Account }) {
       purpose: '',
       estDeparture: '08:00',
       estReturn: '12:00',
+      distance_km: undefined,
+      estimated_duration_minutes: undefined,
     })
   }
 
@@ -134,11 +142,25 @@ export function RequesterForm({ user }: { user: Account }) {
               </label>
             </div>
 
-            {/* 3. Tujuan */}
-            <label className="text-xs font-semibold text-[#8fa99b]">
-              Tujuan Lokasi
-              <PlaceInput value={f.destination} onChange={(v) => setF((p) => ({ ...p, destination: v }))} />
-            </label>
+            {/* 3. Tujuan dengan Headless Places Autocomplete & Distance Calculation */}
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-[#8fa99b]">
+                Tujuan Lokasi
+              </label>
+              <DestinationAutocomplete
+                value={f.destination}
+                distanceKm={f.distance_km}
+                durationMins={f.estimated_duration_minutes}
+                onChange={(data) => {
+                  setF((prev) => ({
+                    ...prev,
+                    destination: data.destination,
+                    distance_km: data.distance_km,
+                    estimated_duration_minutes: data.estimated_duration_minutes,
+                  }))
+                }}
+              />
+            </div>
 
             {/* 4. Keperluan */}
             <label className="text-xs font-semibold text-[#8fa99b]">
@@ -192,9 +214,15 @@ export function RequesterForm({ user }: { user: Account }) {
                     <div className="flex items-center gap-2">
                       <p className="font-bold text-white">{t.destination}</p>
                       <span className="rounded-md bg-white/10 px-1.5 py-0.5 text-[9px] font-semibold text-[#a3e635]">{t.dept}</span>
+                      {t.distance_km && (
+                        <span className="rounded-md bg-[#a3e635]/15 border border-[#a3e635]/30 px-1.5 py-0.5 text-[9px] font-bold text-[#bef264]">
+                          {t.distance_km} KM
+                        </span>
+                      )}
                     </div>
                     <p className="mt-0.5 text-[11px] text-[#93a097]">
                       {t.id} · {t.category} · {fmtDate(t.date)} · Jam {t.estDeparture}{t.estReturn ? ` – ${t.estReturn}` : ''} WIB · Pemohon: {t.guest}
+                      {t.estimated_duration_minutes && ` · Est. ~${t.estimated_duration_minutes} mnt`}
                     </p>
                     {t.driverId && <p className="mt-0.5 text-[11px] text-[#bef264]">{db.drivers.find((d) => d.id === t.driverId)?.name} · {t.plate}</p>}
                   </div>

@@ -32,6 +32,8 @@ export type Trip = {
   purpose: string
   estDeparture: string // HH:mm
   estReturn?: string // HH:mm
+  distance_km?: number
+  estimated_duration_minutes?: number
   status: TripStatus
   spvName: string
   spvAt?: string
@@ -97,13 +99,15 @@ function seed(): DB {
   }
   const dur = (a: string, b: string) => Math.round((+new Date(b) - +new Date(a)) / 60000)
   const base = { spvName: '', coupon: 'NONE' as CouponStatus }
-  const done = (id: string, daysAgo: number, user: string, name: string, dept: string, guest: string, dest: string, purpose: string, driverId: string, plate: string, go: [number, number], back: [number, number], coupon?: CouponStatus): Trip => {
+  const done = (id: string, daysAgo: number, user: string, name: string, dept: string, guest: string, dest: string, purpose: string, driverId: string, plate: string, go: [number, number], back: [number, number], distKm = 25, estMins = 45, coupon?: CouponStatus): Trip => {
     const g = at(go[0], go[1], daysAgo)
     const b = at(back[0], back[1], daysAgo)
     return {
       ...base, id, date: day(daysAgo), requesterUser: user, requesterName: name, dept, category: 'Dinas', guest, destination: dest, purpose,
       estDeparture: `${String(go[0]).padStart(2, '0')}:${String(go[1]).padStart(2, '0')}`, status: 'DONE', spvName: `SPV ${dept}`, spvAt: g,
-      driverId, plate, timeGo: g, timeBack: b, securityGo: 'security', securityBack: 'security', durationMin: dur(g, b), coupon: coupon ?? couponFromBack(b),
+      driverId, plate, timeGo: g, timeBack: b, securityGo: 'security', securityBack: 'security', durationMin: dur(g, b),
+      distance_km: distKm, estimated_duration_minutes: estMins,
+      coupon: coupon ?? couponFromBack(b),
     }
   }
   return {
@@ -120,35 +124,42 @@ function seed(): DB {
       { plate: 'B 2188 PRT', type: 'Toyota HiAce', status: 'Active' },
     ],
     trips: ([
-      done('T-1001', 0, 'requester1', 'Rina Kartika', 'Procurement', 'Rina Kartika', 'Kawasan Industri MM2100, Cikarang', 'Meeting vendor', 'd1', 'B 1824 KQA', [7, 40], [12, 35]),
-      done('T-1002', 0, 'requester2', 'Taufik Hidayat', 'Engineering', 'Taufik Hidayat', 'Cikarang Dry Port', 'Pengecekan kargo', 'd2', 'B 2901 TSI', [8, 15], [11, 20]),
+      done('T-1001', 0, 'requester1', 'Rina Kartika', 'Procurement', 'Rina Kartika', 'Kawasan Industri MM2100, Cikarang', 'Meeting vendor', 'd1', 'B 1824 KQA', [7, 40], [12, 35], 32.5, 50),
+      done('T-1002', 0, 'requester2', 'Taufik Hidayat', 'Engineering', 'Taufik Hidayat', 'Cikarang Dry Port', 'Pengecekan kargo', 'd2', 'B 2901 TSI', [8, 15], [11, 20], 18.2, 35),
       {
         ...base, id: 'T-1003', date: day(0), requesterUser: 'requester1', requesterName: 'Rina Kartika', dept: 'Procurement', category: 'Dinas', guest: 'Mr. Tanaka (Vendor)',
         destination: 'Bandara Soekarno-Hatta', purpose: 'Jemput tamu vendor', estDeparture: '08:45', status: 'ON_TRIP', spvName: 'SPV Procurement', spvAt: at(8, 0),
         driverId: 'd3', plate: 'B 1742 ULM', timeGo: at(8, 50), securityGo: 'security',
+        distance_km: 68.4, estimated_duration_minutes: 85,
       },
       {
         ...base, id: 'T-1004', date: day(0), requesterUser: 'requester2', requesterName: 'Taufik Hidayat', dept: 'Engineering', category: 'Non-Dinas', guest: 'Taufik Hidayat',
         destination: 'Summarecon Bekasi', purpose: 'Keperluan pribadi (disetujui)', estDeparture: '14:00', status: 'READY', spvName: 'SPV Engineering', spvAt: at(9, 0),
         driverId: 'd2', plate: 'B 2901 TSI',
+        distance_km: 24.1, estimated_duration_minutes: 40,
       },
       {
         ...base, id: 'T-1005', date: day(0), requesterUser: 'requester1', requesterName: 'Rina Kartika', dept: 'Procurement', category: 'Izin Keluar Lokasi Pabrik', guest: 'Nadia Putri',
         destination: 'Bekasi Barat', purpose: 'Urusan bank', estDeparture: '15:00', status: 'WAITING_ASSIGN', spvName: 'SPV Procurement', spvAt: at(9, 30),
+        distance_km: 19.8, estimated_duration_minutes: 32,
       },
       {
         ...base, id: 'T-1006', date: day(0), requesterUser: 'requester2', requesterName: 'Taufik Hidayat', dept: 'Engineering', category: 'Dinas', guest: 'Yoga Prasetyo',
         destination: 'Kantor Pusat Jakarta', purpose: 'Presentasi proyek', estDeparture: '16:00', status: 'WAITING_SPV', spvName: 'SPV Engineering',
+        distance_km: 42.0, estimated_duration_minutes: 65,
       },
-      done('T-0901', 1, 'requester2', 'Taufik Hidayat', 'Engineering', 'Taufik Hidayat', 'Karawang Barat', 'Audit supplier', 'd1', 'B 1824 KQA', [8, 0], [13, 5], 'CLAIMED'),
-      done('T-0902', 2, 'requester1', 'Rina Kartika', 'Procurement', 'Rina Kartika', 'Tanjung Priok', 'Customs clearance', 'd2', 'B 2901 TSI', [8, 30], [14, 10], 'PAID'),
-      done('T-0903', 2, 'requester2', 'Taufik Hidayat', 'Engineering', 'Taufik Hidayat', 'Cibitung', 'Survey lokasi', 'd3', 'B 1742 ULM', [7, 45], [11, 0]),
+      done('T-0901', 1, 'requester2', 'Taufik Hidayat', 'Engineering', 'Taufik Hidayat', 'Karawang Barat', 'Audit supplier', 'd1', 'B 1824 KQA', [8, 0], [13, 5], 45.0, 60, 'CLAIMED'),
+      done('T-0902', 2, 'requester1', 'Rina Kartika', 'Procurement', 'Rina Kartika', 'Tanjung Priok', 'Customs clearance', 'd2', 'B 2901 TSI', [8, 30], [14, 10], 55.3, 75, 'PAID'),
+      done('T-0903', 2, 'requester2', 'Taufik Hidayat', 'Engineering', 'Taufik Hidayat', 'Cibitung', 'Survey lokasi', 'd3', 'B 1742 ULM', [7, 45], [11, 0], 15.6, 28),
     ] as Trip[]).map((t) => (t.id === 'T-0902' ? { ...t, claimedAt: at(15, 0, 2), paidAt: at(16, 0, 2), paidBy: 'Siska Wulandari' } : t)),
   }
 }
 
 // ---------- context ----------
-type NewTrip = Pick<Trip, 'category' | 'guest' | 'destination' | 'purpose' | 'estDeparture' | 'estReturn' | 'requesterUser' | 'requesterName' | 'dept'>
+type NewTrip = Pick<Trip, 'category' | 'guest' | 'destination' | 'purpose' | 'estDeparture' | 'estReturn' | 'requesterUser' | 'requesterName' | 'dept'> & {
+  distance_km?: number
+  estimated_duration_minutes?: number
+}
 
 type Ctx = {
   ready: boolean
