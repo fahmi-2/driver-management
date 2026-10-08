@@ -169,8 +169,8 @@
 .btn-lime:active { transform: translateY(1px); }
 .text-lime-grad { background: linear-gradient(90deg, #d9f99d, #a3e635 50%, #65a30d); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .shimmer { background: linear-gradient(110deg, transparent 30%, rgba(255,255,255,.12) 50%, transparent 70%); background-size: 200% 100%; animation: shimmer 3.5s linear infinite; }
-@keyframes ken-burns { from { transform: scale(1); } to { transform: scale(1.08) translateX(-1.5%); } }
-.login-bg { animation: ken-burns 22s ease-in-out infinite alternate; }
+@keyframes ken-burns { from { transform: scale(1); } to { transform: scale(1.05) translateX(-0.5%); } }
+.login-bg { transform-origin: left center; animation: ken-burns 24s ease-in-out infinite alternate; }
 
 /* ============ REMAP of legacy light classes -> dark theme ============ */
 /* surfaces */

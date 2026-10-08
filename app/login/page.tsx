@@ -60,24 +60,27 @@ export default function LoginPage() {
       <div className="absolute inset-0 bg-gradient-to-b from-[#06170e]/70 via-[#0b2416]/50 to-[#04110a]/80" />
 
       <h1 className="anim-fade-up relative z-10 mb-6 text-xl font-bold tracking-tight text-[#e8f5ec] sm:text-2xl">
-        JAI - Driver Management  · <span className="text-[#a3e635]">Log In</span>
+        JAI-FLEET Management · <span className="text-[#a3e635]">Log In</span>
       </h1>
 
       {/* Main framed card with car photo */}
       <div
-        className={`anim-fade-up relative z-10 w-full max-w-5xl overflow-hidden rounded-[28px] border border-white/25 shadow-[0_40px_80px_-20px_rgba(0,0,0,.75)] transition-all duration-700 ${isSuccess ? 'scale-[1.01] shadow-[0_0_80px_rgba(163,230,53,0.35)]' : ''
+        className={`anim-fade-up relative z-10 w-full max-w-6xl overflow-hidden rounded-[28px] border border-white/25 shadow-[0_40px_80px_-20px_rgba(0,0,0,.75)] transition-all duration-700 ${isSuccess ? 'scale-[1.01] shadow-[0_0_80px_rgba(163,230,53,0.35)]' : ''
           }`}
         style={{ animationDelay: '.1s' }}
       >
-        <div className="login-bg absolute inset-0 bg-cover bg-center" style={{ backgroundImage: 'url(/login-car.jpg)' }} />
-        <div className="absolute inset-0 bg-gradient-to-r from-black/35 via-transparent to-[#052e16]/40" />
+        <div className="login-bg absolute inset-0 bg-cover bg-[12%_center]" style={{ backgroundImage: 'url(/login-car.jpg)' }} />
+        <div className="absolute inset-0 bg-gradient-to-r from-black/45 via-black/10 to-[#052e16]/40" />
 
-        <div className="relative grid min-h-[520px] items-center gap-6 p-6 sm:p-10 md:grid-cols-[1fr_420px]">
+        <div className="relative grid min-h-[540px] items-center gap-6 p-6 sm:p-10 md:grid-cols-[1fr_390px] lg:grid-cols-[1fr_400px]">
           {/* Brand & Left Details */}
           <div className="hidden self-start pt-6 md:block">
             <div className="flex items-center gap-3">
               <YazakiBadge className="h-12 px-3 shadow-2xl" />
-              <span className="text-4xl font-extrabold tracking-tight text-white drop-shadow-[0_4px_16px_rgba(0,0,0,.6)]">JAI - Driver Management </span>
+              <div>
+                <span className="block text-3xl font-extrabold tracking-tight text-white drop-shadow-[0_4px_16px_rgba(0,0,0,.6)]">JAI-FLEET Management</span>
+                <span className="block text-sm font-semibold text-[#a3e635] drop-shadow-[0_2px_8px_rgba(0,0,0,.7)]">Gas Operations -Yazaki</span>
+              </div>
             </div>
             <p className="mt-3 max-w-xs text-sm font-medium text-white/90 drop-shadow-[0_2px_8px_rgba(0,0,0,.7)]">
               Manajemen armada &amp; driver pabrik PT Yazaki — alokasi kendaraan, gerbang, dan klaim dalam satu sistem.

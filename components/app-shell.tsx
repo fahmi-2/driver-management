@@ -108,13 +108,8 @@ function Shell({ user, onLogout }: { user: Account; onLogout: () => void }) {
           <div className="flex items-center gap-3">
             <YazakiBadge className="h-10 px-2.5 transition-transform hover:scale-105" />
             <div>
-              <div className="flex items-center gap-2">
-                <span className="text-[17px] font-extrabold tracking-tight text-white">JAI - Driver Management</span>
-                <span className="hidden rounded-full border border-[#a3e635]/25 bg-[#a3e635]/10 px-2.5 py-0.5 text-[10px] font-bold text-[#a3e635] md:inline">
-                  {ROLE_LABEL[user.role]}
-                </span>
-              </div>
-              <p className="text-[10px] text-[#9aa7a0] hidden sm:block">GA Fleet Operations · Yazaki Group</p>
+              <span className="text-[17px] font-extrabold tracking-tight text-white block leading-tight">JAI-FLEET Management</span>
+              <p className="text-[10px] text-[#9aa7a0] hidden sm:block mt-0.5">Gas Operations -Yazaki</p>
             </div>
           </div>
 
@@ -213,7 +208,7 @@ function Shell({ user, onLogout }: { user: Account; onLogout: () => void }) {
               </button>
             )}
 
-            <div className="flex items-center gap-2 rounded-2xl bg-[#f7faf8] border border-[#e4ece6] p-1.5 sm:px-3">
+            <div className="flex items-center gap-2.5 rounded-2xl bg-[#f7faf8] border border-[#e4ece6] p-1.5 sm:px-3">
               <div className="flex size-8 items-center justify-center rounded-full bg-[#f5c8a9] text-xs font-bold text-[#663d28]">
                 {user.name
                   .split(' ')
@@ -222,8 +217,13 @@ function Shell({ user, onLogout }: { user: Account; onLogout: () => void }) {
                   .join('')}
               </div>
               <div className="hidden sm:block text-left">
-                <p className="text-xs font-bold leading-tight text-[#10251c]">{user.name}</p>
-                <p className="text-[10px] text-[#9aa7a0] truncate max-w-[130px]">{user.title}</p>
+                <div className="flex items-center gap-1.5">
+                  <p className="text-xs font-bold leading-tight text-[#10251c]">{user.name}</p>
+                  <span className="rounded-full bg-[#075b3d]/10 px-1.5 py-0.2 text-[9px] font-bold text-[#075b3d]">
+                    {ROLE_LABEL[user.role]}
+                  </span>
+                </div>
+                <p className="text-[10px] text-[#708078] truncate max-w-[150px]">{user.title}</p>
               </div>
             </div>
 

@@ -17,7 +17,10 @@ function Approve() {
       <div className="w-full max-w-md rounded-3xl bg-white p-7 shadow-[0_20px_60px_rgba(19,45,33,0.12)]">
         <div className="mb-5 flex items-center gap-3">
           <YazakiBadge className="h-10 px-2.5" />
-          <div><p className="font-bold">JAI - Driver Management </p><p className="text-[11px] text-[#93a097]">E-Sign Persetujuan SPV · tanpa login</p></div>
+          <div>
+            <p className="font-bold text-[15px]">JAI-FLEET Management</p>
+            <p className="text-[11px] text-[#93a097]">Gas Operations -Yazaki · E-Sign SPV</p>
+          </div>
         </div>
         {!ready ? null : !trip ? (
           <p className="text-sm text-[#b83a31]">Link tidak valid atau pengajuan tidak ditemukan.</p>
