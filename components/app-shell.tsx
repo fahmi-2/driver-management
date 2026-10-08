@@ -125,7 +125,7 @@ function Shell({ user, onLogout }: { user: Account; onLogout: () => void }) {
             <YazakiBadge className="h-10 px-2.5 transition-transform hover:scale-105" />
             <div>
               <span className="text-[17px] font-extrabold tracking-tight text-white block leading-tight">JAI-FLEET Management</span>
-              <p className="text-[10px] text-[#9aa7a0] hidden sm:block mt-0.5">Gas Operations -Yazaki</p>
+              <p className="text-[10px] text-[#9aa7a0] hidden sm:block mt-0.5">Gas Operations</p>
             </div>
           </div>
 
@@ -140,8 +140,8 @@ function Shell({ user, onLogout }: { user: Account; onLogout: () => void }) {
                       type="button"
                       onClick={() => setDropdownOpen(!dropdownOpen)}
                       className={`flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold transition-all whitespace-nowrap ${isChildActive
-                          ? 'bg-[#075b3d] text-white shadow-md shadow-[#075b3d]/20'
-                          : 'text-[#64746b] hover:bg-[#eef5f0] hover:text-[#087348]'
+                        ? 'bg-[#075b3d] text-white shadow-md shadow-[#075b3d]/20'
+                        : 'text-[#64746b] hover:bg-[#eef5f0] hover:text-[#087348]'
                         }`}
                     >
                       <item.icon size={15} />
@@ -169,8 +169,8 @@ function Shell({ user, onLogout }: { user: Account; onLogout: () => void }) {
                                   setDropdownOpen(false)
                                 }}
                                 className={`flex w-full items-start gap-3 rounded-xl p-2.5 text-left transition ${isSubActive
-                                    ? 'bg-[#eef5f0] text-[#075b3d] font-bold'
-                                    : 'text-[#4b5b52] hover:bg-[#f7faf8]'
+                                  ? 'bg-[#eef5f0] text-[#075b3d] font-bold'
+                                  : 'text-[#4b5b52] hover:bg-[#f7faf8]'
                                   }`}
                               >
                                 <div className={`mt-0.5 flex size-7 items-center justify-center rounded-lg ${isSubActive ? 'bg-[#075b3d] text-white' : 'bg-[#eaf3ee] text-[#075b3d]'
@@ -197,8 +197,8 @@ function Shell({ user, onLogout }: { user: Account; onLogout: () => void }) {
                   key={item.id}
                   onClick={() => setPage(item.id)}
                   className={`flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold transition-all whitespace-nowrap ${active
-                      ? 'bg-[#075b3d] text-white shadow-md shadow-[#075b3d]/20'
-                      : 'text-[#64746b] hover:bg-[#eef5f0] hover:text-[#087348]'
+                    ? 'bg-[#075b3d] text-white shadow-md shadow-[#075b3d]/20'
+                    : 'text-[#64746b] hover:bg-[#eef5f0] hover:text-[#087348]'
                     }`}
                 >
                   <item.icon size={15} />
@@ -313,8 +313,8 @@ function Shell({ user, onLogout }: { user: Account; onLogout: () => void }) {
                             setOpen(false)
                           }}
                           className={`flex w-full items-center justify-between rounded-xl px-3.5 py-2.5 text-left text-xs font-semibold transition ${page === child.id
-                              ? 'bg-[#dff4e8] font-bold text-[#087348]'
-                              : 'text-[#64746b] hover:bg-[#f5f8f6]'
+                            ? 'bg-[#dff4e8] font-bold text-[#087348]'
+                            : 'text-[#64746b] hover:bg-[#f5f8f6]'
                             }`}
                         >
                           <span className="flex items-center gap-3">
@@ -336,8 +336,8 @@ function Shell({ user, onLogout }: { user: Account; onLogout: () => void }) {
                       setOpen(false)
                     }}
                     className={`flex items-center justify-between rounded-xl px-3.5 py-2.5 text-left text-xs font-semibold transition ${active
-                        ? 'bg-[#dff4e8] font-bold text-[#087348]'
-                        : 'text-[#64746b] hover:bg-[#f5f8f6]'
+                      ? 'bg-[#dff4e8] font-bold text-[#087348]'
+                      : 'text-[#64746b] hover:bg-[#f5f8f6]'
                       }`}
                   >
                     <span className="flex items-center gap-3">

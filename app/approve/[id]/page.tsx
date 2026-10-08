@@ -19,7 +19,7 @@ function Approve() {
           <YazakiBadge className="h-10 px-2.5" />
           <div>
             <p className="font-bold text-[15px]">JAI-FLEET Management</p>
-            <p className="text-[11px] text-[#93a097]">Gas Operations -Yazaki · E-Sign SPV</p>
+            <p className="text-[11px] text-[#93a097]">Gas Operations · E-Sign SPV</p>
           </div>
         </div>
         {!ready ? null : !trip ? (

@@ -5,6 +5,6 @@ export default function Page() {
 }
 
 export const metadata = {
-  title: 'JAI-FLEET Management · Gas Operations -Yazaki',
+  title: 'JAI-FLEET Management · Gas Operations',
   description: 'Fleet allocation, gate clearance, and driver operations dashboard.',
 }

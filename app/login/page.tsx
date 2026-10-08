@@ -79,7 +79,7 @@ export default function LoginPage() {
               <YazakiBadge className="h-12 px-3 shadow-2xl" />
               <div>
                 <span className="block text-3xl font-extrabold tracking-tight text-white drop-shadow-[0_4px_16px_rgba(0,0,0,.6)]">JAI-FLEET Management</span>
-                <span className="block text-sm font-semibold text-[#a3e635] drop-shadow-[0_2px_8px_rgba(0,0,0,.7)]">Gas Operations -Yazaki</span>
+                <span className="block text-sm font-semibold text-[#a3e635] drop-shadow-[0_2px_8px_rgba(0,0,0,.7)]">Gas Operations</span>
               </div>
             </div>
             <p className="mt-3 max-w-xs text-sm font-medium text-white/90 drop-shadow-[0_2px_8px_rgba(0,0,0,.7)]">

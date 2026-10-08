@@ -6,7 +6,7 @@ import './globals.css'
 const jakarta = Plus_Jakarta_Sans({ subsets: ['latin'], variable: '--font-jakarta', display: 'swap' })
 
 export const metadata: Metadata = {
-  title: 'JAI-FLEET Management · Gas Operations -Yazaki',
+  title: 'JAI-FLEET Management · Gas Operations',
   description: 'Fleet allocation, gate clearance, and driver operations dashboard.',
   generator: 'v0.app',
   icons: {
