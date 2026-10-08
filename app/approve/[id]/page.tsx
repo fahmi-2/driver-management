@@ -2,8 +2,9 @@
 
 import { useState } from 'react'
 import { useParams } from 'next/navigation'
-import { BusFront, CheckCircle2, MailCheck, XCircle } from 'lucide-react'
+import { CheckCircle2, MailCheck, XCircle } from 'lucide-react'
 import { StoreProvider, STATUS_LABEL, fmtDate, useStore } from '@/lib/store'
+import { YazakiBadge } from '@/components/yazaki-logo'
 
 function Approve() {
   const { id } = useParams<{ id: string }>()
@@ -15,7 +16,7 @@ function Approve() {
     <main className="flex min-h-screen items-center justify-center bg-[#e9eeeb] p-4 text-[#10251c]">
       <div className="w-full max-w-md rounded-3xl bg-white p-7 shadow-[0_20px_60px_rgba(19,45,33,0.12)]">
         <div className="mb-5 flex items-center gap-3">
-          <div className="flex size-10 items-center justify-center rounded-full border-[3px] border-[#138053] text-[#138053]"><BusFront size={20} /></div>
+          <YazakiBadge className="h-10 px-2.5" />
           <div><p className="font-bold">JAI - Driver Management </p><p className="text-[11px] text-[#93a097]">E-Sign Persetujuan SPV · tanpa login</p></div>
         </div>
         {!ready ? null : !trip ? (

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Clock3, Download, Phone, Plus, Shield, Trash2, Truck, UserCheck, UserPlus, UserRound, X } from 'lucide-react'
+import { Clock3, Download, Edit3, Phone, Plus, Shield, Trash2, Truck, UserCheck, UserPlus, UserRound, X } from 'lucide-react'
 import { COUPON_LABEL, STATUS_LABEL, driverState, fmtDate, fmtDur, fmtTime, useStore, vehicleState, type Driver, type ShiftType, type Trip } from '@/lib/store'
 import { Card, Empty, PageHeader, Pill, btnGhost, btnPrimary, couponTone, inputCls, tdCls, thCls, tripTone, useToast } from '../ui-bits'
 import { WorkloadCard } from './dashboard'
@@ -143,9 +143,10 @@ const SHIFT_OPTIONS: ShiftType[] = [
 ]
 
 export function AdminDrivers() {
-  const { db, addDriver, removeDriver, toggleLeave } = useStore()
+  const { db, addDriver, updateDriver, removeDriver, toggleLeave } = useStore()
   const notify = useToast()
   const [showModal, setShowModal] = useState(false)
+  const [editingDriver, setEditingDriver] = useState<Driver | null>(null)
   const [search, setSearch] = useState('')
   const [shiftFilter, setShiftFilter] = useState('ALL')
   const [statusFilter, setStatusFilter] = useState('ALL')
@@ -157,29 +158,62 @@ export function AdminDrivers() {
     shift: 'Pagi (07:00 - 15:00)' as ShiftType,
     defaultPlate: '',
     simType: 'SIM A',
+    onLeave: false,
   })
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!formData.name.trim()) return
-
-    addDriver({
-      name: formData.name.trim(),
-      phone: formData.phone.trim() || undefined,
-      shift: formData.shift,
-      defaultPlate: formData.defaultPlate.trim().toUpperCase() || undefined,
-      simType: formData.simType.trim() || undefined,
-    })
-
-    notify(`Sopir "${formData.name.trim()}" berhasil didaftarkan!`)
+  const openAddModal = () => {
+    setEditingDriver(null)
     setFormData({
       name: '',
       phone: '',
       shift: 'Pagi (07:00 - 15:00)',
       defaultPlate: '',
       simType: 'SIM A',
+      onLeave: false,
     })
+    setShowModal(true)
+  }
+
+  const openEditModal = (driver: Driver) => {
+    setEditingDriver(driver)
+    setFormData({
+      name: driver.name,
+      phone: driver.phone || '',
+      shift: (driver.shift as ShiftType) || 'General (08:00 - 17:00)',
+      defaultPlate: driver.defaultPlate || '',
+      simType: driver.simType || 'SIM A',
+      onLeave: !!driver.onLeave,
+    })
+    setShowModal(true)
+  }
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!formData.name.trim()) return
+
+    if (editingDriver) {
+      updateDriver(editingDriver.id, {
+        name: formData.name.trim(),
+        phone: formData.phone.trim() || undefined,
+        shift: formData.shift,
+        defaultPlate: formData.defaultPlate.trim().toUpperCase() || undefined,
+        simType: formData.simType.trim() || undefined,
+        onLeave: formData.onLeave,
+      })
+      notify(`Data sopir "${formData.name.trim()}" berhasil diperbarui!`)
+    } else {
+      addDriver({
+        name: formData.name.trim(),
+        phone: formData.phone.trim() || undefined,
+        shift: formData.shift,
+        defaultPlate: formData.defaultPlate.trim().toUpperCase() || undefined,
+        simType: formData.simType.trim() || undefined,
+      })
+      notify(`Sopir "${formData.name.trim()}" berhasil didaftarkan!`)
+    }
+
     setShowModal(false)
+    setEditingDriver(null)
   }
 
   const filteredDrivers = db.drivers.filter((d) => {
@@ -205,7 +239,7 @@ export function AdminDrivers() {
         action={
           <button
             id="btn-add-driver"
-            onClick={() => setShowModal(true)}
+            onClick={openAddModal}
             className={btnPrimary}
           >
             <UserPlus size={15} />
@@ -394,34 +428,14 @@ export function AdminDrivers() {
                         </div>
                       </td>
                       <td className={`${tdCls} text-right`}>
-                        <div className="flex items-center justify-end gap-1.5">
+                        <div className="flex items-center justify-end">
                           <button
-                            onClick={() => {
-                              toggleLeave(d.id)
-                              notify(d.onLeave ? `${d.name} kembali Aktif` : `${d.name} ditandai Cuti`)
-                            }}
-                            className={`rounded-lg px-2.5 py-1 text-[10px] font-bold transition ${
-                              d.onLeave
-                                ? 'bg-[#dff5e9] text-[#168052] hover:bg-[#c9efd8]'
-                                : 'bg-[#eef1ef] text-[#506056] hover:bg-[#dfe5e1]'
-                            }`}
+                            onClick={() => openEditModal(d)}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-[#dce7df] bg-white px-3 py-1.5 text-xs font-semibold text-[#10251c] shadow-xs hover:border-[#075b3d] hover:bg-[#f2f8f4] hover:text-[#075b3d] transition"
                           >
-                            {d.onLeave ? 'Masuk' : 'Set Cuti'}
+                            <Edit3 size={13} className="text-[#075b3d]" />
+                            Edit
                           </button>
-                          {!activeTrip && (
-                            <button
-                              onClick={() => {
-                                if (confirm(`Hapus data sopir "${d.name}"?`)) {
-                                  removeDriver(d.id)
-                                  notify(`Sopir "${d.name}" telah dihapus.`)
-                                }
-                              }}
-                              title="Hapus Sopir"
-                              className="rounded-lg p-1.5 text-[#93a097] hover:bg-[#fde5e3] hover:text-[#b83a31] transition"
-                            >
-                              <Trash2 size={13} />
-                            </button>
-                          )}
                         </div>
                       </td>
                     </tr>
@@ -433,23 +447,32 @@ export function AdminDrivers() {
         )}
       </Card>
 
-      {/* Modal Pendaftaran Sopir Baru */}
+      {/* Modal Tambah / Edit Sopir */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl border border-[#dce7df] animate-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between border-b border-[#edf1ee] pb-4">
               <div className="flex items-center gap-2.5">
                 <div className="flex size-9 items-center justify-center rounded-xl bg-[#dff5e9] text-[#075b3d]">
-                  <UserPlus size={18} />
+                  {editingDriver ? <Edit3 size={18} /> : <UserPlus size={18} />}
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-[#10251c]">Pendaftaran Sopir Baru</h3>
-                  <p className="text-xs text-[#93a097]">Tambahkan data sopir ke dalam sistem armada pabrik</p>
+                  <h3 className="text-base font-bold text-[#10251c]">
+                    {editingDriver ? 'Edit Profil & Data Sopir' : 'Pendaftaran Sopir Baru'}
+                  </h3>
+                  <p className="text-xs text-[#506056]">
+                    {editingDriver
+                      ? 'Perbarui identitas, shift kerja, kendaraan pegangan, dan status cuti.'
+                      : 'Tambahkan data sopir ke dalam sistem armada pabrik'}
+                  </p>
                 </div>
               </div>
               <button
-                onClick={() => setShowModal(false)}
-                className="rounded-lg p-1.5 text-[#839089] hover:bg-[#f1f5f2]"
+                onClick={() => {
+                  setShowModal(false)
+                  setEditingDriver(null)
+                }}
+                className="rounded-lg p-1.5 text-[#506056] hover:bg-[#edf2ef] transition"
               >
                 <X size={18} />
               </button>
@@ -457,7 +480,7 @@ export function AdminDrivers() {
 
             <form onSubmit={handleSubmit} className="mt-4 space-y-3.5">
               <div>
-                <label className="text-xs font-semibold text-[#506056]">
+                <label className="text-xs font-semibold text-[#10251c]">
                   Nama Lengkap Sopir <span className="text-[#b83a31]">*</span>
                 </label>
                 <input
@@ -472,7 +495,7 @@ export function AdminDrivers() {
 
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>
-                  <label className="text-xs font-semibold text-[#506056]">
+                  <label className="text-xs font-semibold text-[#10251c]">
                     Nomor WhatsApp / HP
                   </label>
                   <input
@@ -484,7 +507,7 @@ export function AdminDrivers() {
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-[#506056]">
+                  <label className="text-xs font-semibold text-[#10251c]">
                     Golongan SIM
                   </label>
                   <select
@@ -502,7 +525,7 @@ export function AdminDrivers() {
 
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>
-                  <label className="text-xs font-semibold text-[#506056]">
+                  <label className="text-xs font-semibold text-[#10251c]">
                     Jadwal Shift Kerja <span className="text-[#b83a31]">*</span>
                   </label>
                   <select
@@ -519,8 +542,8 @@ export function AdminDrivers() {
                 </div>
 
                 <div>
-                  <label className="text-xs font-semibold text-[#506056]">
-                    Mobil Default / Pegangan (Opsional)
+                  <label className="text-xs font-semibold text-[#10251c]">
+                    Alokasi Mobil / Default (Opsional)
                   </label>
                   <input
                     list="registered-plates"
@@ -532,28 +555,86 @@ export function AdminDrivers() {
                   <datalist id="registered-plates">
                     {db.vehicles.map((v) => (
                       <option key={v.plate} value={v.plate}>
-                        {v.type}
+                        {v.type} ({v.plate})
                       </option>
                     ))}
                   </datalist>
                 </div>
               </div>
 
-              <div className="mt-5 flex items-center justify-end gap-2 border-t border-[#edf1ee] pt-4">
-                <button
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className={btnGhost}
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  className={btnPrimary}
-                >
-                  <UserPlus size={14} />
-                  Simpan Sopir
-                </button>
+              {/* Status Kehadiran / Cuti dengan Warna Kontras Tinggi */}
+              <div className="rounded-xl border border-[#cfe0d5] bg-[#f2f8f4] p-3.5">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-bold text-[#081e13]">Status Cuti / Izin Kerja</p>
+                    <p className="text-[11px] font-medium text-[#2f4f3e]">
+                      Tandai apakah sopir sedang berhalangan hadir atau cuti
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, onLeave: !formData.onLeave })}
+                    className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition shadow-xs ${
+                      formData.onLeave
+                        ? 'bg-[#fee2e2] text-[#991b1b] border border-[#f87171] hover:bg-[#fecaca]'
+                        : 'bg-[#dff5e9] text-[#064e3b] border border-[#34d399] hover:bg-[#c9efd8]'
+                    }`}
+                  >
+                    <span className={`size-2 rounded-full ${formData.onLeave ? 'bg-[#dc2626]' : 'bg-[#059669]'}`} />
+                    {formData.onLeave ? 'Sedang Cuti / Izin' : 'Aktif Bekerja'}
+                  </button>
+                </div>
+              </div>
+
+              <div className="mt-5 flex items-center justify-between gap-2 border-t border-[#edf1ee] pt-4">
+                {editingDriver ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const activeTrip = db.trips.find(
+                        (t) => t.driverId === editingDriver.id && (t.status === 'READY' || t.status === 'ON_TRIP')
+                      )
+                      if (activeTrip) {
+                        const confirmWithWarning = confirm(
+                          `PERINGATAN SISTEM:\nSopir "${editingDriver.name}" saat ini SEDANG BERTUGAS aktif (Tujuan: ${activeTrip.destination}).\n\nMenghapus data dapat mempengaruhi riwayat penugasan armada.\n\nApakah Anda benar-benar yakin ingin tetap menghapus sopir ini?`
+                        )
+                        if (!confirmWithWarning) return
+                      } else {
+                        if (!confirm(`Hapus data sopir "${editingDriver.name}" dari sistem?`)) return
+                      }
+                      removeDriver(editingDriver.id)
+                      notify(`Sopir "${editingDriver.name}" telah dihapus.`)
+                      setShowModal(false)
+                      setEditingDriver(null)
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-red-200 bg-red-50 px-3.5 py-2 text-xs font-bold text-red-600 transition hover:bg-red-100 hover:border-red-300"
+                  >
+                    <Trash2 size={13} />
+                    Hapus Sopir
+                  </button>
+                ) : (
+                  <div />
+                )}
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowModal(false)
+                      setEditingDriver(null)
+                    }}
+                    className={btnGhost}
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="submit"
+                    className={btnPrimary}
+                  >
+                    {editingDriver ? <Edit3 size={14} /> : <UserPlus size={14} />}
+                    {editingDriver ? 'Simpan Perubahan' : 'Simpan Sopir'}
+                  </button>
+                </div>
               </div>
             </form>
           </div>

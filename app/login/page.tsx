@@ -2,7 +2,8 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowRight, BusFront, CheckCircle2, Eye, EyeOff, Loader2, Lock, ShieldCheck, User } from 'lucide-react'
+import { ArrowRight, CheckCircle2, Eye, EyeOff, Loader2, Lock, ShieldCheck, User } from 'lucide-react'
+import { YazakiBadge } from '@/components/yazaki-logo'
 import { ACCOUNTS, ROLE_LABEL, findAccount, setSession, type Account } from '@/lib/accounts'
 
 export default function LoginPage() {
@@ -75,11 +76,11 @@ export default function LoginPage() {
           {/* Brand & Left Details */}
           <div className="hidden self-start pt-6 md:block">
             <div className="flex items-center gap-3">
-              <div className="btn-lime flex size-12 items-center justify-center rounded-2xl shadow-lg"><BusFront size={24} /></div>
+              <YazakiBadge className="h-12 px-3 shadow-2xl" />
               <span className="text-4xl font-extrabold tracking-tight text-white drop-shadow-[0_4px_16px_rgba(0,0,0,.6)]">JAI - Driver Management </span>
             </div>
             <p className="mt-3 max-w-xs text-sm font-medium text-white/90 drop-shadow-[0_2px_8px_rgba(0,0,0,.7)]">
-              Manajemen armada &amp; driver pabrik — alokasi kendaraan, gerbang, dan klaim dalam satu sistem.
+              Manajemen armada &amp; driver pabrik PT Yazaki — alokasi kendaraan, gerbang, dan klaim dalam satu sistem.
             </p>
           </div>
 

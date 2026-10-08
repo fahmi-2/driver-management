@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { BusFront, CalendarDays, ChevronDown, Contact, Database, FileText, Inbox, LayoutDashboard, ListChecks, LogOut, Menu, RotateCcw, ShieldCheck, Table2, Ticket, Truck, UsersRound, X, type LucideIcon } from 'lucide-react'
 import { ROLE_LABEL, getSession, setSession, type Account, type Role } from '@/lib/accounts'
+import { YazakiBadge, YazakiEmblem } from '@/components/yazaki-logo'
 import { StoreProvider, useStore } from '@/lib/store'
 import { ToastProvider } from './ui-bits'
 import { Dashboard } from './views/dashboard'
@@ -105,17 +106,15 @@ function Shell({ user, onLogout }: { user: Account; onLogout: () => void }) {
         <div className="mx-auto flex h-[72px] max-w-[1440px] items-center justify-between px-4 sm:px-6 lg:px-8">
           {/* Logo & Brand */}
           <div className="flex items-center gap-3">
-            <div className="btn-lime flex size-10 items-center justify-center rounded-xl">
-              <BusFront size={20} />
-            </div>
+            <YazakiBadge className="h-10 px-2.5 transition-transform hover:scale-105" />
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-[17px] font-extrabold tracking-tight text-white">JAI - Driver Management </span>
+                <span className="text-[17px] font-extrabold tracking-tight text-white">JAI - Driver Management</span>
                 <span className="hidden rounded-full border border-[#a3e635]/25 bg-[#a3e635]/10 px-2.5 py-0.5 text-[10px] font-bold text-[#a3e635] md:inline">
                   {ROLE_LABEL[user.role]}
                 </span>
               </div>
-              <p className="text-[10px] text-[#9aa7a0] hidden sm:block">GA Fleet Operations</p>
+              <p className="text-[10px] text-[#9aa7a0] hidden sm:block">GA Fleet Operations · Yazaki Group</p>
             </div>
           </div>
 
