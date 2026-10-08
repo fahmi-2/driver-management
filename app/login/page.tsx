@@ -83,7 +83,7 @@ export default function LoginPage() {
               </div>
             </div>
             <p className="mt-3 max-w-xs text-sm font-medium text-white/90 drop-shadow-[0_2px_8px_rgba(0,0,0,.7)]">
-              Manajemen armada &amp; driver pabrik PT Yazaki — alokasi kendaraan, gerbang, dan klaim dalam satu sistem.
+              Sistem pengelolaan kendaraan operasional perusahaan dari satu sistem terpadu
             </p>
           </div>
 
