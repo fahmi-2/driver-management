@@ -13,7 +13,7 @@ interface ProfileSettingsModalProps {
 }
 
 export function ProfileSettingsModal({ user, isOpen, onClose, onUpdate }: ProfileSettingsModalProps) {
-  const { toast } = useToast()
+  const notify = useToast()
   const [name, setName] = useState(user.name)
   const [avatar, setAvatar] = useState<string | undefined>(user.avatar)
   const [saving, setSaving] = useState(false)
@@ -27,7 +27,7 @@ export function ProfileSettingsModal({ user, isOpen, onClose, onUpdate }: Profil
 
     // Limit file size to 2MB
     if (file.size > 2 * 1024 * 1024) {
-      toast({ title: 'Ukuran Foto Terlalu Besar', message: 'Maksimal ukuran foto adalah 2MB.', tone: 'red' })
+      notify('Ukuran foto terlalu besar (maksimal 2MB)')
       return
     }
 
@@ -41,7 +41,7 @@ export function ProfileSettingsModal({ user, isOpen, onClose, onUpdate }: Profil
 
   const handleSave = () => {
     if (!name.trim()) {
-      toast({ title: 'Nama Wajib Diisi', message: 'Silakan isi nama lengkap Anda.', tone: 'amber' })
+      notify('Nama lengkap wajib diisi')
       return
     }
 
@@ -50,7 +50,7 @@ export function ProfileSettingsModal({ user, isOpen, onClose, onUpdate }: Profil
     saveUserProfile(user.username, updates)
     const updatedUser: Account = { ...user, ...updates }
     onUpdate(updatedUser)
-    toast({ title: 'Profil Diperbarui', message: 'Nama dan foto profil berhasil disimpan.', tone: 'green' })
+    notify('Profil berhasil diperbarui')
     setSaving(false)
     onClose()
   }
