@@ -2,9 +2,9 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 
-export type Category = 'Dinas' | 'Non-Dinas' | 'Izin Keluar Lokasi Pabrik'
-export type TripStatus = 'WAITING_SPV' | 'WAITING_ASSIGN' | 'READY' | 'ON_TRIP' | 'DONE' | 'REJECTED'
-export type CouponStatus = 'NONE' | 'VOID' | 'CLAIMABLE' | 'CLAIMED' | 'PAID'
+export type Category = 'Dinas' | 'Non-Dinas'
+export type TripStatus = 'WAITING_SPV' | 'WAITING_ASSIGN' | 'WAITING_POOL_SPV' | 'READY' | 'ON_TRIP' | 'DONE' | 'REJECTED'
+export type CouponStatus = 'NONE' | 'VOID' | 'CLAIMABLE' | 'PR_PENDING' | 'PR_PROGRESS' | 'PAID'
 
 export type ShiftType = 'Pagi (07:00 - 15:00)' | 'Siang (15:00 - 23:00)' | 'Malam (23:00 - 07:00)' | 'General (08:00 - 17:00)'
 
@@ -17,27 +17,51 @@ export type Driver = {
   defaultPlate?: string
   simType?: string
 }
+export type VehicleCategory = 'Mobil Operasional' | 'Mobil Expat' | 'Mobil Sewa'
 export type VehicleStatus = 'Active' | 'Maintenance'
-export type Vehicle = { plate: string; type: string; status?: VehicleStatus }
+export type Vehicle = {
+  plate: string
+  type: string
+  status?: VehicleStatus
+  category?: VehicleCategory
+  capacity?: number
+}
+
+export type Passenger = {
+  name: string
+  nik?: string
+  dept: string
+}
 
 export type Trip = {
   id: string
   date: string // YYYY-MM-DD
   requesterUser: string
   requesterName: string
+  requesterNik?: string
   dept: string
   category: Category
   guest: string
   destination: string
+  destinations?: string[] // Multi-drop route destinations
+  passengers?: Passenger[] // Multi-passenger list
+  driverOnly?: boolean // Opsi hanya driver (antar/jemput dokumen/barang tanpa penumpang)
+  isOtherVehicle?: boolean // Opsi "Mobil Lain" (driver bawa mobil di luar armada master)
+  otherVehicleName?: string // Nama mobil manajer / mobil luar
+  blockedDefaultPlate?: string // Plat mobil default driver yang terblokir
+  blockedReason?: string // Keterangan blokir (misal: "Driver sedang [Catatan]")
   purpose: string
   estDeparture: string // HH:mm
   estReturn?: string // HH:mm
   distance_km?: number
   estimated_duration_minutes?: number
   status: TripStatus
-  spvName: string
+  spvName: string // Approver SPV Departemen
   spvAt?: string
   spvNote?: string
+  poolSpvName?: string // Approver Tahap 2: SPV Kendaraan / Pool GA
+  poolSpvAt?: string
+  poolSpvNote?: string
   adminNote?: string // Optional note from Admin Utama during approval/assignment
   rejectReason?: string // Mandatory reason when rejected by Admin / SPV
   driverId?: string
@@ -51,6 +75,9 @@ export type Trip = {
   claimedAt?: string
   paidAt?: string
   paidBy?: string
+  prNumber?: string // Nomor Purchase Request (PR) manual
+  prCreatedAt?: string // Tanggal PR dibuat
+  prCreatedBy?: string
 }
 
 type DB = { drivers: Driver[]; vehicles: Vehicle[]; trips: Trip[] }
@@ -68,9 +95,10 @@ export const fmtDur = (min?: number) => (min == null ? '—' : `${Math.floor(min
 export const couponFromBack = (iso: string): CouponStatus => (new Date(iso).getHours() >= NOON_HOUR ? 'CLAIMABLE' : 'VOID')
 
 export const STATUS_LABEL: Record<TripStatus, string> = {
-  WAITING_SPV: 'Menunggu SPV',
-  WAITING_ASSIGN: 'Menunggu Assign',
-  READY: 'Siap Berangkat',
+  WAITING_SPV: 'Menunggu SPV Dept (Tahap 1)',
+  WAITING_ASSIGN: 'Menunggu Alokasi Armada',
+  WAITING_POOL_SPV: 'Pending SPV Kendaraan (Tahap 2)',
+  READY: 'Siap Berangkat (ACC Final)',
   ON_TRIP: 'Sedang Bertugas',
   DONE: 'Selesai',
   REJECTED: 'Ditolak',
@@ -78,9 +106,10 @@ export const STATUS_LABEL: Record<TripStatus, string> = {
 export const COUPON_LABEL: Record<CouponStatus, string> = {
   NONE: '—',
   VOID: 'VOID',
-  CLAIMABLE: 'CLAIMABLE',
-  CLAIMED: 'Diajukan',
-  PAID: 'Cair',
+  CLAIMABLE: 'Siap Diajukan',
+  PR_PENDING: 'Belum Dibuat PR',
+  PR_PROGRESS: 'Sedang Dibuat PR',
+  PAID: 'Created',
 }
 
 // ---------- seed ----------
@@ -118,10 +147,10 @@ function seed(): DB {
       { id: 'd4', name: 'Dedi Kurniawan', onLeave: true, shift: 'General (08:00 - 17:00)', phone: '0878-5566-7788', defaultPlate: 'B 2188 PRT', simType: 'SIM B1 Umum' },
     ],
     vehicles: [
-      { plate: 'B 1824 KQA', type: 'Toyota Innova', status: 'Active' },
-      { plate: 'B 2901 TSI', type: 'Toyota Avanza', status: 'Active' },
-      { plate: 'B 1742 ULM', type: 'Mitsubishi Xpander', status: 'Active' },
-      { plate: 'B 2188 PRT', type: 'Toyota HiAce', status: 'Active' },
+      { plate: 'B 1824 KQA', type: 'Toyota Innova', status: 'Active', category: 'Mobil Operasional', capacity: 7 },
+      { plate: 'B 2901 TSI', type: 'Toyota Avanza', status: 'Active', category: 'Mobil Operasional', capacity: 6 },
+      { plate: 'B 1742 ULM', type: 'Mitsubishi Xpander', status: 'Active', category: 'Mobil Expat', capacity: 7 },
+      { plate: 'B 2188 PRT', type: 'Toyota HiAce', status: 'Active', category: 'Mobil Sewa', capacity: 14 },
     ],
     trips: ([
       done('T-1001', 0, 'requester1', 'Rina Kartika', 'Procurement', 'Rina Kartika', 'Kawasan Industri MM2100, Cikarang', 'Meeting vendor', 'd1', 'B 1824 KQA', [7, 40], [12, 35], 32.5, 50),
@@ -139,7 +168,7 @@ function seed(): DB {
         distance_km: 24.1, estimated_duration_minutes: 40,
       },
       {
-        ...base, id: 'T-1005', date: day(0), requesterUser: 'requester1', requesterName: 'Rina Kartika', dept: 'Procurement', category: 'Izin Keluar Lokasi Pabrik', guest: 'Nadia Putri',
+        ...base, id: 'T-1005', date: day(0), requesterUser: 'requester1', requesterName: 'Rina Kartika', dept: 'Procurement', category: 'Dinas', guest: 'Nadia Putri',
         destination: 'Bekasi Barat', purpose: 'Urusan bank', estDeparture: '15:00', status: 'WAITING_ASSIGN', spvName: 'SPV Procurement', spvAt: at(9, 30),
         distance_km: 19.8, estimated_duration_minutes: 32,
       },
@@ -148,15 +177,48 @@ function seed(): DB {
         destination: 'Kantor Pusat Jakarta', purpose: 'Presentasi proyek', estDeparture: '16:00', status: 'WAITING_SPV', spvName: 'SPV Engineering',
         distance_km: 42.0, estimated_duration_minutes: 65,
       },
-      done('T-0901', 1, 'requester2', 'Taufik Hidayat', 'Engineering', 'Taufik Hidayat', 'Karawang Barat', 'Audit supplier', 'd1', 'B 1824 KQA', [8, 0], [13, 5], 45.0, 60, 'CLAIMED'),
+      done('T-0901', 1, 'requester2', 'Taufik Hidayat', 'Engineering', 'Taufik Hidayat', 'Karawang Barat', 'Audit supplier', 'd1', 'B 1824 KQA', [8, 0], [13, 5], 45.0, 60, 'PR_PENDING'),
       done('T-0902', 2, 'requester1', 'Rina Kartika', 'Procurement', 'Rina Kartika', 'Tanjung Priok', 'Customs clearance', 'd2', 'B 2901 TSI', [8, 30], [14, 10], 55.3, 75, 'PAID'),
       done('T-0903', 2, 'requester2', 'Taufik Hidayat', 'Engineering', 'Taufik Hidayat', 'Cibitung', 'Survey lokasi', 'd3', 'B 1742 ULM', [7, 45], [11, 0], 15.6, 28),
-    ] as Trip[]).map((t) => (t.id === 'T-0902' ? { ...t, claimedAt: at(15, 0, 2), paidAt: at(16, 0, 2), paidBy: 'Siska Wulandari' } : t)),
+    ] as Trip[]).map((t) => (t.id === 'T-0902' ? { ...t, claimedAt: at(15, 0, 2), paidAt: at(16, 0, 2), paidBy: 'Siska Wulandari', prNumber: 'PR-2026-0881', prCreatedAt: at(15, 30, 2) } : t)),
   }
 }
 
 // ---------- context ----------
 type NewTrip = Pick<Trip, 'category' | 'guest' | 'destination' | 'purpose' | 'estDeparture' | 'estReturn' | 'requesterUser' | 'requesterName' | 'dept'> & {
+  requesterNik?: string
+  spvName?: string
+  passengers?: Passenger[]
+  destinations?: string[]
+  driverOnly?: boolean
+  isOtherVehicle?: boolean
+  otherVehicleName?: string
+  blockedDefaultPlate?: string
+  blockedReason?: string
+  distance_km?: number
+  estimated_duration_minutes?: number
+}
+
+type DirectBookingParams = {
+  plate: string
+  driverId?: string
+  date: string
+  estDeparture: string
+  estReturn?: string
+  destination: string
+  destinations?: string[]
+  purpose: string
+  guest: string
+  dept: string
+  adminNote: string
+  category?: Category
+  requesterName?: string
+  requesterNik?: string
+  approvedBy?: string
+  passengers?: Passenger[]
+  driverOnly?: boolean
+  isOtherVehicle?: boolean
+  otherVehicleName?: string
   distance_km?: number
   estimated_duration_minutes?: number
 }
@@ -165,14 +227,17 @@ type Ctx = {
   ready: boolean
   db: DB
   createTrip: (t: NewTrip) => string
+  directBooking: (params: DirectBookingParams) => string
   spvDecision: (id: string, approve: boolean, note?: string) => void
+  poolSpvDecision: (id: string, approve: boolean, note?: string, approverName?: string) => void
   assignTrip: (id: string, driverId: string, plate: string) => void
-  scheduleTrip: (id: string, params: { plate: string; driverId?: string; date: string; estDeparture: string; estReturn?: string; adminNote?: string }) => void
+  scheduleTrip: (id: string, params: { plate: string; driverId?: string; date: string; estDeparture: string; estReturn?: string; adminNote?: string; isOtherVehicle?: boolean; otherVehicleName?: string }) => void
   rejectTrip: (id: string, reason: string) => void
   gateGo: (id: string, security: string) => void
   gateBack: (id: string, security: string) => void
   claimCoupon: (id: string) => void
-  payCoupon: (id: string, adminName: string) => void
+  setCouponProgress: (id: string) => void
+  payCoupon: (id: string, adminName: string, prNumber?: string) => void
   addDriver: (d: Omit<Driver, 'id' | 'onLeave'>) => void
   updateDriver: (id: string, d: Partial<Driver>) => void
   removeDriver: (id: string) => void
@@ -224,30 +289,135 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     ready, db,
     createTrip: (t) => {
       const id = `T-${Date.now().toString().slice(-6)}`
-      update((d) => ({ ...d, trips: [...d.trips, { ...t, id, date: ymd(), status: 'WAITING_SPV', spvName: `SPV ${t.dept}`, coupon: 'NONE' }] }))
+      update((d) => ({
+        ...d,
+        trips: [
+          ...d.trips,
+          {
+            ...t,
+            id,
+            date: ymd(),
+            status: 'WAITING_SPV',
+            spvName: t.spvName || `SPV ${t.dept}`,
+            coupon: t.driverOnly ? 'VOID' : 'NONE',
+          },
+        ],
+      }))
       return id
     },
+    // Direct Booking oleh Admin Utama via drag-to-book di kalender
+    directBooking: (params) => {
+      const id = `T-${Date.now().toString().slice(-6)}`
+      // Cek apakah driver membawa mobil lain, jika ya blokir defaultPlate driver
+      const assignedDriver = params.driverId ? db.drivers.find((d) => d.id === params.driverId) : null
+      const isUsingOtherCar = !!params.isOtherVehicle || (!!assignedDriver?.defaultPlate && assignedDriver.defaultPlate !== params.plate)
+      const blockedDefault = isUsingOtherCar && assignedDriver?.defaultPlate ? assignedDriver.defaultPlate : undefined
+      const blockedText = blockedDefault ? `Driver sedang ${params.adminNote || params.purpose}` : undefined
+
+      update((d) => ({
+        ...d,
+        trips: [
+          ...d.trips,
+          {
+            id,
+            date: params.date,
+            requesterUser: 'admin',
+            requesterName: params.requesterName || 'Admin Utama (Pool GA)',
+            requesterNik: params.requesterNik,
+            dept: params.dept || 'HR & GA',
+            category: params.category || 'Dinas',
+            guest: params.driverOnly ? `Hanya Driver (Operasional Logistik)` : params.guest,
+            destination: params.destination,
+            destinations: params.destinations,
+            purpose: params.purpose,
+            estDeparture: params.estDeparture,
+            estReturn: params.estReturn,
+            distance_km: params.distance_km,
+            estimated_duration_minutes: params.estimated_duration_minutes,
+            passengers: params.passengers,
+            status: 'WAITING_POOL_SPV', // Masuk tahap 2 approval SPV Kendaraan
+            spvName: params.approvedBy || 'Admin Utama (Direct Booking)',
+            spvAt: new Date().toISOString(),
+            adminNote: params.adminNote,
+            driverId: params.driverId,
+            plate: params.plate,
+            driverOnly: params.driverOnly,
+            isOtherVehicle: params.isOtherVehicle,
+            otherVehicleName: params.otherVehicleName,
+            blockedDefaultPlate: blockedDefault,
+            blockedReason: blockedText,
+            coupon: params.driverOnly ? 'VOID' : 'NONE',
+          },
+        ],
+      }))
+      return id
+    },
+    // Tahap 1: SPV Departemen ACC -> Masuk ke antrean Admin (WAITING_ASSIGN)
     spvDecision: (id, approve, note) =>
-      patch(id, { status: approve ? 'WAITING_ASSIGN' : 'REJECTED', spvAt: new Date().toISOString(), spvNote: note, rejectReason: approve ? undefined : (note || 'Ditolak oleh SPV') }),
+      patch(id, {
+        status: approve ? 'WAITING_ASSIGN' : 'REJECTED',
+        spvAt: new Date().toISOString(),
+        spvNote: note,
+        rejectReason: approve ? undefined : (note || 'Ditolak oleh SPV Departemen'),
+      }),
+    // Tahap 2: SPV Kendaraan (Pool GA) Final ACC -> Status READY (Jadwal masuk ke driver)
+    poolSpvDecision: (id, approve, note, approverName) =>
+      patch(id, {
+        status: approve ? 'READY' : 'REJECTED',
+        poolSpvName: approverName || 'SPV Kendaraan (Pool GA)',
+        poolSpvAt: new Date().toISOString(),
+        poolSpvNote: note,
+        rejectReason: approve ? undefined : (note || 'Ditolak oleh SPV Kendaraan'),
+      }),
     assignTrip: (id, driverId, plate) => patch(id, { status: 'READY', driverId, plate }),
-    scheduleTrip: (id, params) => patch(id, {
-      status: 'READY',
-      plate: params.plate,
-      driverId: params.driverId,
-      date: params.date,
-      estDeparture: params.estDeparture,
-      estReturn: params.estReturn,
-      adminNote: params.adminNote,
-    }),
+    // Setelah Admin Utama drag ke kalender, status berubah menjadi WAITING_POOL_SPV (Pending Approval SPV Kendaraan)
+    scheduleTrip: (id, params) =>
+      patch(id, (t) => {
+        const assignedDriver = params.driverId ? db.drivers.find((d) => d.id === params.driverId) : null
+        const isUsingOtherCar = !!params.isOtherVehicle || (!!assignedDriver?.defaultPlate && assignedDriver.defaultPlate !== params.plate)
+        const blockedDefault = isUsingOtherCar && assignedDriver?.defaultPlate ? assignedDriver.defaultPlate : undefined
+        const blockedText = blockedDefault ? `Driver sedang ${params.adminNote || t.purpose}` : undefined
+
+        return {
+          status: 'WAITING_POOL_SPV',
+          plate: params.plate,
+          driverId: params.driverId,
+          date: params.date,
+          estDeparture: params.estDeparture,
+          estReturn: params.estReturn,
+          adminNote: params.adminNote,
+          isOtherVehicle: params.isOtherVehicle,
+          otherVehicleName: params.otherVehicleName,
+          blockedDefaultPlate: blockedDefault,
+          blockedReason: blockedText,
+        }
+      }),
     rejectTrip: (id, reason) => patch(id, { status: 'REJECTED', rejectReason: reason }),
     gateGo: (id, security) => patch(id, { status: 'ON_TRIP', timeGo: new Date().toISOString(), securityGo: security }),
     gateBack: (id, security) =>
       patch(id, (t) => {
         const back = new Date().toISOString()
-        return { status: 'DONE', timeBack: back, securityBack: security, durationMin: Math.max(0, Math.round((+new Date(back) - +new Date(t.timeGo!)) / 60000)), coupon: couponFromBack(back) }
+        // Jika opsi driverOnly aktif, hak kupon otomatis hangus / VOID
+        const finalCoupon = t.driverOnly ? 'VOID' : couponFromBack(back)
+        return {
+          status: 'DONE',
+          timeBack: back,
+          securityBack: security,
+          durationMin: Math.max(0, Math.round((+new Date(back) - +new Date(t.timeGo!)) / 60000)),
+          coupon: finalCoupon,
+        }
       }),
-    claimCoupon: (id) => patch(id, { coupon: 'CLAIMED', claimedAt: new Date().toISOString() }),
-    payCoupon: (id, adminName) => patch(id, { coupon: 'PAID', paidAt: new Date().toISOString(), paidBy: adminName }),
+    claimCoupon: (id) => patch(id, { coupon: 'PR_PENDING', claimedAt: new Date().toISOString() }),
+    setCouponProgress: (id) => patch(id, { coupon: 'PR_PROGRESS' }),
+    payCoupon: (id, adminName, prNumber) =>
+      patch(id, {
+        coupon: 'PAID',
+        paidAt: new Date().toISOString(),
+        paidBy: adminName,
+        prNumber: prNumber || `PR-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
+        prCreatedAt: new Date().toISOString(),
+        prCreatedBy: adminName,
+      }),
     addDriver: (d) => {
       const id = `d-${Date.now().toString().slice(-5)}`
       update((prev) => ({ ...prev, drivers: [...prev.drivers, { ...d, id, onLeave: false }] }))

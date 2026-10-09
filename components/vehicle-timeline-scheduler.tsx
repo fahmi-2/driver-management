@@ -212,6 +212,22 @@ export function VehicleTimelineScheduler({
           timeLabel: `${minToTime(sMin)} - ${minToTime(eMin)}`,
         })
         map.set(trip.plate, list)
+
+        // Jika trip ini memblokir mobil default driver (driver bawa mobil lain)
+        if (trip.blockedDefaultPlate && map.has(trip.blockedDefaultPlate)) {
+          const blockedList = map.get(trip.blockedDefaultPlate) || []
+          blockedList.push({
+            trip: {
+              ...trip,
+              purpose: trip.blockedReason || 'Driver sedang tugas di mobil lain',
+            },
+            leftPct,
+            widthPct,
+            timeLabel: `${minToTime(sMin)} - ${minToTime(eMin)}`,
+            isBlockedDefault: true,
+          } as any)
+          map.set(trip.blockedDefaultPlate, blockedList)
+        }
       })
     } else if (viewMode === 'weekly') {
       const weekDates = new Set(weeklyColumns.map((c) => c.date))
@@ -240,6 +256,21 @@ export function VehicleTimelineScheduler({
           timeLabel: `${trip.date} (${minToTime(sMin)} - ${minToTime(eMin)})`,
         })
         map.set(trip.plate, list)
+
+        if (trip.blockedDefaultPlate && map.has(trip.blockedDefaultPlate)) {
+          const blockedList = map.get(trip.blockedDefaultPlate) || []
+          blockedList.push({
+            trip: {
+              ...trip,
+              purpose: trip.blockedReason || 'Driver sedang tugas di mobil lain',
+            },
+            leftPct,
+            widthPct,
+            timeLabel: `${trip.date} (${minToTime(sMin)} - ${minToTime(eMin)})`,
+            isBlockedDefault: true,
+          } as any)
+          map.set(trip.blockedDefaultPlate, blockedList)
+        }
       })
     } else if (viewMode === 'monthly') {
       const [y, m] = currentDate.split('-').map(Number)
@@ -580,20 +611,26 @@ export function VehicleTimelineScheduler({
                       }`}
                     >
                       {/* Sticky Frozen Vehicle Resource Column */}
-                      <div className="sticky left-0 z-20 flex w-[210px] shrink-0 items-center justify-between border-r border-[#edf1ee] bg-white py-3 pl-3 pr-3 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.06)] group-hover/row:bg-[#fafcfb]">
+                      <div className="sticky left-0 z-20 flex w-[220px] shrink-0 items-center justify-between border-r border-[#edf1ee] bg-white py-3 pl-3 pr-3 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.06)] group-hover/row:bg-[#fafcfb]">
                         <div className="overflow-hidden">
                           <p className="text-xs font-bold text-[#10251c] tracking-tight truncate">{v.plate}</p>
                           <p className="text-[10px] text-[#86958d] truncate">{v.type}</p>
                         </div>
-                        <span
-                          className={`shrink-0 rounded-md px-1.5 py-0.5 text-[9px] font-semibold ${
-                            isUnderMaintenance
-                              ? 'bg-[#fee2e2] text-[#b91c1c]'
-                              : 'bg-[#eaf4ee] text-[#0a6645]'
-                          }`}
-                        >
-                          {v.status || 'Active'}
-                        </span>
+                        <div className="flex flex-col items-end gap-1">
+                          <span
+                            className={`shrink-0 rounded-md px-1.5 py-0.5 text-[9px] font-bold ${
+                              isUnderMaintenance
+                                ? 'bg-[#fee2e2] text-[#b91c1c]'
+                                : v.category === 'Mobil Expat'
+                                ? 'bg-purple-100 text-purple-800 border border-purple-200'
+                                : v.category === 'Mobil Sewa'
+                                ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                                : 'bg-[#eaf4ee] text-[#0a6645] border border-[#b8cfc2]'
+                            }`}
+                          >
+                            {isUnderMaintenance ? 'Maintenance' : v.category || 'Mobil Operasional'}
+                          </span>
+                        </div>
                       </div>
 
                       {/* Timeline Grid Body (Scrollable with columns) */}
@@ -641,19 +678,23 @@ export function VehicleTimelineScheduler({
                         </div>
 
                         {/* Render Booked Blocks */}
-                        {bookingsList.map(({ trip, leftPct, widthPct, timeLabel }) => {
+                        {bookingsList.map(({ trip, leftPct, widthPct, timeLabel, isBlockedDefault }: any) => {
                           const isOwnTrip = trip.requesterUser === user.username
                           const canSeeDetails = isAdmin || isOwnTrip
-                          const displayTitle = canSeeDetails
+                          const displayTitle = isBlockedDefault
+                            ? trip.purpose || 'Mobil Default Terblokir'
+                            : canSeeDetails
                             ? trip.purpose || trip.destination
                             : 'Booked'
-                          const displaySub = canSeeDetails
+                          const displaySub = isBlockedDefault
+                            ? 'Driver bertugas di mobil lain'
+                            : canSeeDetails
                             ? `${trip.guest} · ${trip.destination}`
                             : 'Operasional Lain'
 
                           return (
                             <div
-                              key={trip.id}
+                              key={`${trip.id}-${isBlockedDefault ? 'blocked' : 'normal'}`}
                               onClick={() => onBlockClick?.(trip)}
                               onMouseEnter={(e) => {
                                 const rect = e.currentTarget.getBoundingClientRect()
@@ -666,7 +707,11 @@ export function VehicleTimelineScheduler({
                                 width: `${Math.max(widthPct, 2.5)}%`,
                               }}
                               className={`absolute top-2 bottom-2 z-10 flex cursor-pointer flex-col justify-center overflow-hidden rounded-lg px-2.5 shadow-sm transition-all hover:z-20 hover:shadow-md hover:ring-2 hover:ring-blue-400 active:scale-[0.99] ${
-                                trip.status === 'ON_TRIP'
+                                isBlockedDefault
+                                  ? 'bg-gradient-to-r from-slate-700 to-gray-900 text-white border-2 border-dashed border-red-400 opacity-90'
+                                  : trip.status === 'WAITING_POOL_SPV'
+                                  ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-white ring-2 ring-amber-300 ring-dashed shadow-md animate-pulse'
+                                  : trip.status === 'ON_TRIP'
                                   ? 'bg-gradient-to-r from-[#1d4ed8] to-[#1e40af] text-white ring-1 ring-blue-600'
                                   : trip.status === 'DONE'
                                   ? 'bg-gradient-to-r from-[#475569] to-[#334155] text-white opacity-85'
@@ -674,9 +719,9 @@ export function VehicleTimelineScheduler({
                               }`}
                             >
                               <div className="flex items-center gap-1.5 truncate">
-                                <span className="size-1.5 rounded-full bg-white animate-pulse" />
+                                <span className={`size-1.5 rounded-full ${isBlockedDefault ? 'bg-red-400' : trip.status === 'WAITING_POOL_SPV' ? 'bg-amber-200' : 'bg-white'} animate-pulse`} />
                                 <p className="truncate text-[10px] font-bold tracking-tight uppercase">
-                                  {displayTitle}
+                                  {isBlockedDefault ? `[DIBLOKIR] ${displayTitle}` : trip.status === 'WAITING_POOL_SPV' ? `[Pending SPV] ${displayTitle}` : displayTitle}
                                 </p>
                               </div>
                               <p className="truncate text-[9px] opacity-85 font-medium">

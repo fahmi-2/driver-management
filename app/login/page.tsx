@@ -132,19 +132,21 @@ export default function LoginPage() {
               </div>
 
               <div className="flex flex-wrap justify-center gap-1.5">
-                {ACCOUNTS.filter((a, i, arr) => arr.findIndex((x) => x.role === a.role) === i || a.role === 'requester').map((a) => (
+                {ACCOUNTS.map((a) => (
                   <button
                     type="button"
                     key={a.username}
-                    title={`${a.username} / ${a.password}`}
+                    title={`${a.name} (${a.title}) — user: ${a.username} / pass: ${a.password}`}
                     onClick={() => { setUsername(a.username); setPassword(a.password); setError('') }}
-                    className="rounded-full bg-white/60 px-3 py-1 text-[10px] font-bold text-[#0b2416] ring-1 ring-white/70 shadow-sm transition hover:-translate-y-0.5 hover:bg-[#a3e635] hover:ring-[#84cc16]"
+                    className="rounded-full bg-white/70 px-2.5 py-1 text-[10px] font-bold text-[#0b2416] ring-1 ring-white/80 shadow-sm transition hover:-translate-y-0.5 hover:bg-[#a3e635] hover:ring-[#84cc16]"
                   >
-                    {ROLE_LABEL[a.role]} · {a.username}
+                    {a.username === 'spv_pool' ? 'SPV Kendaraan' : a.role === 'approver' ? `SPV ${a.dept}` : ROLE_LABEL[a.role]} · {a.username}
                   </button>
                 ))}
               </div>
-              <p className="mt-3 text-center text-[10px] text-[#1f3b2b]">SPV tidak login: approval lewat Magic Link email.</p>
+              <p className="mt-3 text-center text-[10px] font-medium text-[#1f3b2b]">
+                E-Sign wajib login: SPV Dept (Tahap 1) & SPV Kendaraan (Tahap 2).
+              </p>
             </form>
 
             {/* 2. Success Payload / Transition Overlay */}

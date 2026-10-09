@@ -16,6 +16,8 @@ import { AdminSchedulingCenter } from './views/scheduling-center'
 import { AdminVehicles } from './views/vehicles'
 import { SecurityGate } from './views/security'
 import { CouponHistory, CouponPending } from './views/coupon'
+import { ApproverInbox } from './views/approver'
+import { DriverDashboard } from './views/driver-dashboard'
 
 type NavSubItem = { id: string; label: string; icon: LucideIcon; desc?: string }
 type NavItem =
@@ -28,6 +30,10 @@ const NAV: Record<Role, NavItem[]> = {
     { id: 'request', label: 'Ajukan Kendaraan', icon: FileText },
     { id: 'inbox', label: 'Notifikasi & Riwayat', icon: Inbox },
     { id: 'coupons', label: 'Panel Kupon', icon: Ticket },
+  ],
+  approver: [
+    { id: 'approvals', label: 'Inbox Persetujuan (E-Sign)', icon: Inbox },
+    { id: 'dashboard', label: 'Dashboard Armada', icon: LayoutDashboard },
   ],
   admin: [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -54,15 +60,27 @@ const NAV: Record<Role, NavItem[]> = {
     { id: 'pending', label: 'Pending Claims', icon: CalendarDays },
     { id: 'history', label: 'Riwayat', icon: Ticket },
   ],
+  driver: [
+    { id: 'dashboard', label: 'Jadwal Tugas Driver', icon: Truck },
+  ],
 }
 
-function Badge({ role, id }: { role: Role; id: string }) {
+function Badge({ role, id, user }: { role: Role; id: string; user?: Account }) {
   const { db } = useStore()
+  if (role === 'approver' && id === 'approvals') {
+    const isPoolSpv = user?.username === 'spv_pool' || user?.dept === 'HR & GA'
+    const pending = db.trips.filter((t) => {
+      if (isPoolSpv) return t.status === 'WAITING_POOL_SPV' || (t.status === 'WAITING_SPV' && t.dept === user?.dept)
+      return t.dept === user?.dept && t.status === 'WAITING_SPV'
+    }).length
+    return pending ? <span className="rounded-md bg-amber-500 px-1.5 py-0.5 text-[9px] font-bold text-black">{pending}</span> : null
+  }
+
   const n = role === 'admin' && (id === 'scheduling' || id === 'approval') ? db.trips.filter((t) => t.status === 'WAITING_ASSIGN').length
     : role === 'security' && id === 'gate' ? db.trips.filter((t) => t.status === 'READY' || t.status === 'ON_TRIP').length
-      : role === 'coupon' && id === 'pending' ? db.trips.filter((t) => t.coupon === 'CLAIMED').length
-        : role === 'requester' && id === 'inbox' ? db.trips.filter((t) => t.status === 'READY').length
-          : 0
+    : role === 'coupon' && id === 'pending' ? db.trips.filter((t) => t.coupon === 'PR_PENDING' || t.coupon === 'PR_PROGRESS').length
+    : role === 'requester' && id === 'inbox' ? db.trips.filter((t) => t.status === 'READY').length
+    : 0
   return n ? <span className="rounded-md bg-[#126d4a] px-1.5 py-0.5 text-[9px] font-bold text-white">{n}</span> : null
 }
 
@@ -70,14 +88,15 @@ function Shell({ user, onLogout }: { user: Account; onLogout: () => void }) {
   const { resetDemo } = useStore()
   const [currentUser, setCurrentUser] = useState<Account>(user)
   const [profileModalOpen, setProfileModalOpen] = useState(false)
-  const nav = NAV[currentUser.role]
-  const [page, setPage] = useState('dashboard')
+  const nav = NAV[currentUser.role] || NAV.requester
+  const [page, setPage] = useState(currentUser.role === 'approver' ? 'approvals' : 'dashboard')
   const [open, setOpen] = useState(false)
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     setCurrentUser(user)
+    if (user.role === 'approver') setPage('approvals')
   }, [user])
 
   useEffect(() => {
@@ -100,7 +119,9 @@ function Shell({ user, onLogout }: { user: Account; onLogout: () => void }) {
   }, [])
 
   let view
-  if (page === 'request') view = <RequesterForm user={currentUser} />
+  if (currentUser?.role === 'driver') view = <DriverDashboard user={currentUser} />
+  else if (page === 'approvals') view = <ApproverInbox user={currentUser} />
+  else if (page === 'request') view = <RequesterForm user={currentUser} />
   else if (page === 'inbox') view = <RequesterInbox user={currentUser} />
   else if (page === 'coupons') view = <RequesterCoupons user={currentUser} />
   else if (page === 'scheduling' || page === 'approval') view = <AdminSchedulingCenter user={currentUser} />
@@ -203,7 +224,7 @@ function Shell({ user, onLogout }: { user: Account; onLogout: () => void }) {
                 >
                   <item.icon size={15} />
                   <span>{item.label}</span>
-                  <Badge role={user.role} id={item.id} />
+                  <Badge role={user.role} id={item.id} user={currentUser} />
                 </button>
               )
             })}

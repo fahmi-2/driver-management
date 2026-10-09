@@ -15,12 +15,14 @@ const COLS = [
 
 export function WorkloadCard() {
   const { db } = useStore()
+  const [targetType, setTargetType] = useState<'driver' | 'vehicle'>('driver')
   const [period, setPeriod] = useState<'day' | 'month'>('day')
   const today = ymd()
   const currentMonthPrefix = today.slice(0, 7) // YYYY-MM
   const now = Date.now()
 
-  const rows = db.drivers.map((d) => {
+  // Driver metrics
+  const driverRows = db.drivers.map((d) => {
     const driverTrips = db.trips.filter((t) => {
       if (t.driverId !== d.id || t.status === 'READY') return false
       return period === 'day' ? t.date === today : t.date.startsWith(currentMonthPrefix)
@@ -36,55 +38,114 @@ export function WorkloadCard() {
     const tripCount = driverTrips.length
 
     return {
-      d,
+      id: d.id,
+      title: d.name,
+      badge: d.defaultPlate,
       mins: totalMins,
       km: Math.round(totalKm * 10) / 10,
       trips: tripCount,
     }
   })
 
-  const maxKm = Math.max(100, ...rows.map((r) => r.km))
+  // Vehicle metrics (akumulasi durasi dan KM paralel pada profil fisik kendaraan)
+  const vehicleRows = db.vehicles.map((v) => {
+    const vTrips = db.trips.filter((t) => {
+      // Must match plate and not just in pending/ready state
+      if (t.plate !== v.plate || t.status === 'READY') return false
+      return period === 'day' ? t.date === today : t.date.startsWith(currentMonthPrefix)
+    })
+
+    const totalMins = vTrips.reduce((s, t) => {
+      if (t.status === 'DONE') return s + (t.durationMin ?? 0)
+      if (t.status === 'ON_TRIP' && t.timeGo) return s + Math.round((now - +new Date(t.timeGo)) / 60000)
+      return s
+    }, 0)
+
+    const totalKm = vTrips.reduce((s, t) => s + (t.distance_km ?? 0), 0)
+    const tripCount = vTrips.length
+
+    return {
+      id: v.plate,
+      title: v.plate,
+      badge: `${v.type} (${v.category || 'Mobil Operasional'})`,
+      mins: totalMins,
+      km: Math.round(totalKm * 10) / 10,
+      trips: tripCount,
+    }
+  })
+
+  const currentRows = targetType === 'driver' ? driverRows : vehicleRows
+  const maxKm = Math.max(100, ...currentRows.map((r) => r.km))
 
   return (
     <Card
-      title="Statistik Beban Kerja & Jarak Tempuh Driver"
-      subtitle={`Akumulasi durasi kerja dan jarak tempuh (${period === 'day' ? 'Hari Ini' : 'Bulan Ini'})`}
+      title={targetType === 'driver' ? 'Statistik Beban Kerja Driver' : 'Statistik Beban Kerja & Utilisasi Armada'}
+      subtitle={`Akumulasi paralel jarak tempuh (KM) & durasi fisik ${targetType === 'driver' ? 'Driver' : 'Kendaraan'} (${period === 'day' ? 'Hari Ini' : 'Bulan Ini'})`}
       action={
-        <div className="flex items-center gap-1 rounded-xl bg-black/30 border border-white/10 p-1">
-          <button
-            type="button"
-            onClick={() => setPeriod('day')}
-            className={`rounded-lg px-2.5 py-1 text-[11px] font-semibold transition ${
-              period === 'day'
-                ? 'bg-[#a3e635] text-[#052e16] font-bold shadow-xs'
-                : 'text-[#8fa99b] hover:text-white'
-            }`}
-          >
-            Hari Ini
-          </button>
-          <button
-            type="button"
-            onClick={() => setPeriod('month')}
-            className={`rounded-lg px-2.5 py-1 text-[11px] font-semibold transition ${
-              period === 'month'
-                ? 'bg-[#a3e635] text-[#052e16] font-bold shadow-xs'
-                : 'text-[#8fa99b] hover:text-white'
-            }`}
-          >
-            Bulan Ini
-          </button>
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Target Type Tab: Driver vs Kendaraan */}
+          <div className="flex items-center gap-1 rounded-xl bg-black/40 border border-white/10 p-1">
+            <button
+              type="button"
+              onClick={() => setTargetType('driver')}
+              className={`rounded-lg px-2.5 py-1 text-[11px] font-semibold transition ${
+                targetType === 'driver'
+                  ? 'bg-emerald-500 text-black font-bold shadow-xs'
+                  : 'text-[#8fa99b] hover:text-white'
+              }`}
+            >
+              👨‍✈️ Driver
+            </button>
+            <button
+              type="button"
+              onClick={() => setTargetType('vehicle')}
+              className={`rounded-lg px-2.5 py-1 text-[11px] font-semibold transition ${
+                targetType === 'vehicle'
+                  ? 'bg-emerald-500 text-black font-bold shadow-xs'
+                  : 'text-[#8fa99b] hover:text-white'
+              }`}
+            >
+              🚗 Kendaraan
+            </button>
+          </div>
+
+          {/* Period Tab: Day vs Month */}
+          <div className="flex items-center gap-1 rounded-xl bg-black/30 border border-white/10 p-1">
+            <button
+              type="button"
+              onClick={() => setPeriod('day')}
+              className={`rounded-lg px-2.5 py-1 text-[11px] font-semibold transition ${
+                period === 'day'
+                  ? 'bg-[#a3e635] text-[#052e16] font-bold shadow-xs'
+                  : 'text-[#8fa99b] hover:text-white'
+              }`}
+            >
+              Hari Ini
+            </button>
+            <button
+              type="button"
+              onClick={() => setPeriod('month')}
+              className={`rounded-lg px-2.5 py-1 text-[11px] font-semibold transition ${
+                period === 'month'
+                  ? 'bg-[#a3e635] text-[#052e16] font-bold shadow-xs'
+                  : 'text-[#8fa99b] hover:text-white'
+              }`}
+            >
+              Bulan Ini
+            </button>
+          </div>
         </div>
       }
     >
       <div className="space-y-4 p-5">
-        {rows.map(({ d, mins, km, trips }, i) => (
-          <div key={d.id} className="rounded-xl border border-white/5 bg-white/[0.02] p-3 transition hover:border-[#a3e635]/25">
+        {currentRows.map(({ id, title, badge, mins, km, trips }, i) => (
+          <div key={id} className="rounded-xl border border-white/5 bg-white/[0.02] p-3 transition hover:border-[#a3e635]/25">
             <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-xs">
               <div className="flex items-center gap-2">
-                <span className="font-bold text-white text-[13px]">{d.name}</span>
-                {d.defaultPlate && (
+                <span className="font-bold text-white text-[13px]">{title}</span>
+                {badge && (
                   <span className="font-mono text-[10px] text-[#8fa99b] bg-white/5 px-1.5 py-0.5 rounded">
-                    {d.defaultPlate}
+                    {badge}
                   </span>
                 )}
               </div>

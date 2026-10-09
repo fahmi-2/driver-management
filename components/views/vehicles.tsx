@@ -18,18 +18,26 @@ export function AdminVehicles() {
   const [formData, setFormData] = useState({
     plate: '',
     type: '',
+    capacity: 7,
     status: 'Active' as VehicleStatus,
+    category: 'Mobil Operasional' as any,
   })
 
   const openAddModal = () => {
     setEditingPlate(null)
-    setFormData({ plate: '', type: '', status: 'Active' })
+    setFormData({ plate: '', type: '', capacity: 7, status: 'Active', category: 'Mobil Operasional' })
     setIsModalOpen(true)
   }
 
   const openEditModal = (v: Vehicle) => {
     setEditingPlate(v.plate)
-    setFormData({ plate: v.plate, type: v.type, status: v.status || 'Active' })
+    setFormData({
+      plate: v.plate,
+      type: v.type,
+      capacity: v.capacity ?? 7,
+      status: v.status || 'Active',
+      category: v.category || 'Mobil Operasional',
+    })
     setIsModalOpen(true)
   }
 
@@ -42,7 +50,9 @@ export function AdminVehicles() {
       updateVehicle(editingPlate, {
         plate: cleanPlate,
         type: formData.type.trim(),
+        capacity: Number(formData.capacity) || 7,
         status: formData.status,
+        category: formData.category,
       })
       notify(`Kendaraan ${cleanPlate} berhasil diperbarui!`)
     } else {
@@ -53,7 +63,9 @@ export function AdminVehicles() {
       addVehicle({
         plate: cleanPlate,
         type: formData.type.trim(),
+        capacity: Number(formData.capacity) || 7,
         status: formData.status,
+        category: formData.category,
       })
       notify(`Kendaraan baru ${cleanPlate} berhasil ditambahkan!`)
     }
@@ -164,6 +176,7 @@ export function AdminVehicles() {
               <tr>
                 <th className="px-5 py-3">No. Polisi (Plat)</th>
                 <th className="px-5 py-3">Nama / Tipe Kendaraan</th>
+                <th className="px-5 py-3">Kapasitas</th>
                 <th className="px-5 py-3">Status Operasional</th>
                 <th className="px-5 py-3">Status Penugasan</th>
                 <th className="px-5 py-3 text-right">Aksi</th>
@@ -172,7 +185,7 @@ export function AdminVehicles() {
             <tbody className="divide-y divide-[#edf1ee]">
               {filteredVehicles.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-8 text-center text-[#93a097]">
+                  <td colSpan={6} className="py-8 text-center text-[#93a097]">
                     Tidak ada kendaraan yang ditemukan.
                   </td>
                 </tr>
@@ -187,6 +200,11 @@ export function AdminVehicles() {
                     <tr key={v.plate} className="hover:bg-[#fafcfb] transition">
                       <td className="px-5 py-3.5 font-bold font-mono text-[#10251c]">{v.plate}</td>
                       <td className="px-5 py-3.5 text-[#3b4942] font-medium">{v.type}</td>
+                      <td className="px-5 py-3.5 text-[#168052] font-bold text-xs">
+                        <span className="rounded-md bg-[#dff5e9] px-2 py-0.5">
+                          {v.capacity || 7} Kursi
+                        </span>
+                      </td>
                       <td className="px-5 py-3.5">
                         <Pill
                           label={isMaintenance ? 'Maintenance (Bengkel)' : 'Active (Siap Pakai)'}
@@ -267,17 +285,48 @@ export function AdminVehicles() {
                 />
               </label>
 
-              <label className="block text-xs font-semibold text-[#66766d]">
-                Nama / Tipe Kendaraan
-                <input
-                  type="text"
-                  value={formData.type}
-                  onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                  placeholder="Contoh: Toyota Innova Reborn / Avanza"
-                  className={inputCls}
-                  required
-                />
-              </label>
+              <div className="grid grid-cols-2 gap-3">
+                <label className="block text-xs font-semibold text-[#66766d]">
+                  Nama / Tipe Kendaraan
+                  <input
+                    type="text"
+                    value={formData.type}
+                    onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                    placeholder="Contoh: Toyota Avanza"
+                    className={inputCls}
+                    required
+                  />
+                </label>
+
+                <label className="block text-xs font-semibold text-[#66766d]">
+                  Kapasitas (Penumpang)
+                  <input
+                    type="number"
+                    min="1"
+                    max="60"
+                    value={formData.capacity}
+                    onChange={(e) => setFormData({ ...formData, capacity: parseInt(e.target.value) || 1 })}
+                    placeholder="7"
+                    className={inputCls}
+                    required
+                  />
+                </label>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-[#66766d]">
+                  Kategori Kendaraan (Status Penggunaan)
+                  <select
+                    value={formData.category}
+                    onChange={(e) => setFormData({ ...formData, category: e.target.value as any })}
+                    className={inputCls}
+                  >
+                    <option value="Mobil Operasional">Mobil Operasional (Umum & Tamu Pabrik)</option>
+                    <option value="Mobil Expat">Mobil Expat (Direksi & Tamu Jepang)</option>
+                    <option value="Mobil Sewa">Mobil Sewa (Rental Armada Cadangan)</option>
+                  </select>
+                </label>
+              </div>
 
               <div>
                 <p className="text-xs font-semibold text-[#66766d]">Status Operasional</p>

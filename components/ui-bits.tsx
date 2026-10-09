@@ -23,9 +23,9 @@ export function Pill({ label, tone = 'gray' }: { label: string; tone?: keyof typ
 }
 
 export const tripTone = (s: TripStatus) =>
-  ({ WAITING_SPV: 'amber', WAITING_ASSIGN: 'purple', READY: 'green', ON_TRIP: 'blue', DONE: 'gray', REJECTED: 'red' })[s]
+  ({ WAITING_SPV: 'amber', WAITING_ASSIGN: 'purple', WAITING_POOL_SPV: 'amber', READY: 'green', ON_TRIP: 'blue', DONE: 'gray', REJECTED: 'red' })[s]
 export const couponTone = (s: CouponStatus) =>
-  ({ NONE: 'gray', VOID: 'red', CLAIMABLE: 'green', CLAIMED: 'amber', PAID: 'blue' })[s]
+  ({ NONE: 'gray', VOID: 'red', CLAIMABLE: 'green', PR_PENDING: 'amber', PR_PROGRESS: 'purple', PAID: 'blue' })[s]
 
 export function Card({ title, subtitle, action, children, className = '' }: { title?: string; subtitle?: string; action?: ReactNode; children: ReactNode; className?: string }) {
   return (

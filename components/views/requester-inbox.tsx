@@ -33,7 +33,7 @@ export function RequesterInbox({ user }: { user: Account }) {
   const filteredTrips = myTrips.filter((t) => {
     const isApproved = t.status === 'READY' || t.status === 'ON_TRIP' || t.status === 'DONE'
     const isRejected = t.status === 'REJECTED'
-    const isPending = t.status === 'WAITING_SPV' || t.status === 'WAITING_ASSIGN'
+    const isPending = t.status === 'WAITING_SPV' || t.status === 'WAITING_ASSIGN' || t.status === 'WAITING_POOL_SPV'
 
     if (filterStatus === 'APPROVED' && !isApproved) return false
     if (filterStatus === 'REJECTED' && !isRejected) return false
@@ -50,7 +50,7 @@ export function RequesterInbox({ user }: { user: Account }) {
 
   const countApproved = myTrips.filter((t) => t.status === 'READY' || t.status === 'ON_TRIP' || t.status === 'DONE').length
   const countRejected = myTrips.filter((t) => t.status === 'REJECTED').length
-  const countPending = myTrips.filter((t) => t.status === 'WAITING_SPV' || t.status === 'WAITING_ASSIGN').length
+  const countPending = myTrips.filter((t) => t.status === 'WAITING_SPV' || t.status === 'WAITING_ASSIGN' || t.status === 'WAITING_POOL_SPV').length
 
   return (
     <>
@@ -170,7 +170,11 @@ export function RequesterInbox({ user }: { user: Account }) {
                       ) : (
                         <span className="inline-flex items-center gap-1.5 rounded-full bg-[#fef3c7] px-3 py-1 text-xs font-bold text-[#d97706]">
                           <Clock size={14} />
-                          {trip.status === 'WAITING_SPV' ? 'Menunggu Approval SPV' : 'Menunggu Dispatcher'}
+                          {trip.status === 'WAITING_SPV'
+                            ? 'Menunggu SPV Dept (Tahap 1)'
+                            : trip.status === 'WAITING_POOL_SPV'
+                            ? 'Menunggu SPV Kendaraan (Tahap 2)'
+                            : 'Menunggu Dispatcher'}
                         </span>
                       )}
                     </div>
@@ -236,17 +240,21 @@ export function RequesterInbox({ user }: { user: Account }) {
                   {/* SPV or Waiting Notes */}
                   {!isApproved && !isRejected && (
                     <div className="mt-3 rounded-xl border border-[#fef08a] bg-[#fefce8] p-3 text-xs text-[#854d0e] flex items-center justify-between">
-                      <span>Pengajuan sedang dalam antrean penjadwalan oleh Dispatcher / Admin Utama.</span>
-                      {trip.status === 'WAITING_SPV' && (
-                        <a
-                          href={`/approve/${trip.id}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="font-bold text-[#b45309] hover:underline text-[11px]"
-                        >
-                          Simulasi Email E-Sign SPV &rarr;
-                        </a>
-                      )}
+                      <span>
+                        {trip.status === 'WAITING_SPV'
+                          ? 'Pengajuan baru, menunggu verifikasi E-Sign dari SPV Departemen (Tahap 1).'
+                          : trip.status === 'WAITING_POOL_SPV'
+                          ? 'Armada telah dipetakan oleh Admin. Sedang menunggu ACC Final dari SPV Kendaraan (Tahap 2).'
+                          : 'Pengajuan telah di-ACC SPV Dept. Menunggu penjadwalan oleh Dispatcher / Admin.'}
+                      </span>
+                      <a
+                        href={`/approve/${trip.id}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="font-bold text-[#b45309] hover:underline text-[11px] shrink-0 ml-2"
+                      >
+                        Portal E-Sign Approver &rarr;
+                      </a>
                     </div>
                   )}
                 </div>
