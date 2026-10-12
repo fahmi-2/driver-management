@@ -35,7 +35,7 @@ export function ApproverInbox({ user }: { user: Account }) {
   const [note, setNote] = useState('')
 
   // Cek apakah user adalah SPV Kendaraan (Pool GA / HR & GA)
-  const isPoolSpv = user.username === 'spv_pool' || user.dept === 'HR & GA'
+  const isPoolSpv = user.role === 'approver_pool' || user.username === 'spv_pool' || user.dept === 'HR & GA'
 
   // Filter trips sesuai hak akses Approver:
   // 1. SPV Departemen: meninjau trip milik departemennya yang berstatus WAITING_SPV (Tahap 1)

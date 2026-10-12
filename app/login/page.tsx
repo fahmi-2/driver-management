@@ -132,25 +132,8 @@ export default function LoginPage() {
                 Masuk <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" />
               </button>
 
-              <div className="my-4 flex items-center gap-3 text-[10px] font-medium text-[#1f3b2b]">
-                <span className="h-px flex-1 bg-[#0b2416]/30" />Akun demo (klik untuk mengisi)<span className="h-px flex-1 bg-[#0b2416]/30" />
-              </div>
-
-              <div className="flex flex-wrap justify-center gap-1.5">
-                {(accountsList.length ? accountsList : []).map((a) => (
-                  <button
-                    type="button"
-                    key={a.username}
-                    title={`${a.name} (${a.title}) — user: ${a.username} / pass: ${a.password}`}
-                    onClick={() => { setUsername(a.username); setPassword(a.password); setError('') }}
-                    className="rounded-full bg-white/70 px-2.5 py-1 text-[10px] font-bold text-[#0b2416] ring-1 ring-white/80 shadow-sm transition hover:-translate-y-0.5 hover:bg-[#a3e635] hover:ring-[#84cc16]"
-                  >
-                    {a.username === 'spv_pool' ? 'SPV Kendaraan' : a.role === 'approver' ? `SPV ${a.dept}` : ROLE_LABEL[a.role]} · {a.username}
-                  </button>
-                ))}
-              </div>
-              <p className="mt-3 text-center text-[10px] font-medium text-[#1f3b2b]">
-                E-Sign wajib login: SPV Dept (Tahap 1) & SPV Kendaraan (Tahap 2).
+              <p className="mt-4 text-center text-[10px] font-medium text-[#1f3b2b]">
+                Sistem Manajemen Armada & Driver PT JAI (YAZAKI GROUP).
               </p>
             </form>
 

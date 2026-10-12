@@ -152,7 +152,7 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
         password: cleanPassword,
         name: cleanName,
         role: formData.role,
-        dept: ['requester', 'approver'].includes(formData.role) ? formData.dept : undefined,
+        dept: ['requester', 'approver', 'approver_pool'].includes(formData.role) ? formData.dept : undefined,
         nik: formData.nik.trim() || undefined,
         title: formData.title.trim() || `${ROLE_LABEL[formData.role]} - ${cleanName}`,
         driverId: formData.role === 'driver' ? formData.driverId || undefined : undefined,
@@ -168,7 +168,7 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
         password: cleanPassword,
         name: cleanName,
         role: formData.role,
-        dept: ['requester', 'approver'].includes(formData.role) ? formData.dept : undefined,
+        dept: ['requester', 'approver', 'approver_pool'].includes(formData.role) ? formData.dept : undefined,
         nik: formData.nik.trim() || undefined,
         title: formData.title.trim() || `${ROLE_LABEL[formData.role]} - ${cleanName}`,
         driverId: formData.role === 'driver' ? formData.driverId || undefined : undefined,
@@ -300,7 +300,8 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
             >
               <option value="ALL">Semua Peran (Role)</option>
               <option value="requester">Requester (Pemohon)</option>
-              <option value="approver">Approver (SPV / Manager)</option>
+              <option value="approver">Approver SPV Departemen (Tahap 1)</option>
+              <option value="approver_pool">Approver SPV Kendaraan (Tahap 2)</option>
               <option value="admin">Admin Utama (Pool GA)</option>
               <option value="driver">Driver (Sopir)</option>
               <option value="security">Security Gerbang</option>
@@ -373,6 +374,8 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
                             className={`rounded-md px-2 py-0.5 text-[10px] font-bold ${
                               acc.role === 'admin'
                                 ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                                : acc.role === 'approver_pool'
+                                ? 'bg-orange-100 text-orange-900 border border-orange-300'
                                 : acc.role === 'approver'
                                 ? 'bg-amber-100 text-amber-800 border border-amber-200'
                                 : acc.role === 'driver'
@@ -625,7 +628,8 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
                     className="h-10 w-full rounded-xl border border-[#dce7df] bg-[#fafcfb] px-3 text-xs font-semibold text-[#10251c] focus:border-[#075b3d] focus:outline-none"
                   >
                     <option value="requester">Requester (Pemohon)</option>
-                    <option value="approver">Approver (SPV / Manager)</option>
+                    <option value="approver">Approver SPV Departemen (Tahap 1)</option>
+                    <option value="approver_pool">Approver SPV Kendaraan (Tahap 2)</option>
                     <option value="admin">Admin Utama (Pool GA)</option>
                     <option value="driver">Driver (Sopir)</option>
                     <option value="security">Security Gerbang</option>
@@ -648,8 +652,8 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
                 </div>
               </div>
 
-              {/* Department (if requester or approver) */}
-              {['requester', 'approver'].includes(formData.role) && (
+              {/* Department (if requester or approver / approver_pool) */}
+              {['requester', 'approver', 'approver_pool'].includes(formData.role) && (
                 <div>
                   <label className="block text-[11px] font-bold text-[#10251c] mb-1">
                     Departemen / Divisi

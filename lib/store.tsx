@@ -141,16 +141,24 @@ function seed(): DB {
   }
   return {
     drivers: [
-      { id: 'd1', name: 'Budi Santoso', onLeave: false, shift: 'Pagi (07:00 - 15:00)', phone: '0812-3456-7890', defaultPlate: 'B 1824 KQA', simType: 'SIM B1 Umum' },
-      { id: 'd2', name: 'Agus Pranoto', onLeave: false, shift: 'Pagi (07:00 - 15:00)', phone: '0813-9876-5432', defaultPlate: 'B 2901 TSI', simType: 'SIM A' },
-      { id: 'd3', name: 'Hendra Wijaya', onLeave: false, shift: 'Siang (15:00 - 23:00)', phone: '0857-1122-3344', defaultPlate: 'B 1742 ULM', simType: 'SIM B1' },
-      { id: 'd4', name: 'Dedi Kurniawan', onLeave: true, shift: 'General (08:00 - 17:00)', phone: '0878-5566-7788', defaultPlate: 'B 2188 PRT', simType: 'SIM B1 Umum' },
+      { id: 'DRV-001', name: 'TAUFIK', onLeave: false, shift: 'General (08:00 - 17:00)', phone: '0858-6163-0614', defaultPlate: 'W 1318 TI', simType: 'SIM A' },
+      { id: 'DRV-002', name: 'GHOFUR', onLeave: false, shift: 'General (08:00 - 17:00)', phone: '0853-3151-1277', defaultPlate: 'W 1156 QY', simType: 'SIM A' },
+      { id: 'DRV-003', name: 'HENDRO', onLeave: false, shift: 'General (08:00 - 17:00)', phone: '0899-8129-314', defaultPlate: 'W 1460 NE', simType: 'SIM A' },
+      { id: 'DRV-004', name: 'THAMRIN', onLeave: false, shift: 'General (08:00 - 17:00)', phone: '0822-2817-6185', defaultPlate: 'L 1005 DBU', simType: 'SIM A' },
+      { id: 'DRV-005', name: 'SAHARI', onLeave: false, shift: 'Pagi (07:00 - 15:00)', phone: '0895-3374-11921', defaultPlate: 'W 1458 NE', simType: 'SIM A' },
+      { id: 'DRV-006', name: 'ICHSAN', onLeave: false, shift: 'Pagi (07:00 - 15:00)', phone: '0822-3285-8300', defaultPlate: 'L 1508 DBR', simType: 'SIM A' },
+      { id: 'DRV-007', name: 'KARYADI', onLeave: false, shift: 'Siang (15:00 - 23:00)', phone: '0895-3962-74446', defaultPlate: 'L 1910 DAS', simType: 'SIM A' },
+      { id: 'DRV-008', name: 'INDRA', onLeave: false, shift: 'Siang (15:00 - 23:00)', phone: '0821-3175-7218', defaultPlate: 'W 1459 NE', simType: 'SIM A' },
     ],
     vehicles: [
-      { plate: 'B 1824 KQA', type: 'Toyota Innova', status: 'Active', category: 'Mobil Operasional', capacity: 7 },
-      { plate: 'B 2901 TSI', type: 'Toyota Avanza', status: 'Active', category: 'Mobil Operasional', capacity: 6 },
-      { plate: 'B 1742 ULM', type: 'Mitsubishi Xpander', status: 'Active', category: 'Mobil Expat', capacity: 7 },
-      { plate: 'B 2188 PRT', type: 'Toyota HiAce', status: 'Active', category: 'Mobil Sewa', capacity: 14 },
+      { plate: 'W 1318 TI', type: 'INNOVA ZENIX HITAM', status: 'Active', category: 'Mobil Expat', capacity: 7 },
+      { plate: 'W 1156 QY', type: 'INNOVA REBORN SILVER', status: 'Active', category: 'Mobil Expat', capacity: 7 },
+      { plate: 'W 1460 NE', type: 'INNOVA REBORN HITAM', status: 'Active', category: 'Mobil Expat', capacity: 7 },
+      { plate: 'L 1005 DBU', type: 'INNOVA ZENIX HITAM', status: 'Active', category: 'Mobil Expat', capacity: 7 },
+      { plate: 'W 1458 NE', type: 'AVANZA PUTIH', status: 'Active', category: 'Mobil Operasional', capacity: 7 },
+      { plate: 'L 1508 DBR', type: 'AVANZA PUTIH', status: 'Active', category: 'Mobil Operasional', capacity: 7 },
+      { plate: 'L 1910 DAS', type: 'AVANZA PUTIH', status: 'Active', category: 'Mobil Operasional', capacity: 7 },
+      { plate: 'W 1459 NE', type: 'AVANZA PUTIH', status: 'Active', category: 'Mobil Operasional', capacity: 7 },
     ],
     trips: [],
   }

@@ -1,4 +1,4 @@
-export type Role = 'requester' | 'approver' | 'admin' | 'driver' | 'security' | 'coupon'
+export type Role = 'requester' | 'approver' | 'approver_pool' | 'admin' | 'driver' | 'security' | 'coupon'
 
 export type Account = {
   username: string
@@ -18,7 +18,7 @@ export const DEPARTMENT_APPROVERS: Record<string, string[]> = {
   Engineering: ['Bpk. Ir. Bambang Wicaksono (Manager)', 'Bpk. Satrio Utomo (SSPV)', 'Ibu Maya Anggraini (SPV)'],
   Production: ['Bpk. Agus Santoso (Manager)', 'Bpk. Joko Prayitno (SSPV)', 'Bpk. Tri Wibowo (SPV)'],
   'Quality Control': ['Ibu Ratna Kumala (Manager)', 'Bpk. Dimas Ardiansyah (SSPV)', 'Ibu Fitri Handayani (SPV)'],
-  'HR & GA': ['Bpk. Heru Purnomo (Manager)', 'Ibu Indah Permata (SSPV)', 'Bpk. Doni Kusuma (SPV)'],
+  'HR & GA': ['Bpk. Heru Purnomo (Manager)', 'Ibu Indah Permata (SSPV)', 'Bpk. Doni Kusuma (SPV)', 'Bpk. Hayu Prasetyo (SPV Kendaraan)'],
   Finance: ['Ibu Sri Wahyuni (Manager)', 'Bpk. Eko Prasetyo (SSPV)', 'Ibu Anisa Rahma (SPV)'],
   Maintenance: ['Bpk. Rudi Hartono (Manager)', 'Bpk. Yudi Pratama (SSPV)', 'Bpk. Gunawan (SPV)'],
   Warehouse: ['Bpk. Dedi Supriyadi (Manager)', 'Bpk. Fajar Ramadhan (SSPV)', 'Ibu Citra Lestari (SPV)'],
@@ -28,24 +28,36 @@ export const DEPARTMENTS = Object.keys(DEPARTMENT_APPROVERS)
 
 // Akun demo sistem: Approver login untuk e-sign, Driver login untuk dasbor jadwal pribadi
 export const ACCOUNTS: Account[] = [
-  { username: 'requester1', password: 'req123', name: 'Rina Kartika', nik: 'JAI-2018042', role: 'requester', dept: 'Procurement', title: 'Admin Departemen Procurement' },
-  { username: 'requester2', password: 'req123', name: 'Taufik Hidayat', nik: 'JAI-2019115', role: 'requester', dept: 'Engineering', title: 'Admin Departemen Engineering' },
-  { username: 'approver1', password: 'app123', name: 'Bpk. Ahmad Fauzi (SPV)', nik: 'JAI-2014009', role: 'approver', dept: 'Procurement', title: 'SPV Departemen Procurement' },
-  { username: 'approver2', password: 'app123', name: 'Bpk. Satrio Utomo (SSPV)', nik: 'JAI-2013018', role: 'approver', dept: 'Engineering', title: 'SSPV Departemen Engineering' },
-  { username: 'spv_pool', password: 'spv123', name: 'Bpk. Heru Purnomo (Manager)', nik: 'JAI-2011002', role: 'approver', dept: 'HR & GA', title: 'SPV Kendaraan & Pool GA (Final E-Sign)' },
-  { username: 'driver1', password: 'drv123', name: 'Budi Santoso', nik: 'JAI-DRV001', role: 'driver', driverId: 'd1', title: 'Driver Operasional (Innova B 1824 KQA)' },
-  { username: 'driver2', password: 'drv123', name: 'Agus Pranoto', nik: 'JAI-DRV002', role: 'driver', driverId: 'd2', title: 'Driver Operasional (Avanza B 2901 TSI)' },
-  { username: 'admin', password: 'admin123', name: 'Andi Suryana', nik: 'JAI-2015003', role: 'admin', title: 'Admin Utama (Pool GA)' },
-  { username: 'security', password: 'security123', name: 'Pak Slamet', nik: 'JAI-2016089', role: 'security', title: 'Security Gerbang' },
-  { username: 'kupon', password: 'kupon123', name: 'Siska Wulandari', nik: 'JAI-2020054', role: 'coupon', title: 'Admin Kupon' },
+  // Akun Admin Pool GA
+  { username: 'admin1', password: 'admin123', name: 'Admin Pool GA', role: 'admin', dept: 'PGA', title: 'Admin Pool GA' },
+  // Akun SPV Kendaraan (Approver Tahap 2)
+  { username: 'hayu.p', password: 'spv123', name: 'HAYU PRASETYO', role: 'approver_pool', dept: 'PGA', title: 'SPV Kendaraan (Pool GA)' },
+  // Akun Expat (Requester)
+  { username: 'fujiyoshi', password: 'user123', name: 'FUJIYOSHI', role: 'requester', dept: 'EXPAT', title: 'Expat User' },
+  { username: 'isoda', password: 'user123', name: 'ISODA', role: 'requester', dept: 'EXPAT', title: 'Expat User' },
+  { username: 'kato', password: 'user123', name: 'KATO', role: 'requester', dept: 'EXPAT', title: 'Expat User' },
+  { username: 'tateishi', password: 'user123', name: 'TATEISHI', role: 'requester', dept: 'EXPAT', title: 'Expat User' },
+  // Akun Driver Operasional
+  { username: 'taufik', password: 'drv123', name: 'TAUFIK', role: 'driver', driverId: 'DRV-001', title: 'Driver Innova Zenix W 1318 TI' },
+  { username: 'ghofur', password: 'drv123', name: 'GHOFUR', role: 'driver', driverId: 'DRV-002', title: 'Driver Innova Reborn W 1156 QY' },
+  { username: 'hendro', password: 'drv123', name: 'HENDRO', role: 'driver', driverId: 'DRV-003', title: 'Driver Innova Reborn W 1460 NE' },
+  { username: 'thamrin', password: 'drv123', name: 'THAMRIN', role: 'driver', driverId: 'DRV-004', title: 'Driver Innova Zenix L 1005 DBU' },
+  { username: 'sahari', password: 'drv123', name: 'SAHARI', role: 'driver', driverId: 'DRV-005', title: 'Driver Avanza W 1458 NE' },
+  { username: 'ichsan', password: 'drv123', name: 'ICHSAN', role: 'driver', driverId: 'DRV-006', title: 'Driver Avanza L 1508 DBR' },
+  { username: 'karyadi', password: 'drv123', name: 'KARYADI', role: 'driver', driverId: 'DRV-007', title: 'Driver Avanza L 1910 DAS' },
+  { username: 'indra', password: 'drv123', name: 'INDRA', role: 'driver', driverId: 'DRV-008', title: 'Driver Avanza W 1459 NE' },
+  // Security & Kupon
+  { username: 'security', password: 'security123', name: 'Pak Slamet', role: 'security', title: 'Security Gerbang' },
+  { username: 'kupon', password: 'kupon123', name: 'Siska Wulandari', role: 'coupon', title: 'Admin Kupon' },
 ]
 
 export const ROLE_LABEL: Record<Role, string> = {
-  requester: 'Requester',
-  approver: 'Approver (SPV / Manager)',
+  requester: 'Requester (Pemohon)',
+  approver: 'Approver SPV Departemen (Tahap 1)',
+  approver_pool: 'Approver SPV Kendaraan (Tahap 2)',
   admin: 'Admin Utama (Pool GA)',
   driver: 'Driver (Sopir)',
-  security: 'Security',
+  security: 'Security Gerbang',
   coupon: 'Admin Kupon',
 }
 
@@ -156,7 +168,7 @@ export function updateAccount(originalUsername: string, updates: Partial<Account
 export function deleteAccount(username: string): { success: boolean; message?: string } {
   const cleanUsername = username.trim().toLowerCase()
   // Admin utama tidak boleh dihapus
-  if (cleanUsername === 'admin') {
+  if (cleanUsername === 'admin' || cleanUsername === 'admin1') {
     return { success: false, message: 'Akun Admin Utama tidak boleh dihapus!' }
   }
 

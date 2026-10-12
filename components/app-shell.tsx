@@ -36,6 +36,10 @@ const NAV: Record<Role, NavItem[]> = {
     { id: 'approvals', label: 'Inbox Persetujuan (E-Sign)', icon: Inbox },
     { id: 'dashboard', label: 'Dashboard Armada', icon: LayoutDashboard },
   ],
+  approver_pool: [
+    { id: 'approvals', label: 'Inbox Approval SPV Kendaraan', icon: Inbox },
+    { id: 'dashboard', label: 'Dashboard Armada', icon: LayoutDashboard },
+  ],
   admin: [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'scheduling', label: 'Waiting List & Jadwal', icon: ListChecks },
@@ -69,8 +73,8 @@ const NAV: Record<Role, NavItem[]> = {
 
 function Badge({ role, id, user }: { role: Role; id: string; user?: Account }) {
   const { db } = useStore()
-  if (role === 'approver' && id === 'approvals') {
-    const isPoolSpv = user?.username === 'spv_pool' || user?.dept === 'HR & GA'
+  if ((role === 'approver' || role === 'approver_pool') && id === 'approvals') {
+    const isPoolSpv = role === 'approver_pool' || user?.username === 'spv_pool' || user?.dept === 'HR & GA'
     const pending = db.trips.filter((t) => {
       if (isPoolSpv) return t.status === 'WAITING_POOL_SPV' || (t.status === 'WAITING_SPV' && t.dept === user?.dept)
       return t.dept === user?.dept && t.status === 'WAITING_SPV'
@@ -91,14 +95,15 @@ function Shell({ user, onLogout }: { user: Account; onLogout: () => void }) {
   const [currentUser, setCurrentUser] = useState<Account>(user)
   const [profileModalOpen, setProfileModalOpen] = useState(false)
   const nav = NAV[currentUser.role] || NAV.requester
-  const [page, setPage] = useState(currentUser.role === 'approver' ? 'approvals' : 'dashboard')
+  const isApproverRole = currentUser.role === 'approver' || currentUser.role === 'approver_pool'
+  const [page, setPage] = useState(isApproverRole ? 'approvals' : 'dashboard')
   const [open, setOpen] = useState(false)
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     setCurrentUser(user)
-    if (user.role === 'approver') setPage('approvals')
+    if (user.role === 'approver' || user.role === 'approver_pool') setPage('approvals')
   }, [user])
 
   useEffect(() => {
