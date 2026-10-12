@@ -152,35 +152,7 @@ function seed(): DB {
       { plate: 'B 1742 ULM', type: 'Mitsubishi Xpander', status: 'Active', category: 'Mobil Expat', capacity: 7 },
       { plate: 'B 2188 PRT', type: 'Toyota HiAce', status: 'Active', category: 'Mobil Sewa', capacity: 14 },
     ],
-    trips: ([
-      done('T-1001', 0, 'requester1', 'Rina Kartika', 'Procurement', 'Rina Kartika', 'Kawasan Industri MM2100, Cikarang', 'Meeting vendor', 'd1', 'B 1824 KQA', [7, 40], [12, 35], 32.5, 50),
-      done('T-1002', 0, 'requester2', 'Taufik Hidayat', 'Engineering', 'Taufik Hidayat', 'Cikarang Dry Port', 'Pengecekan kargo', 'd2', 'B 2901 TSI', [8, 15], [11, 20], 18.2, 35),
-      {
-        ...base, id: 'T-1003', date: day(0), requesterUser: 'requester1', requesterName: 'Rina Kartika', dept: 'Procurement', category: 'Dinas', guest: 'Mr. Tanaka (Vendor)',
-        destination: 'Bandara Soekarno-Hatta', purpose: 'Jemput tamu vendor', estDeparture: '08:45', status: 'ON_TRIP', spvName: 'SPV Procurement', spvAt: at(8, 0),
-        driverId: 'd3', plate: 'B 1742 ULM', timeGo: at(8, 50), securityGo: 'security',
-        distance_km: 68.4, estimated_duration_minutes: 85,
-      },
-      {
-        ...base, id: 'T-1004', date: day(0), requesterUser: 'requester2', requesterName: 'Taufik Hidayat', dept: 'Engineering', category: 'Non-Dinas', guest: 'Taufik Hidayat',
-        destination: 'Summarecon Bekasi', purpose: 'Keperluan pribadi (disetujui)', estDeparture: '14:00', status: 'READY', spvName: 'SPV Engineering', spvAt: at(9, 0),
-        driverId: 'd2', plate: 'B 2901 TSI',
-        distance_km: 24.1, estimated_duration_minutes: 40,
-      },
-      {
-        ...base, id: 'T-1005', date: day(0), requesterUser: 'requester1', requesterName: 'Rina Kartika', dept: 'Procurement', category: 'Dinas', guest: 'Nadia Putri',
-        destination: 'Bekasi Barat', purpose: 'Urusan bank', estDeparture: '15:00', status: 'WAITING_ASSIGN', spvName: 'SPV Procurement', spvAt: at(9, 30),
-        distance_km: 19.8, estimated_duration_minutes: 32,
-      },
-      {
-        ...base, id: 'T-1006', date: day(0), requesterUser: 'requester2', requesterName: 'Taufik Hidayat', dept: 'Engineering', category: 'Dinas', guest: 'Yoga Prasetyo',
-        destination: 'Kantor Pusat Jakarta', purpose: 'Presentasi proyek', estDeparture: '16:00', status: 'WAITING_SPV', spvName: 'SPV Engineering',
-        distance_km: 42.0, estimated_duration_minutes: 65,
-      },
-      done('T-0901', 1, 'requester2', 'Taufik Hidayat', 'Engineering', 'Taufik Hidayat', 'Karawang Barat', 'Audit supplier', 'd1', 'B 1824 KQA', [8, 0], [13, 5], 45.0, 60, 'PR_PENDING'),
-      done('T-0902', 2, 'requester1', 'Rina Kartika', 'Procurement', 'Rina Kartika', 'Tanjung Priok', 'Customs clearance', 'd2', 'B 2901 TSI', [8, 30], [14, 10], 55.3, 75, 'PAID'),
-      done('T-0903', 2, 'requester2', 'Taufik Hidayat', 'Engineering', 'Taufik Hidayat', 'Cibitung', 'Survey lokasi', 'd3', 'B 1742 ULM', [7, 45], [11, 0], 15.6, 28),
-    ] as Trip[]).map((t) => (t.id === 'T-0902' ? { ...t, claimedAt: at(15, 0, 2), paidAt: at(16, 0, 2), paidBy: 'Siska Wulandari', prNumber: 'PR-2026-0881', prCreatedAt: at(15, 30, 2) } : t)),
+    trips: [],
   }
 }
 
@@ -258,7 +230,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const raw = window.localStorage.getItem(KEY)
     let initial: DB = raw ? (JSON.parse(raw) as DB) : seed()
-    // ensure vehicles have status
     if (initial.vehicles && initial.vehicles.some((v) => !v.status)) {
       initial = {
         ...initial,
@@ -268,6 +239,26 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (!raw) window.localStorage.setItem(KEY, JSON.stringify(initial))
     setDb(initial)
     setReady(true)
+
+    // Sync data langsung dari Supabase saat online
+    import('./sync').then(async ({ fetchTripsFromSupabase, fetchVehiclesFromSupabase, fetchDriversFromSupabase }) => {
+      const [remoteTrips, remoteVehicles, remoteDrivers] = await Promise.all([
+        fetchTripsFromSupabase(),
+        fetchVehiclesFromSupabase(),
+        fetchDriversFromSupabase(),
+      ])
+
+      setDb((prev) => {
+        const next: DB = {
+          trips: remoteTrips != null ? remoteTrips : prev.trips,
+          vehicles: remoteVehicles && remoteVehicles.length > 0 ? remoteVehicles : prev.vehicles,
+          drivers: remoteDrivers && remoteDrivers.length > 0 ? remoteDrivers : prev.drivers,
+        }
+        window.localStorage.setItem(KEY, JSON.stringify(next))
+        return next
+      })
+    })
+
     const onStorage = (e: StorageEvent) => {
       if (e.key === KEY && e.newValue) setDb(JSON.parse(e.newValue))
     }
@@ -283,26 +274,39 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     })
   }, [])
   const patch = useCallback((id: string, p: Partial<Trip> | ((t: Trip) => Partial<Trip>)) =>
-    update((d) => ({ ...d, trips: d.trips.map((t) => (t.id === id ? { ...t, ...(typeof p === 'function' ? p(t) : p) } : t)) })), [update])
+    update((d) => {
+      let updatedTrip: Trip | null = null
+      const nextTrips = d.trips.map((t) => {
+        if (t.id === id) {
+          const next = { ...t, ...(typeof p === 'function' ? p(t) : p) }
+          updatedTrip = next
+          return next
+        }
+        return t
+      })
+      if (updatedTrip) {
+        import('./sync').then(({ upsertTripToSupabase }) => upsertTripToSupabase(updatedTrip!))
+      }
+      return { ...d, trips: nextTrips }
+    }), [update])
 
   const value = useMemo<Ctx>(() => ({
     ready, db,
     createTrip: (t) => {
       const id = `T-${Date.now().toString().slice(-6)}`
+      const newTrip: Trip = {
+        ...t,
+        id,
+        date: ymd(),
+        status: 'WAITING_SPV',
+        spvName: t.spvName || `SPV ${t.dept}`,
+        coupon: t.driverOnly ? 'VOID' : 'NONE',
+      }
       update((d) => ({
         ...d,
-        trips: [
-          ...d.trips,
-          {
-            ...t,
-            id,
-            date: ymd(),
-            status: 'WAITING_SPV',
-            spvName: t.spvName || `SPV ${t.dept}`,
-            coupon: t.driverOnly ? 'VOID' : 'NONE',
-          },
-        ],
+        trips: [...d.trips, newTrip],
       }))
+      import('./sync').then(({ upsertTripToSupabase }) => upsertTripToSupabase(newTrip))
       return id
     },
     // Direct Booking oleh Admin Utama via drag-to-book di kalender
@@ -314,42 +318,42 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const blockedDefault = isUsingOtherCar && assignedDriver?.defaultPlate ? assignedDriver.defaultPlate : undefined
       const blockedText = blockedDefault ? `Driver sedang ${params.adminNote || params.purpose}` : undefined
 
+      const newTrip: Trip = {
+        id,
+        date: params.date,
+        requesterUser: 'admin',
+        requesterName: params.requesterName || 'Admin Utama (Pool GA)',
+        requesterNik: params.requesterNik,
+        dept: params.dept || 'HR & GA',
+        category: params.category || 'Dinas',
+        guest: params.driverOnly ? `Hanya Driver (Operasional Logistik)` : params.guest,
+        destination: params.destination,
+        destinations: params.destinations,
+        purpose: params.purpose,
+        estDeparture: params.estDeparture,
+        estReturn: params.estReturn,
+        distance_km: params.distance_km,
+        estimated_duration_minutes: params.estimated_duration_minutes,
+        passengers: params.passengers,
+        status: 'WAITING_POOL_SPV', // Masuk tahap 2 approval SPV Kendaraan
+        spvName: params.approvedBy || 'Admin Utama (Direct Booking)',
+        spvAt: new Date().toISOString(),
+        adminNote: params.adminNote,
+        driverId: params.driverId,
+        plate: params.plate,
+        driverOnly: params.driverOnly,
+        isOtherVehicle: params.isOtherVehicle,
+        otherVehicleName: params.otherVehicleName,
+        blockedDefaultPlate: blockedDefault,
+        blockedReason: blockedText,
+        coupon: params.driverOnly ? 'VOID' : 'NONE',
+      }
+
       update((d) => ({
         ...d,
-        trips: [
-          ...d.trips,
-          {
-            id,
-            date: params.date,
-            requesterUser: 'admin',
-            requesterName: params.requesterName || 'Admin Utama (Pool GA)',
-            requesterNik: params.requesterNik,
-            dept: params.dept || 'HR & GA',
-            category: params.category || 'Dinas',
-            guest: params.driverOnly ? `Hanya Driver (Operasional Logistik)` : params.guest,
-            destination: params.destination,
-            destinations: params.destinations,
-            purpose: params.purpose,
-            estDeparture: params.estDeparture,
-            estReturn: params.estReturn,
-            distance_km: params.distance_km,
-            estimated_duration_minutes: params.estimated_duration_minutes,
-            passengers: params.passengers,
-            status: 'WAITING_POOL_SPV', // Masuk tahap 2 approval SPV Kendaraan
-            spvName: params.approvedBy || 'Admin Utama (Direct Booking)',
-            spvAt: new Date().toISOString(),
-            adminNote: params.adminNote,
-            driverId: params.driverId,
-            plate: params.plate,
-            driverOnly: params.driverOnly,
-            isOtherVehicle: params.isOtherVehicle,
-            otherVehicleName: params.otherVehicleName,
-            blockedDefaultPlate: blockedDefault,
-            blockedReason: blockedText,
-            coupon: params.driverOnly ? 'VOID' : 'NONE',
-          },
-        ],
+        trips: [...d.trips, newTrip],
       }))
+      import('./sync').then(({ upsertTripToSupabase }) => upsertTripToSupabase(newTrip))
       return id
     },
     // Tahap 1: SPV Departemen ACC -> Masuk ke antrean Admin (WAITING_ASSIGN)
@@ -420,16 +424,71 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }),
     addDriver: (d) => {
       const id = `d-${Date.now().toString().slice(-5)}`
-      update((prev) => ({ ...prev, drivers: [...prev.drivers, { ...d, id, onLeave: false }] }))
+      const newDriver: Driver = { ...d, id, onLeave: false }
+      update((prev) => ({ ...prev, drivers: [...prev.drivers, newDriver] }))
+      import('./sync').then(({ upsertDriverToSupabase }) => upsertDriverToSupabase(newDriver))
     },
     updateDriver: (id, p) =>
-      update((prev) => ({ ...prev, drivers: prev.drivers.map((x) => (x.id === id ? { ...x, ...p } : x)) })),
-    removeDriver: (id) =>
-      update((prev) => ({ ...prev, drivers: prev.drivers.filter((x) => x.id !== id) })),
-    toggleLeave: (driverId) => update((d) => ({ ...d, drivers: d.drivers.map((x) => (x.id === driverId ? { ...x, onLeave: !x.onLeave } : x)) })),
-    addVehicle: (v) => update((prev) => ({ ...prev, vehicles: [...prev.vehicles, { ...v, status: v.status || 'Active' }] })),
-    updateVehicle: (plate, p) => update((prev) => ({ ...prev, vehicles: prev.vehicles.map((v) => (v.plate === plate ? { ...v, ...p } : v)) })),
-    removeVehicle: (plate) => update((prev) => ({ ...prev, vehicles: prev.vehicles.filter((v) => v.plate !== plate) })),
+      update((prev) => {
+        let updated: Driver | null = null
+        const next = prev.drivers.map((x) => {
+          if (x.id === id) {
+            const n = { ...x, ...p }
+            updated = n
+            return n
+          }
+          return x
+        })
+        if (updated) {
+          import('./sync').then(({ upsertDriverToSupabase }) => upsertDriverToSupabase(updated!))
+        }
+        return { ...prev, drivers: next }
+      }),
+    removeDriver: (id) => {
+      update((prev) => ({ ...prev, drivers: prev.drivers.filter((x) => x.id !== id) }))
+      import('./sync').then(({ deleteDriverFromSupabase }) => deleteDriverFromSupabase(id))
+    },
+    toggleLeave: (driverId) =>
+      update((d) => {
+        let updated: Driver | null = null
+        const next = d.drivers.map((x) => {
+          if (x.id === driverId) {
+            const n = { ...x, onLeave: !x.onLeave }
+            updated = n
+            return n
+          }
+          return x
+        })
+        if (updated) {
+          import('./sync').then(({ upsertDriverToSupabase }) => upsertDriverToSupabase(updated!))
+        }
+        return { ...d, drivers: next }
+      }),
+    addVehicle: (v) => {
+      const newVehicle: Vehicle = { ...v, status: v.status || 'Active' }
+      update((prev) => ({ ...prev, vehicles: [...prev.vehicles, newVehicle] }))
+      import('./sync').then(({ upsertVehicleToSupabase }) => upsertVehicleToSupabase(newVehicle))
+    },
+    updateVehicle: (plate, p) =>
+      update((prev) => {
+        let updated: Vehicle | null = null
+        const next = prev.vehicles.map((v) => {
+          if (v.plate === plate) {
+            const n = { ...v, ...p }
+            updated = n
+            return n
+          }
+          return v
+        })
+        if (updated) {
+          import('./sync').then(({ upsertVehicleToSupabase }) => upsertVehicleToSupabase(updated!))
+        }
+        return { ...prev, vehicles: next }
+      }),
+    removeVehicle: (plate) => {
+      update((prev) => ({ ...prev, vehicles: prev.vehicles.filter((v) => v.plate !== plate) }))
+      import('./sync').then(({ deleteVehicleFromSupabase }) => deleteVehicleFromSupabase(plate))
+    },
     resetDemo: () => update(() => seed()),
   }), [ready, db, update, patch])
 

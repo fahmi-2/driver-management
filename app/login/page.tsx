@@ -1,10 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowRight, CheckCircle2, Eye, EyeOff, Loader2, Lock, ShieldCheck, User } from 'lucide-react'
 import { YazakiBadge } from '@/components/yazaki-logo'
-import { ACCOUNTS, ROLE_LABEL, findAccount, setSession, type Account } from '@/lib/accounts'
+import { ROLE_LABEL, findAccount, getAllAccounts, setSession, type Account } from '@/lib/accounts'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -19,6 +19,11 @@ export default function LoginPage() {
   const [isSuccess, setIsSuccess] = useState(false)
   const [loggedInUser, setLoggedInUser] = useState<Account | null>(null)
   const [progress, setProgress] = useState(0)
+  const [accountsList, setAccountsList] = useState<Account[]>([])
+
+  useEffect(() => {
+    setAccountsList(getAllAccounts())
+  }, [])
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -132,7 +137,7 @@ export default function LoginPage() {
               </div>
 
               <div className="flex flex-wrap justify-center gap-1.5">
-                {ACCOUNTS.map((a) => (
+                {(accountsList.length ? accountsList : []).map((a) => (
                   <button
                     type="button"
                     key={a.username}
