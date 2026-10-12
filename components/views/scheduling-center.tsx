@@ -549,7 +549,7 @@ export function AdminSchedulingCenter({ user }: { user: Account }) {
 
             <form onSubmit={handleConfirmSchedule} className="p-6 space-y-4">
               {/* Scheduled Summary Box */}
-              <div className="rounded-xl border border-[#bbf7d0] bg-[#f0fdf4] p-4 text-xs space-y-2">
+              <div className="rounded-xl border border-[#bbf7d0] bg-[#f0fdf4] p-4 text-xs space-y-3">
                 <div className="flex justify-between items-center text-[#166534] font-semibold border-b border-[#dcfce7] pb-1.5">
                   <span>Hasil Seleksi Timeline:</span>
                   <span className="font-mono font-bold">{confirmModalData.selection.date}</span>
@@ -557,21 +557,59 @@ export function AdminSchedulingCenter({ user }: { user: Account }) {
                 <div className="grid grid-cols-2 gap-2 text-[11px] text-[#15803d]">
                   <div>
                     <span className="text-[#86efac]">Armada:</span>
-                    <p className="font-bold text-[#14532d] text-sm">
+                    <p className="font-bold text-[#14532d] text-sm font-mono">
                       {confirmModalData.selection.selectedVehiclePlate}
                     </p>
                   </div>
                   <div>
-                    <span className="text-[#86efac]">Jam Operasional:</span>
-                    <p className="font-bold text-[#14532d] text-sm">
-                      {confirmModalData.selection.startTime} – {confirmModalData.selection.endTime} WIB
-                    </p>
-                  </div>
-                  <div className="col-span-2">
                     <span className="text-[#86efac]">Tujuan & Tamu:</span>
-                    <p className="font-semibold text-[#14532d]">
+                    <p className="font-semibold text-[#14532d] truncate">
                       {confirmModalData.trip.destination} ({confirmModalData.trip.guest})
                     </p>
+                  </div>
+                </div>
+
+                {/* Edit Jam Operasional Presisi */}
+                <div className="grid grid-cols-2 gap-2.5 pt-2 border-t border-[#dcfce7]">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-[#166534] mb-1">
+                      Jam Berangkat / Mulai
+                    </label>
+                    <input
+                      type="time"
+                      value={confirmModalData.selection.startTime}
+                      onChange={(e) =>
+                        setConfirmModalData({
+                          ...confirmModalData,
+                          selection: {
+                            ...confirmModalData.selection,
+                            startTime: e.target.value,
+                          },
+                        })
+                      }
+                      className="w-full rounded-xl border border-[#bbf7d0] bg-white p-2 text-xs font-mono font-bold text-[#14532d] outline-none focus:border-[#075b3d]"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-[#166534] mb-1">
+                      Jam Kembali / Selesai
+                    </label>
+                    <input
+                      type="time"
+                      value={confirmModalData.selection.endTime}
+                      onChange={(e) =>
+                        setConfirmModalData({
+                          ...confirmModalData,
+                          selection: {
+                            ...confirmModalData.selection,
+                            endTime: e.target.value,
+                          },
+                        })
+                      }
+                      className="w-full rounded-xl border border-[#bbf7d0] bg-white p-2 text-xs font-mono font-bold text-[#14532d] outline-none focus:border-[#075b3d]"
+                      required
+                    />
                   </div>
                 </div>
               </div>
@@ -663,17 +701,56 @@ export function AdminSchedulingCenter({ user }: { user: Account }) {
 
             {/* Modal Scrollable Form Body */}
             <form onSubmit={handleDirectBookingSubmit} className="p-6 space-y-4.5 overflow-y-auto flex-1">
-              {/* Slot Terpilih Banner */}
-              <div className="rounded-xl border border-emerald-500/30 bg-emerald-950/40 p-3.5 text-xs space-y-1.5">
-                <div className="flex justify-between items-center font-semibold text-emerald-300">
-                  <span className="flex items-center gap-1.5"><CalendarDays size={13} /> Tanggal & Jam Kalender:</span>
-                  <span className="font-mono text-white bg-black/40 px-2 py-0.5 rounded border border-white/10">
-                    {directBookingData.selection.date} • {directBookingData.selection.startTime} – {directBookingData.selection.endTime} WIB
-                  </span>
-                </div>
+              {/* Slot Terpilih & Pengaturan Jam Presisi */}
+              <div className="rounded-xl border border-emerald-500/30 bg-emerald-950/40 p-3.5 text-xs space-y-3">
                 <div className="flex justify-between items-center text-[11px] text-[#8fa99b]">
-                  <span>Armada Baris: <strong className="text-emerald-400 font-mono">{directBookingData.selection.selectedVehiclePlate}</strong></span>
-                  <span>Kapasitas Kursi: <strong>{maxVehicleCapacity} Orang</strong></span>
+                  <span className="flex items-center gap-1.5 text-emerald-300 font-semibold">
+                    <CalendarDays size={13} /> Tanggal: <strong className="text-white font-mono">{directBookingData.selection.date}</strong>
+                  </span>
+                  <span>Armada Baris: <strong className="text-emerald-400 font-mono">{directBookingData.selection.selectedVehiclePlate}</strong> ({maxVehicleCapacity} Kursi)</span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 pt-2 border-t border-white/10">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-[#8fa99b] mb-1">
+                      Jam Berangkat / Mulai <span className="text-[#a3e635]">*</span>
+                    </label>
+                    <input
+                      type="time"
+                      value={directBookingData.selection.startTime}
+                      onChange={(e) =>
+                        setDirectBookingData({
+                          ...directBookingData,
+                          selection: {
+                            ...directBookingData.selection,
+                            startTime: e.target.value,
+                          },
+                        })
+                      }
+                      className={`${inputCls} bg-black/50 font-mono`}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-[#8fa99b] mb-1">
+                      Jam Kembali / Selesai <span className="text-[#a3e635]">*</span>
+                    </label>
+                    <input
+                      type="time"
+                      value={directBookingData.selection.endTime}
+                      onChange={(e) =>
+                        setDirectBookingData({
+                          ...directBookingData,
+                          selection: {
+                            ...directBookingData.selection,
+                            endTime: e.target.value,
+                          },
+                        })
+                      }
+                      className={`${inputCls} bg-black/50 font-mono`}
+                      required
+                    />
+                  </div>
                 </div>
               </div>
 

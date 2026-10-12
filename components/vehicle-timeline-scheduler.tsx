@@ -341,8 +341,11 @@ export function VehicleTimelineScheduler({
 
     if (viewMode === 'daily') {
       startTime = `${String(minUnit).padStart(2, '0')}:00`
+      // Setiap kolom berlabel "HH:00" adalah rentang 1 jam penuh dari HH:00 hingga (HH+1):00.
+      // - Klik 1 kolom (misal kolom 01:00) => durasi 1 jam: 01:00 s/d 02:00.
+      // - Drag dari kolom 01:00 s/d kolom 02:00 => mencakup jam 01:00 s/d 03:00 (seluruh slot jam 02 dilewati).
       const endHour = Math.min(24, maxUnit + 1)
-      endTime = endHour === 24 ? '23:59' : `${String(endHour).padStart(2, '0')}:00`
+      endTime = endHour >= 24 ? '23:59' : `${String(endHour).padStart(2, '0')}:00`
     } else if (viewMode === 'weekly') {
       targetDate = weeklyColumns[minUnit]?.date || currentDate
       startTime = selectedPendingTrip?.estDeparture || '08:00'
@@ -365,13 +368,91 @@ export function VehicleTimelineScheduler({
     }
   }, [currentDate, dragState, monthlyColumns, onTimeSelect, selectedPendingTrip?.estDeparture, viewMode, weeklyColumns])
 
-  useEffect(() => {
-    const handleGlobalMouseUp = () => {
-      if (dragState.isDragging) handleMouseUp()
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const autoScrollAnimationRef = useRef<number | null>(null)
+  const lastMousePosRef = useRef<{ clientX: number; clientY: number } | null>(null)
+
+  // Auto-scroll logic saat dragging
+  const updateUnitFromPoint = useCallback((clientX: number, clientY: number) => {
+    if (!dragState.vehiclePlate) return
+    const el = document.elementFromPoint(clientX, clientY)
+    if (!el) return
+    const cellEl = el.closest('[data-timeline-unit-index]') as HTMLElement | null
+    if (cellEl && cellEl.dataset.plate === dragState.vehiclePlate) {
+      const uIdx = parseInt(cellEl.dataset.timelineUnitIndex || '-1', 10)
+      if (uIdx >= 0) {
+        setDragState((prev) => {
+          if (prev.currentUnit === uIdx) return prev
+          return { ...prev, currentUnit: uIdx }
+        })
+      }
     }
+  }, [dragState.vehiclePlate])
+
+  useEffect(() => {
+    if (!dragState.isDragging) {
+      if (autoScrollAnimationRef.current) {
+        cancelAnimationFrame(autoScrollAnimationRef.current)
+        autoScrollAnimationRef.current = null
+      }
+      return
+    }
+
+    const checkAutoScroll = () => {
+      const container = scrollContainerRef.current
+      const mouse = lastMousePosRef.current
+
+      if (container && mouse) {
+        const rect = container.getBoundingClientRect()
+        // Sticky vehicle column width is 220px
+        const leftZone = rect.left + 220 + 60
+        const rightZone = rect.right - 60
+
+        let scrollSpeed = 0
+
+        if (mouse.clientX > rightZone && mouse.clientX <= rect.right + 100) {
+          // Scroll ke kanan
+          const distance = Math.max(1, mouse.clientX - rightZone)
+          scrollSpeed = Math.min(22, Math.round(distance / 2.5) + 3)
+        } else if (mouse.clientX < leftZone && mouse.clientX >= rect.left + 180) {
+          // Scroll ke kiri
+          const distance = Math.max(1, leftZone - mouse.clientX)
+          scrollSpeed = -Math.min(22, Math.round(distance / 2.5) + 3)
+        }
+
+        if (scrollSpeed !== 0) {
+          container.scrollLeft += scrollSpeed
+          // Update unit di bawah pointer setelah scroll berubah
+          updateUnitFromPoint(mouse.clientX, mouse.clientY)
+        }
+      }
+
+      autoScrollAnimationRef.current = requestAnimationFrame(checkAutoScroll)
+    }
+
+    autoScrollAnimationRef.current = requestAnimationFrame(checkAutoScroll)
+
+    const handleGlobalMouseMove = (e: MouseEvent) => {
+      lastMousePosRef.current = { clientX: e.clientX, clientY: e.clientY }
+      updateUnitFromPoint(e.clientX, e.clientY)
+    }
+
+    const handleGlobalMouseUp = () => {
+      handleMouseUp()
+    }
+
+    window.addEventListener('mousemove', handleGlobalMouseMove)
     window.addEventListener('mouseup', handleGlobalMouseUp)
-    return () => window.removeEventListener('mouseup', handleGlobalMouseUp)
-  }, [dragState.isDragging, handleMouseUp])
+
+    return () => {
+      if (autoScrollAnimationRef.current) {
+        cancelAnimationFrame(autoScrollAnimationRef.current)
+        autoScrollAnimationRef.current = null
+      }
+      window.removeEventListener('mousemove', handleGlobalMouseMove)
+      window.removeEventListener('mouseup', handleGlobalMouseUp)
+    }
+  }, [dragState.isDragging, handleMouseUp, updateUnitFromPoint])
 
   // Navigation handlers
   const navigateTimeline = (offset: number) => {
@@ -524,12 +605,12 @@ export function VehicleTimelineScheduler({
 
       {/* Grid Container with Frozen Vehicle Column & Scrollable Time Axis */}
       <div className="mt-4 overflow-hidden rounded-xl border border-[#edf1ee]" ref={gridRef}>
-        <div className="overflow-x-auto pb-1">
+        <div className="overflow-x-auto pb-1" ref={scrollContainerRef}>
           <div className="min-w-max">
             {/* Header Row: Frozen Resources Header (Sticky Left) + Scrollable Time Axis */}
             <div className="flex border-b border-[#edf1ee] bg-[#f8faf9] text-[11px] font-bold text-[#62736b]">
               {/* Sticky Frozen Vehicle Column Header */}
-              <div className="sticky left-0 z-30 flex w-[210px] shrink-0 items-center gap-2 border-r border-[#edf1ee] bg-[#f8faf9] py-3 pl-3 pr-2 text-xs uppercase tracking-wider text-[#9aa7a0] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.06)]">
+              <div className="sticky left-0 z-30 flex w-[220px] shrink-0 items-center gap-2 border-r border-[#edf1ee] bg-[#f8faf9] py-3 pl-3 pr-2 text-xs uppercase tracking-wider text-[#9aa7a0] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.06)]">
                 <Truck size={14} className="text-[#075b3d]" />
                 Kendaraan ({visibleVehicles.length})
               </div>
@@ -540,9 +621,11 @@ export function VehicleTimelineScheduler({
                   dailyColumns.map((col) => (
                     <div
                       key={col.index}
-                      className="w-16 shrink-0 text-center font-mono text-[10px] text-[#718279] border-l border-[#edf1ee] py-3 first:border-l-0"
+                      className={`w-16 shrink-0 text-center font-mono text-[10px] text-[#718279] border-l border-[#edf1ee] py-3 first:border-l-0 ${
+                        col.index % 2 === 0 ? 'bg-[#f8faf9]' : 'bg-[#eef3f0]/70'
+                      }`}
                     >
-                      <span className={col.index % 2 === 0 ? 'font-bold text-[#1a382c]' : 'text-[#87968e]'}>
+                      <span className={col.index % 2 === 0 ? 'font-bold text-[#1a382c]' : 'font-semibold text-[#516359]'}>
                         {col.label}
                       </span>
                     </div>
@@ -553,7 +636,11 @@ export function VehicleTimelineScheduler({
                     <div
                       key={col.index}
                       className={`w-36 shrink-0 text-center text-[10px] border-l border-[#edf1ee] py-2.5 first:border-l-0 ${
-                        col.isToday ? 'bg-[#eef8f3] font-bold text-[#075b3d]' : 'text-[#62736b]'
+                        col.isToday
+                          ? 'bg-[#eef8f3] font-bold text-[#075b3d]'
+                          : col.index % 2 === 0
+                          ? 'bg-[#f8faf9] text-[#62736b]'
+                          : 'bg-[#eef3f0]/70 text-[#62736b]'
                       }`}
                     >
                       <div>{col.label}</div>
@@ -565,7 +652,11 @@ export function VehicleTimelineScheduler({
                     <div
                       key={col.index}
                       className={`w-12 shrink-0 text-center text-[10px] border-l border-[#edf1ee] py-2 first:border-l-0 ${
-                        col.isToday ? 'bg-[#eef8f3] font-bold text-[#075b3d]' : 'text-[#62736b]'
+                        col.isToday
+                          ? 'bg-[#eef8f3] font-bold text-[#075b3d]'
+                          : col.index % 2 === 0
+                          ? 'bg-[#f8faf9] text-[#62736b]'
+                          : 'bg-[#eef3f0]/70 text-[#62736b]'
                       }`}
                     >
                       <div className="font-mono">{col.label}</div>
@@ -658,18 +749,22 @@ export function VehicleTimelineScheduler({
                             return (
                               <div
                                 key={unitIdx}
+                                data-timeline-unit-index={unitIdx}
+                                data-plate={v.plate}
                                 style={{ width: `${unitWidthPx}px` }}
                                 onMouseDown={(e) => !isUnderMaintenance && handleUnitMouseDown(v.plate, unitIdx, e)}
                                 onMouseEnter={() => !isUnderMaintenance && handleUnitMouseEnter(v.plate, unitIdx)}
-                                className={`shrink-0 h-full border-l border-[#f1f5f2] first:border-l-0 transition-colors ${
+                                className={`shrink-0 h-full border-l border-[#edf1ee] first:border-l-0 transition-colors ${
+                                  unitIdx % 2 === 0 ? 'bg-white' : 'bg-[#f7faf8]'
+                                } ${
                                   isInteractive && !isUnderMaintenance
                                     ? 'cursor-crosshair'
                                     : 'cursor-default'
                                 } ${
                                   isDragSelected
-                                    ? 'bg-blue-100/70 border-blue-300'
+                                    ? '!bg-blue-100/70 border-blue-300'
                                     : isInteractive && !isUnderMaintenance
-                                    ? 'hover:bg-[#f0f8f3]/60'
+                                    ? 'hover:bg-[#eaf4ee]/70'
                                     : ''
                                 }`}
                               />
@@ -732,21 +827,26 @@ export function VehicleTimelineScheduler({
                         })}
 
                         {/* Drag Selection Overlay Feedback */}
-                        {isVehicleDragging && dragMinUnit !== null && dragMaxUnit !== null && (
-                          <div
-                            style={{
-                              left: `${(dragMinUnit / totalUnits) * 100}%`,
-                              width: `${((dragMaxUnit - dragMinUnit + 1) / totalUnits) * 100}%`,
-                            }}
-                            className="pointer-events-none absolute top-1 bottom-1 z-30 flex items-center justify-center rounded-lg border-2 border-dashed border-[#2563eb] bg-[#dbeafe]/80 text-[#1e40af] shadow-md backdrop-blur-xs transition-all"
-                          >
-                            <span className="text-[10px] font-bold tracking-tight px-1.5 py-0.5 rounded bg-white/90 shadow-xs">
-                              {viewMode === 'daily'
-                                ? `${String(dragMinUnit).padStart(2, '0')}:00 – ${String(dragMaxUnit + 1).padStart(2, '0')}:00`
-                                : `${dragMaxUnit - dragMinUnit + 1} Periode Terpilih`}
-                            </span>
-                          </div>
-                        )}
+                        {isVehicleDragging && dragMinUnit !== null && dragMaxUnit !== null && (() => {
+                          const spanUnits = dragMaxUnit - dragMinUnit + 1
+                          const endUnitDisplay = dragMaxUnit + 1
+
+                          return (
+                            <div
+                              style={{
+                                left: `${(dragMinUnit / totalUnits) * 100}%`,
+                                width: `${(spanUnits / totalUnits) * 100}%`,
+                              }}
+                              className="pointer-events-none absolute top-1 bottom-1 z-30 flex items-center justify-center rounded-lg border-2 border-dashed border-[#2563eb] bg-[#dbeafe]/80 text-[#1e40af] shadow-md backdrop-blur-xs transition-all"
+                            >
+                              <span className="text-[10px] font-bold tracking-tight px-1.5 py-0.5 rounded bg-white/90 shadow-xs whitespace-nowrap">
+                                {viewMode === 'daily'
+                                  ? `${String(dragMinUnit).padStart(2, '0')}:00 – ${String(endUnitDisplay >= 24 ? 24 : endUnitDisplay).padStart(2, '0')}:00`
+                                  : `${spanUnits} Periode Terpilih`}
+                              </span>
+                            </div>
+                          )
+                        })()}
                       </div>
                     </div>
                   )
