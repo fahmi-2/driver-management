@@ -14,7 +14,13 @@ import {
   UserCheck,
   Users,
 } from 'lucide-react'
-import { DEPARTMENTS, DEPARTMENT_APPROVERS, type Account } from '@/lib/accounts'
+import {
+  DEPARTMENTS,
+  DEPARTMENT_APPROVERS,
+  getSectionsByDept,
+  getApproversBySection,
+  type Account,
+} from '@/lib/accounts'
 import {
   COUPON_LABEL,
   STATUS_LABEL,
@@ -53,16 +59,20 @@ export function RequesterForm({ user }: { user: Account }) {
   // Kapasitas maksimum kendaraan dari master fleet (default 7 kursi jika belum diset)
   const maxVehicleCapacity = Math.max(7, ...db.vehicles.map((v) => v.capacity || 7))
 
-  // State departemen pemohon
-  const initialDept = user.dept && DEPARTMENTS.includes(user.dept) ? user.dept : 'Procurement'
-  const initialApprovers = DEPARTMENT_APPROVERS[initialDept] || []
+  // State departemen & section pemohon
+  const initialDept = user.dept && DEPARTMENTS.includes(user.dept) ? user.dept : 'PGA'
+  const availableSections = getSectionsByDept(initialDept)
+  const initialSection = user.section && availableSections.includes(user.section) ? user.section : availableSections[0] || ''
+  const initialApprovers = getApproversBySection(initialDept, initialSection)
 
   const [f, setF] = useState({
     category: 'Dinas' as Category,
     requesterName: user.name || '',
     requesterNik: user.nik || 'JAI-2018042',
     dept: initialDept,
-    approvedBy: initialApprovers[0] || '',
+    section: initialSection,
+    approvedBy: initialApprovers[0]?.name || '',
+    approverEmail: initialApprovers[0]?.email || '',
     driverOnly: false, // Opsi "Hanya Driver" (tanpa penumpang / antar barang)
     additionalUsers: [] as Passenger[], // User tambahan yang bertambah saat klik "+ Tambah"
     destination: '',
@@ -78,11 +88,35 @@ export function RequesterForm({ user }: { user: Account }) {
   const totalUserCount = f.driverOnly ? 0 : 1 + f.additionalUsers.length
 
   const handleDeptChange = (newDept: string) => {
-    const approvers = DEPARTMENT_APPROVERS[newDept] || []
+    const secList = getSectionsByDept(newDept)
+    const newSec = secList[0] || ''
+    const approvers = getApproversBySection(newDept, newSec)
     setF((prev) => ({
       ...prev,
       dept: newDept,
-      approvedBy: approvers[0] || '',
+      section: newSec,
+      approvedBy: approvers[0]?.name || '',
+      approverEmail: approvers[0]?.email || '',
+    }))
+  }
+
+  const handleSectionChange = (newSection: string) => {
+    const approvers = getApproversBySection(f.dept, newSection)
+    setF((prev) => ({
+      ...prev,
+      section: newSection,
+      approvedBy: approvers[0]?.name || '',
+      approverEmail: approvers[0]?.email || '',
+    }))
+  }
+
+  const handleApproverChange = (approverName: string) => {
+    const approvers = getApproversBySection(f.dept, f.section)
+    const match = approvers.find((a) => a.name === approverName)
+    setF((prev) => ({
+      ...prev,
+      approvedBy: approverName,
+      approverEmail: match?.email || '',
     }))
   }
 
@@ -153,7 +187,10 @@ export function RequesterForm({ user }: { user: Account }) {
       guest: guestLabel,
       requesterNik: f.requesterNik.trim(),
       dept: f.dept,
+      section: f.section,
       spvName: f.approvedBy || `Approver (${f.dept})`,
+      spvEmail: f.approverEmail,
+      approverEmail: f.approverEmail,
       passengers: allPassengers,
       driverOnly: f.driverOnly,
       destination: f.destination,
@@ -169,17 +206,19 @@ export function RequesterForm({ user }: { user: Account }) {
 
     notify(
       f.driverOnly
-        ? `Terkirim (Hanya Driver - Hak Kupon Hangus). E-sign dikirim ke ${f.approvedBy}.`
-        : `Terkirim. Pengajuan diajukan ke ${f.approvedBy} (${f.dept}) untuk E-Sign.`
+        ? `Terkirim (Hanya Driver - Kupon Hangus). Email e-sign dikirim ke ${f.approvedBy} (${f.approverEmail}).`
+        : `Terkirim! Email notifikasi persetujuan otomatis dikirim ke ${f.approvedBy} (${f.approverEmail}) dari Section ${f.section || f.dept}.`
     )
 
-    const resetApprovers = DEPARTMENT_APPROVERS[initialDept] || []
+    const resetApprovers = getApproversBySection(initialDept, initialSection)
     setF({
       category: 'Dinas',
       requesterName: user.name || '',
       requesterNik: user.nik || 'JAI-2018042',
       dept: initialDept,
-      approvedBy: resetApprovers[0] || '',
+      section: initialSection,
+      approvedBy: resetApprovers[0]?.name || '',
+      approverEmail: resetApprovers[0]?.email || '',
       driverOnly: false,
       additionalUsers: [],
       destination: '',
@@ -193,7 +232,8 @@ export function RequesterForm({ user }: { user: Account }) {
   }
 
   const mine = db.trips.filter((t) => t.requesterUser === user.username).slice().reverse()
-  const currentApproverList = DEPARTMENT_APPROVERS[f.dept] || []
+  const availableSectionsForDept = getSectionsByDept(f.dept)
+  const currentApprovers = getApproversBySection(f.dept, f.section)
 
   // Sub menu navigasi atas: 'form' (Formulir Permohonan) atau 'history' (Riwayat Pengajuan)
   const [activeTab, setActiveTab] = useState<'form' | 'history'>('form')
@@ -274,15 +314,15 @@ export function RequesterForm({ user }: { user: Account }) {
             <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4 space-y-3.5">
               <div className="flex items-center justify-between">
                 <p className="text-xs font-bold text-white flex items-center gap-1.5">
-                  <User size={14} className="text-[#a3e635]" /> Data Pemohon
+                  <User size={14} className="text-[#a3e635]" /> Data Pemohon & Penerima Persetujuan
                 </p>
                 <span className="rounded-full bg-[#a3e635]/15 border border-[#a3e635]/30 px-2.5 py-0.5 text-[10px] font-bold text-[#bef264]">
                   {totalUserCount} / {maxVehicleCapacity} Orang (Termasuk Pemohon)
                 </span>
               </div>
 
-              {/* Grid 4 Kolom: Nama, NIK, Departemen, Approved By */}
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {/* Grid 5 Kolom: Nama, NIK, Departemen, Section, Approved By */}
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
                 <div>
                   <label className="block text-[11px] font-semibold text-[#8fa99b] mb-1">
                     Nama Pemohon <span className="text-[#a3e635]">*</span>
@@ -329,21 +369,52 @@ export function RequesterForm({ user }: { user: Account }) {
 
                 <div>
                   <label className="block text-[11px] font-semibold text-[#8fa99b] mb-1">
-                    Approved By <span className="text-[#a3e635]">*Otomatis</span>
+                    Section (Bagian) <span className="text-[#a3e635]">*Otomatis</span>
                   </label>
                   <select
-                    value={f.approvedBy}
-                    onChange={(e) => setF({ ...f, approvedBy: e.target.value })}
-                    className={`${inputCls} bg-black/40`}
+                    value={f.section}
+                    onChange={(e) => handleSectionChange(e.target.value)}
+                    className={`${inputCls} bg-black/40 truncate`}
                     required
                   >
-                    {currentApproverList.map((appr) => (
-                      <option key={appr} value={appr} className="bg-[#0f1f17] text-white">
-                        {appr}
+                    {availableSectionsForDept.map((sec) => (
+                      <option key={sec} value={sec} className="bg-[#0f1f17] text-white">
+                        {sec}
                       </option>
                     ))}
                   </select>
                 </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-[#8fa99b] mb-1">
+                    Approved By <span className="text-[#a3e635]">*Tujuan E-Sign</span>
+                  </label>
+                  <select
+                    value={f.approvedBy}
+                    onChange={(e) => handleApproverChange(e.target.value)}
+                    className={`${inputCls} bg-black/40 text-[#bef264] font-semibold truncate`}
+                    required
+                  >
+                    {currentApprovers.map((appr) => (
+                      <option key={appr.name} value={appr.name} className="bg-[#0f1f17] text-white">
+                        {appr.name} ({appr.email})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Banner Info Approver Email Otomatis */}
+              <div className="flex items-center justify-between rounded-xl border border-[#a3e635]/30 bg-[#a3e635]/10 px-3.5 py-2 text-xs">
+                <div className="flex items-center gap-2 text-[#e2f8d8]">
+                  <Mail size={14} className="text-[#a3e635] shrink-0" />
+                  <span>
+                    Email Persetujuan Otomatis: <strong className="text-white underline">{f.approverEmail || 'Approver Section'}</strong>
+                  </span>
+                </div>
+                <span className="hidden sm:inline-block rounded-md bg-[#052e16] px-2 py-0.5 text-[10px] font-extrabold text-[#bef264] border border-[#a3e635]/40">
+                  Section Filter Aktif
+                </span>
               </div>
 
               {/* Opsi "Hanya Driver" (Kirim Barang / Dokumen tanpa penumpang) */}

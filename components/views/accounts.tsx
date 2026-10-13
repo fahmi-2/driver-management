@@ -25,6 +25,7 @@ import {
   ROLE_LABEL,
   DEPARTMENTS,
   getAllAccounts,
+  resetToDefaultAccounts,
   addAccount,
   updateAccount,
   deleteAccount,
@@ -247,13 +248,28 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
             desc="Kelola kredensial akun, ID pengguna, peran, dan reset password. Dilengkapi proteksi verifikasi password Admin."
           />
         </div>
-        <button
-          onClick={openAddModal}
-          className="flex items-center gap-2 rounded-xl bg-[#075b3d] px-4 py-2.5 text-xs font-bold text-white shadow-md shadow-[#075b3d]/20 transition hover:bg-[#064e34] active:scale-[0.98]"
-        >
-          <Plus size={16} />
-          Tambah Akun Baru
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              if (confirm('Sinkronkan seluruh data akun kembali ke data matriks resmi PT. JAI? Akun default akan diperbarui.')) {
+                const refreshed = resetToDefaultAccounts()
+                setAccounts(refreshed)
+                notify('Data akun berhasil disinkronkan ke master matriks resmi PT. JAI!')
+              }
+            }}
+            className="flex items-center gap-2 rounded-xl border border-[#b8cfc2] bg-white px-3.5 py-2.5 text-xs font-bold text-[#075b3d] shadow-xs transition hover:bg-[#eef8f3]"
+          >
+            <ShieldCheck size={16} />
+            Muat Ulang Matriks Resmi
+          </button>
+          <button
+            onClick={openAddModal}
+            className="flex items-center gap-2 rounded-xl bg-[#075b3d] px-4 py-2.5 text-xs font-bold text-white shadow-md shadow-[#075b3d]/20 transition hover:bg-[#064e34] active:scale-[0.98]"
+          >
+            <Plus size={16} />
+            Tambah Akun Baru
+          </button>
+        </div>
       </div>
 
       {/* Stats Summary Cards */}
@@ -268,12 +284,16 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
               onClick={() => setRoleFilter(r)}
               className={`rounded-2xl border p-3 text-left transition-all ${
                 isSelected
-                  ? 'border-[#075b3d] bg-[#f0f8f4] shadow-xs'
-                  : 'border-[#edf1ee] bg-white hover:border-[#b8cfc2]'
+                  ? 'border-[#a3e635] bg-[#a3e635]/15 shadow-sm ring-1 ring-[#a3e635]/30'
+                  : 'border-white/10 bg-black/20 hover:border-[#a3e635]/40 hover:bg-white/5'
               }`}
             >
-              <p className="text-[10px] font-bold uppercase tracking-wider text-[#718279] truncate">{label}</p>
-              <p className="mt-1 text-xl font-extrabold text-[#10251c]">{count}</p>
+              <p className={`text-[10px] font-bold uppercase tracking-wider truncate ${isSelected ? 'text-[#bef264]' : 'text-slate-400'}`}>
+                {label}
+              </p>
+              <p className={`mt-1 text-xl font-extrabold ${isSelected ? 'text-white' : 'text-slate-100'}`}>
+                {count}
+              </p>
             </button>
           )
         })}

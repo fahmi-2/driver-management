@@ -105,10 +105,12 @@ CREATE TABLE accounts (
     username VARCHAR(50) PRIMARY KEY,
     password_hash VARCHAR(255) NOT NULL,
     name VARCHAR(150) NOT NULL,
+    email VARCHAR(150),
     nik VARCHAR(50),
     role user_role NOT NULL,
     dept_id INT REFERENCES departments(id) ON DELETE SET NULL,
     department_name VARCHAR(100),
+    section_name VARCHAR(150),
     driver_id VARCHAR(50) REFERENCES drivers(id) ON DELETE SET NULL,
     title VARCHAR(150) NOT NULL,
     avatar_url TEXT,
@@ -131,6 +133,7 @@ CREATE TABLE trips (
     requester_name VARCHAR(150) NOT NULL,
     requester_nik VARCHAR(50),
     department_name VARCHAR(100) NOT NULL,
+    section_name VARCHAR(150),
     
     -- Lokasi & Estimasi
     destination TEXT NOT NULL,
@@ -154,6 +157,8 @@ CREATE TABLE trips (
     
     -- Approval Tahap 1: SPV / Manager Departemen Pemohon
     spv_name VARCHAR(150),
+    spv_email VARCHAR(150),
+    approver_email VARCHAR(150),
     spv_at TIMESTAMP WITH TIME ZONE,
     spv_note TEXT,
     

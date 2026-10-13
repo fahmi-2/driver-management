@@ -40,6 +40,8 @@ export type Trip = {
   requesterName: string
   requesterNik?: string
   dept: string
+  section?: string
+  approverEmail?: string // Email penerima notifikasi persetujuan (Manager/SSPV)
   category: Category
   guest: string
   destination: string
@@ -57,6 +59,7 @@ export type Trip = {
   estimated_duration_minutes?: number
   status: TripStatus
   spvName: string // Approver SPV Departemen
+  spvEmail?: string
   spvAt?: string
   spvNote?: string
   poolSpvName?: string // Approver Tahap 2: SPV Kendaraan / Pool GA
@@ -167,7 +170,10 @@ function seed(): DB {
 // ---------- context ----------
 type NewTrip = Pick<Trip, 'category' | 'guest' | 'destination' | 'purpose' | 'estDeparture' | 'estReturn' | 'requesterUser' | 'requesterName' | 'dept'> & {
   requesterNik?: string
+  section?: string
   spvName?: string
+  spvEmail?: string
+  approverEmail?: string
   passengers?: Passenger[]
   destinations?: string[]
   driverOnly?: boolean
@@ -190,11 +196,13 @@ type DirectBookingParams = {
   purpose: string
   guest: string
   dept: string
+  section?: string
   adminNote: string
   category?: Category
   requesterName?: string
   requesterNik?: string
   approvedBy?: string
+  approverEmail?: string
   passengers?: Passenger[]
   driverOnly?: boolean
   isOtherVehicle?: boolean
@@ -332,7 +340,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         requesterUser: 'admin',
         requesterName: params.requesterName || 'Admin Utama (Pool GA)',
         requesterNik: params.requesterNik,
-        dept: params.dept || 'HR & GA',
+        dept: params.dept || 'PGA',
+        section: params.section,
+        approverEmail: params.approverEmail,
+        spvEmail: params.approverEmail,
         category: params.category || 'Dinas',
         guest: params.driverOnly ? `Hanya Driver (Operasional Logistik)` : params.guest,
         destination: params.destination,
