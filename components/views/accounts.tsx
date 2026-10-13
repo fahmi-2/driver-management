@@ -26,6 +26,7 @@ import {
   type Role,
   ROLE_LABEL,
   DEPARTMENTS,
+  getSectionsByDept,
   getAllAccounts,
   resetToDefaultAccounts,
   addAccount,
@@ -61,6 +62,7 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
     name: string
     role: Role
     dept: string
+    section: string
     nik: string
     title: string
     driverId: string
@@ -69,7 +71,8 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
     password: '',
     name: '',
     role: 'requester',
-    dept: 'Procurement',
+    dept: 'PGA',
+    section: getSectionsByDept('PGA')[0] || '',
     nik: '',
     title: '',
     driverId: '',
@@ -105,7 +108,8 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
       a.name.toLowerCase().includes(q) ||
       (a.nik && a.nik.toLowerCase().includes(q)) ||
       (a.title && a.title.toLowerCase().includes(q)) ||
-      (a.dept && a.dept.toLowerCase().includes(q))
+      (a.dept && a.dept.toLowerCase().includes(q)) ||
+      (a.section && a.section.toLowerCase().includes(q))
     const matchRole = roleFilter === 'ALL' || a.role === roleFilter
     return matchSearch && matchRole
   })
@@ -117,12 +121,15 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
   // Open Add Modal
   const openAddModal = () => {
     setEditingAccount(null)
+    const defaultDept = DEPARTMENTS[0] || 'PGA'
+    const defaultSecs = getSectionsByDept(defaultDept)
     setFormData({
       username: '',
       password: '',
       name: '',
       role: 'requester',
-      dept: 'Procurement',
+      dept: defaultDept,
+      section: defaultSecs[0] || '',
       nik: '',
       title: '',
       driverId: '',
@@ -134,12 +141,16 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
   // Open Edit Modal
   const openEditModal = (acc: Account) => {
     setEditingAccount(acc)
+    const curDept = acc.dept || DEPARTMENTS[0] || 'PGA'
+    const secList = getSectionsByDept(curDept)
+    const curSection = acc.section && secList.includes(acc.section) ? acc.section : secList[0] || ''
     setFormData({
       username: acc.username,
       password: acc.password,
       name: acc.name,
       role: acc.role,
-      dept: acc.dept || 'Procurement',
+      dept: curDept,
+      section: curSection,
       nik: acc.nik || '',
       title: acc.title || '',
       driverId: acc.driverId || '',
@@ -160,13 +171,15 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
       return
     }
 
+    const isOrgRole = ['requester', 'approver', 'approver_pool'].includes(formData.role)
     if (editingAccount) {
       const res = updateAccount(editingAccount.username, {
         username: cleanUsername,
         password: cleanPassword,
         name: cleanName,
         role: formData.role,
-        dept: ['requester', 'approver', 'approver_pool'].includes(formData.role) ? formData.dept : undefined,
+        dept: isOrgRole ? formData.dept : undefined,
+        section: isOrgRole ? formData.section || undefined : undefined,
         nik: formData.nik.trim() || undefined,
         title: formData.title.trim() || `${ROLE_LABEL[formData.role]} - ${cleanName}`,
         driverId: formData.role === 'driver' ? formData.driverId || undefined : undefined,
@@ -182,7 +195,8 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
         password: cleanPassword,
         name: cleanName,
         role: formData.role,
-        dept: ['requester', 'approver', 'approver_pool'].includes(formData.role) ? formData.dept : undefined,
+        dept: isOrgRole ? formData.dept : undefined,
+        section: isOrgRole ? formData.section || undefined : undefined,
         nik: formData.nik.trim() || undefined,
         title: formData.title.trim() || `${ROLE_LABEL[formData.role]} - ${cleanName}`,
         driverId: formData.role === 'driver' ? formData.driverId || undefined : undefined,
@@ -423,8 +437,8 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
                             {ROLE_LABEL[acc.role]}
                           </span>
                           {acc.dept && (
-                            <span className="text-[10px] text-[#62736b] font-medium">
-                              Dept: {acc.dept}
+                            <span className="text-[10px] text-[#62736b] font-medium leading-tight">
+                              {acc.dept}{acc.section ? ` · ${acc.section}` : ''}
                             </span>
                           )}
                         </div>
@@ -730,21 +744,46 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
                 </div>
               </div>
 
-              {/* Department (if requester or approver / approver_pool) */}
+              {/* Department & Section (if requester or approver / approver_pool) */}
               {['requester', 'approver', 'approver_pool'].includes(formData.role) && (
-                <div>
-                  <label className="block text-[11px] font-bold text-[#10251c] mb-1">
-                    Departemen / Divisi
-                  </label>
-                  <select
-                    value={formData.dept}
-                    onChange={(e) => setFormData({ ...formData, dept: e.target.value })}
-                    className="h-10 w-full rounded-xl border border-[#dce7df] bg-[#fafcfb] px-3 text-xs font-semibold text-[#10251c] focus:border-[#075b3d] focus:outline-none"
-                  >
-                    {DEPARTMENTS.map((dept) => (
-                      <option key={dept} value={dept}>{dept}</option>
-                    ))}
-                  </select>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[11px] font-bold text-[#10251c] mb-1">
+                      Departemen / Divisi
+                    </label>
+                    <select
+                      value={formData.dept}
+                      onChange={(e) => {
+                        const newDept = e.target.value
+                        const availableSecs = getSectionsByDept(newDept)
+                        setFormData({
+                          ...formData,
+                          dept: newDept,
+                          section: availableSecs[0] || '',
+                        })
+                      }}
+                      className="h-10 w-full rounded-xl border border-[#dce7df] bg-[#fafcfb] px-3 text-xs font-semibold text-[#10251c] focus:border-[#075b3d] focus:outline-none"
+                    >
+                      {DEPARTMENTS.map((dept) => (
+                        <option key={dept} value={dept}>{dept}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-[#10251c] mb-1">
+                      Section (Bagian)
+                    </label>
+                    <select
+                      value={formData.section}
+                      onChange={(e) => setFormData({ ...formData, section: e.target.value })}
+                      className="h-10 w-full rounded-xl border border-[#dce7df] bg-[#fafcfb] px-3 text-xs font-semibold text-[#10251c] focus:border-[#075b3d] focus:outline-none"
+                    >
+                      {getSectionsByDept(formData.dept).map((sec) => (
+                        <option key={sec} value={sec}>{sec}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
               )}
 

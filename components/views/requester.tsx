@@ -67,8 +67,8 @@ export function RequesterForm({ user }: { user: Account }) {
 
   const [f, setF] = useState({
     category: 'Dinas' as Category,
-    requesterName: user.name || '',
-    requesterNik: user.nik || 'JAI-2018042',
+    requesterName: '',
+    requesterNik: '',
     dept: initialDept,
     section: initialSection,
     approvedBy: initialApprovers[0]?.name || '',
@@ -107,16 +107,6 @@ export function RequesterForm({ user }: { user: Account }) {
       section: newSection,
       approvedBy: approvers[0]?.name || '',
       approverEmail: approvers[0]?.email || '',
-    }))
-  }
-
-  const handleApproverChange = (approverName: string) => {
-    const approvers = getApproversBySection(f.dept, f.section)
-    const match = approvers.find((a) => a.name === approverName)
-    setF((prev) => ({
-      ...prev,
-      approvedBy: approverName,
-      approverEmail: match?.email || '',
     }))
   }
 
@@ -213,8 +203,8 @@ export function RequesterForm({ user }: { user: Account }) {
     const resetApprovers = getApproversBySection(initialDept, initialSection)
     setF({
       category: 'Dinas',
-      requesterName: user.name || '',
-      requesterNik: user.nik || 'JAI-2018042',
+      requesterName: '',
+      requesterNik: '',
       dept: initialDept,
       section: initialSection,
       approvedBy: resetApprovers[0]?.name || '',
@@ -321,8 +311,8 @@ export function RequesterForm({ user }: { user: Account }) {
                 </span>
               </div>
 
-              {/* Grid 5 Kolom: Nama, NIK, Departemen, Section, Approved By */}
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+              {/* Grid 4 Kolom: Nama Pemohon, NIK, Departemen, Section */}
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <div>
                   <label className="block text-[11px] font-semibold text-[#8fa99b] mb-1">
                     Nama Pemohon <span className="text-[#a3e635]">*</span>
@@ -330,7 +320,7 @@ export function RequesterForm({ user }: { user: Account }) {
                   <input
                     value={f.requesterName}
                     onChange={(e) => setF({ ...f, requesterName: e.target.value })}
-                    placeholder="Nama Lengkap"
+                    placeholder="Nama Lengkap Pemohon"
                     className={inputCls}
                     required
                   />
@@ -369,7 +359,7 @@ export function RequesterForm({ user }: { user: Account }) {
 
                 <div>
                   <label className="block text-[11px] font-semibold text-[#8fa99b] mb-1">
-                    Section (Bagian) <span className="text-[#a3e635]">*Otomatis</span>
+                    Section (Bagian) <span className="text-[#a3e635]">*Filter Otomatis</span>
                   </label>
                   <select
                     value={f.section}
@@ -384,36 +374,19 @@ export function RequesterForm({ user }: { user: Account }) {
                     ))}
                   </select>
                 </div>
-
-                <div>
-                  <label className="block text-[11px] font-semibold text-[#8fa99b] mb-1">
-                    Approved By <span className="text-[#a3e635]">*Tujuan E-Sign</span>
-                  </label>
-                  <select
-                    value={f.approvedBy}
-                    onChange={(e) => handleApproverChange(e.target.value)}
-                    className={`${inputCls} bg-black/40 text-[#bef264] font-semibold truncate`}
-                    required
-                  >
-                    {currentApprovers.map((appr) => (
-                      <option key={appr.name} value={appr.name} className="bg-[#0f1f17] text-white">
-                        {appr.name} ({appr.email})
-                      </option>
-                    ))}
-                  </select>
-                </div>
               </div>
 
-              {/* Banner Info Approver Email Otomatis */}
-              <div className="flex items-center justify-between rounded-xl border border-[#a3e635]/30 bg-[#a3e635]/10 px-3.5 py-2 text-xs">
+              {/* Banner Info Approver Otomatis Sesuai Rule Section */}
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 rounded-xl border border-[#a3e635]/30 bg-[#a3e635]/10 px-3.5 py-2.5 text-xs">
                 <div className="flex items-center gap-2 text-[#e2f8d8]">
                   <Mail size={14} className="text-[#a3e635] shrink-0" />
                   <span>
-                    Email Persetujuan Otomatis: <strong className="text-white underline">{f.approverEmail || 'Approver Section'}</strong>
+                    Approval Otomatis: <strong className="text-white">{f.approvedBy || 'Manager/SSPV Section'}</strong>{' '}
+                    <span className="text-[#bef264]">({f.approverEmail || 'Email terdaftar'})</span>
                   </span>
                 </div>
-                <span className="hidden sm:inline-block rounded-md bg-[#052e16] px-2 py-0.5 text-[10px] font-extrabold text-[#bef264] border border-[#a3e635]/40">
-                  Section Filter Aktif
+                <span className="inline-block rounded-md bg-[#052e16] px-2.5 py-0.5 text-[10px] font-extrabold text-[#bef264] border border-[#a3e635]/40 shrink-0">
+                  Rule Section Aktif
                 </span>
               </div>
 
