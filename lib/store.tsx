@@ -12,7 +12,7 @@ export type Driver = {
   id: string
   name: string
   onLeave: boolean
-  shift?: ShiftType
+  shift?: string
   phone?: string
   defaultPlate?: string
   simType?: string
@@ -25,6 +25,7 @@ export type Vehicle = {
   status?: VehicleStatus
   category?: VehicleCategory
   capacity?: number
+  dedicatedUser?: string
 }
 
 export type Passenger = {
@@ -144,24 +145,26 @@ function seed(): DB {
   }
   return {
     drivers: [
-      { id: 'DRV-001', name: 'TAUFIK', onLeave: false, shift: 'General (08:00 - 17:00)', phone: '0858-6163-0614', defaultPlate: 'W 1318 TI', simType: 'SIM A' },
-      { id: 'DRV-002', name: 'GHOFUR', onLeave: false, shift: 'General (08:00 - 17:00)', phone: '0853-3151-1277', defaultPlate: 'W 1156 QY', simType: 'SIM A' },
-      { id: 'DRV-003', name: 'HENDRO', onLeave: false, shift: 'General (08:00 - 17:00)', phone: '0899-8129-314', defaultPlate: 'W 1460 NE', simType: 'SIM A' },
-      { id: 'DRV-004', name: 'THAMRIN', onLeave: false, shift: 'General (08:00 - 17:00)', phone: '0822-2817-6185', defaultPlate: 'L 1005 DBU', simType: 'SIM A' },
-      { id: 'DRV-005', name: 'SAHARI', onLeave: false, shift: 'Pagi (07:00 - 15:00)', phone: '0895-3374-11921', defaultPlate: 'W 1458 NE', simType: 'SIM A' },
-      { id: 'DRV-006', name: 'ICHSAN', onLeave: false, shift: 'Pagi (07:00 - 15:00)', phone: '0822-3285-8300', defaultPlate: 'L 1508 DBR', simType: 'SIM A' },
-      { id: 'DRV-007', name: 'KARYADI', onLeave: false, shift: 'Siang (15:00 - 23:00)', phone: '0895-3962-74446', defaultPlate: 'L 1910 DAS', simType: 'SIM A' },
-      { id: 'DRV-008', name: 'INDRA', onLeave: false, shift: 'Siang (15:00 - 23:00)', phone: '0821-3175-7218', defaultPlate: 'W 1459 NE', simType: 'SIM A' },
+      { id: 'DRV-001', name: 'TAUFIK', onLeave: false, phone: '0858-6163-0614', defaultPlate: 'W 1318 TI', simType: 'SIM A' },
+      { id: 'DRV-002', name: 'GHOFUR', onLeave: false, phone: '0853-3151-1277', defaultPlate: 'W 1156 QY', simType: 'SIM A' },
+      { id: 'DRV-003', name: 'HENDRO', onLeave: false, phone: '0899-8129-314', defaultPlate: 'W 1460 NE', simType: 'SIM A' },
+      { id: 'DRV-004', name: 'THAMRIN', onLeave: false, phone: '0822-2817-6185', defaultPlate: 'L 1005 DBU', simType: 'SIM A' },
+      { id: 'DRV-005', name: 'SAHARI', onLeave: false, phone: '0895-3374-11921', defaultPlate: 'W 1458 NE', simType: 'SIM A' },
+      { id: 'DRV-006', name: 'ICHSAN', onLeave: false, phone: '0822-3285-8300', defaultPlate: 'L 1508 DBR', simType: 'SIM A' },
+      { id: 'DRV-007', name: 'KARYADI', onLeave: false, phone: '0895-3962-74446', defaultPlate: 'L 1910 DAS', simType: 'SIM A' },
+      { id: 'DRV-008', name: 'INDRA', onLeave: false, phone: '0821-3175-7218', defaultPlate: 'W 1459 NE', simType: 'SIM A' },
     ],
     vehicles: [
-      { plate: 'W 1318 TI', type: 'INNOVA ZENIX HITAM', status: 'Active', category: 'Mobil Expat', capacity: 7 },
-      { plate: 'W 1156 QY', type: 'INNOVA REBORN SILVER', status: 'Active', category: 'Mobil Expat', capacity: 7 },
-      { plate: 'W 1460 NE', type: 'INNOVA REBORN HITAM', status: 'Active', category: 'Mobil Expat', capacity: 7 },
-      { plate: 'L 1005 DBU', type: 'INNOVA ZENIX HITAM', status: 'Active', category: 'Mobil Expat', capacity: 7 },
-      { plate: 'W 1458 NE', type: 'AVANZA PUTIH', status: 'Active', category: 'Mobil Operasional', capacity: 7 },
-      { plate: 'L 1508 DBR', type: 'AVANZA PUTIH', status: 'Active', category: 'Mobil Operasional', capacity: 7 },
-      { plate: 'L 1910 DAS', type: 'AVANZA PUTIH', status: 'Active', category: 'Mobil Operasional', capacity: 7 },
-      { plate: 'W 1459 NE', type: 'AVANZA PUTIH', status: 'Active', category: 'Mobil Operasional', capacity: 7 },
+      // Kategori Mobil Expat (Dedicated User: Fujiyoshi, Isoda, Kato, Tateishi)
+      { plate: 'W 1318 TI', type: 'INNOVA ZENIX HITAM', status: 'Active', category: 'Mobil Expat', capacity: 7, dedicatedUser: 'FUJIYOSHI' },
+      { plate: 'W 1156 QY', type: 'INNOVA REBORN SILVER', status: 'Active', category: 'Mobil Expat', capacity: 7, dedicatedUser: 'ISODA' },
+      { plate: 'W 1460 NE', type: 'INNOVA REBORN HITAM', status: 'Active', category: 'Mobil Expat', capacity: 7, dedicatedUser: 'KATO' },
+      { plate: 'L 1005 DBU', type: 'INNOVA ZENIX HITAM', status: 'Active', category: 'Mobil Expat', capacity: 7, dedicatedUser: 'TATEISHI' },
+      // Kategori Mobil Operasional (User: Operational)
+      { plate: 'W 1458 NE', type: 'AVANZA PUTIH', status: 'Active', category: 'Mobil Operasional', capacity: 7, dedicatedUser: 'OPERATIONAL' },
+      { plate: 'L 1508 DBR', type: 'AVANZA PUTIH', status: 'Active', category: 'Mobil Operasional', capacity: 7, dedicatedUser: 'OPERATIONAL' },
+      { plate: 'L 1910 DAS', type: 'AVANZA PUTIH', status: 'Active', category: 'Mobil Operasional', capacity: 7, dedicatedUser: 'OPERATIONAL' },
+      { plate: 'W 1459 NE', type: 'AVANZA PUTIH', status: 'Active', category: 'Mobil Operasional', capacity: 7, dedicatedUser: 'OPERATIONAL' },
     ],
     trips: [],
   }
@@ -237,7 +240,7 @@ type Ctx = {
 }
 
 const StoreCtx = createContext<Ctx | null>(null)
-const KEY = 'ff_db_v1'
+const KEY = 'ff_db_v2'
 
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [db, setDb] = useState<DB>({ drivers: [], vehicles: [], trips: [] })

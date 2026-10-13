@@ -702,21 +702,26 @@ export function VehicleTimelineScheduler({
                       }`}
                     >
                       {/* Sticky Frozen Vehicle Resource Column */}
-                      <div className="sticky left-0 z-20 flex w-[220px] shrink-0 items-center justify-between border-r border-[#edf1ee] bg-white py-3 pl-3 pr-3 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.06)] group-hover/row:bg-[#fafcfb]">
+                      <div className="sticky left-0 z-20 flex w-[220px] shrink-0 items-center justify-between border-r border-[#edf1ee] bg-white py-3 pl-3 pr-3 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.06)] group-hover/row:bg-[#f6faf7]">
                         <div className="overflow-hidden">
-                          <p className="text-xs font-bold text-[#10251c] tracking-tight truncate">{v.plate}</p>
-                          <p className="text-[10px] text-[#86958d] truncate">{v.type}</p>
+                          <p className="text-xs font-extrabold text-[#052313] tracking-tight truncate">{v.plate}</p>
+                          <p className="text-[11px] font-semibold text-[#1f382b] truncate">{v.type}</p>
+                          {v.dedicatedUser && (
+                            <p className="text-[9px] font-bold text-purple-700 truncate mt-0.5">
+                              User: {v.dedicatedUser}
+                            </p>
+                          )}
                         </div>
-                        <div className="flex flex-col items-end gap-1">
+                        <div className="flex flex-col items-end gap-1 shrink-0">
                           <span
-                            className={`shrink-0 rounded-md px-1.5 py-0.5 text-[9px] font-bold ${
+                            className={`shrink-0 rounded-md px-1.5 py-0.5 text-[9px] font-extrabold ${
                               isUnderMaintenance
-                                ? 'bg-[#fee2e2] text-[#b91c1c]'
+                                ? 'bg-[#fee2e2] text-[#b91c1c] border border-red-200'
                                 : v.category === 'Mobil Expat'
-                                ? 'bg-purple-100 text-purple-800 border border-purple-200'
+                                ? 'bg-purple-100 text-purple-900 border border-purple-300'
                                 : v.category === 'Mobil Sewa'
-                                ? 'bg-amber-100 text-amber-800 border border-amber-200'
-                                : 'bg-[#eaf4ee] text-[#0a6645] border border-[#b8cfc2]'
+                                ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                                : 'bg-[#eaf4ee] text-[#075b3d] border border-[#b8cfc2]'
                             }`}
                           >
                             {isUnderMaintenance ? 'Maintenance' : v.category || 'Mobil Operasional'}

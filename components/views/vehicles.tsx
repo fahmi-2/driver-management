@@ -23,11 +23,12 @@ export function AdminVehicles() {
     capacity: 7,
     status: 'Active' as VehicleStatus,
     category: 'Mobil Operasional' as any,
+    dedicatedUser: '',
   })
 
   const openAddModal = () => {
     setEditingPlate(null)
-    setFormData({ plate: '', type: '', capacity: 7, status: 'Active', category: 'Mobil Operasional' })
+    setFormData({ plate: '', type: '', capacity: 7, status: 'Active', category: 'Mobil Operasional', dedicatedUser: '' })
     setIsModalOpen(true)
   }
 
@@ -39,6 +40,7 @@ export function AdminVehicles() {
       capacity: v.capacity ?? 7,
       status: v.status || 'Active',
       category: v.category || 'Mobil Operasional',
+      dedicatedUser: v.dedicatedUser || '',
     })
     setIsModalOpen(true)
   }
@@ -55,6 +57,7 @@ export function AdminVehicles() {
         capacity: Number(formData.capacity) || 7,
         status: formData.status,
         category: formData.category,
+        dedicatedUser: formData.dedicatedUser.trim() || undefined,
       })
       notify(`Kendaraan ${cleanPlate} berhasil diperbarui!`)
     } else {
@@ -68,6 +71,7 @@ export function AdminVehicles() {
         capacity: Number(formData.capacity) || 7,
         status: formData.status,
         category: formData.category,
+        dedicatedUser: formData.dedicatedUser.trim() || undefined,
       })
       notify(`Kendaraan baru ${cleanPlate} berhasil ditambahkan!`)
     }
@@ -170,7 +174,7 @@ export function AdminVehicles() {
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value as any)}
-              className="h-8 rounded-lg bg-[#f5f7f5] px-2.5 text-[11px] font-medium text-[#62736b] outline-none border border-transparent focus:border-[#075b3d]"
+              className="h-8 rounded-lg bg-[#f0f4f1] px-2.5 text-[11px] font-semibold text-[#10251c] outline-none border border-[#d2ddd6] focus:border-[#075b3d]"
             >
               <option value="ALL">Semua Status</option>
               <option value="Active">Hanya Aktif</option>
@@ -180,21 +184,22 @@ export function AdminVehicles() {
         }
       >
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[650px] text-left text-xs">
-            <thead className="border-b border-[#edf1ee] bg-[#f7faf8] text-[10px] font-bold uppercase tracking-wider text-[#9aa7a0]">
+          <table className="w-full min-w-[700px] text-left text-xs">
+            <thead className="border-b border-[#dce7df] bg-[#eef4f0] text-[11px] font-extrabold uppercase tracking-wider text-[#1a382b]">
               <tr>
-                <th className="px-5 py-3">No. Polisi (Plat)</th>
-                <th className="px-5 py-3">Nama / Tipe Kendaraan</th>
-                <th className="px-5 py-3">Kapasitas</th>
-                <th className="px-5 py-3">Status Operasional</th>
-                <th className="px-5 py-3">Status Penugasan</th>
-                <th className="px-5 py-3 text-right">Aksi</th>
+                <th className="px-5 py-3.5">No. Polisi (Plat)</th>
+                <th className="px-5 py-3.5">Nama / Tipe Kendaraan</th>
+                <th className="px-5 py-3.5">Kategori &amp; Pemilik</th>
+                <th className="px-5 py-3.5">Kapasitas</th>
+                <th className="px-5 py-3.5">Status Operasional</th>
+                <th className="px-5 py-3.5">Status Penugasan</th>
+                <th className="px-5 py-3.5 text-right">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#edf1ee]">
               {filteredVehicles.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-8 text-center text-[#93a097]">
+                  <td colSpan={7} className="py-8 text-center text-xs font-semibold text-[#62736b]">
                     Tidak ada kendaraan yang ditemukan.
                   </td>
                 </tr>
@@ -206,11 +211,31 @@ export function AdminVehicles() {
                   )
 
                   return (
-                    <tr key={v.plate} className="hover:bg-[#fafcfb] transition">
-                      <td className="px-5 py-3.5 font-bold font-mono text-[#10251c]">{v.plate}</td>
-                      <td className="px-5 py-3.5 text-[#3b4942] font-medium">{v.type}</td>
-                      <td className="px-5 py-3.5 text-[#168052] font-bold text-xs">
-                        <span className="rounded-md bg-[#dff5e9] px-2 py-0.5">
+                    <tr key={v.plate} className="hover:bg-[#f6faf7] transition">
+                      <td className="px-5 py-3.5 font-extrabold font-mono text-sm text-[#052313]">{v.plate}</td>
+                      <td className="px-5 py-3.5">
+                        <p className="text-xs font-bold text-[#0c2417]">{v.type}</p>
+                      </td>
+                      <td className="px-5 py-3.5">
+                        <div className="flex flex-col gap-1 items-start">
+                          <span
+                            className={`rounded-md px-2 py-0.5 text-[10px] font-extrabold ${
+                              v.category === 'Mobil Expat'
+                                ? 'bg-purple-100 text-purple-900 border border-purple-300'
+                                : 'bg-[#e4f3ea] text-[#075b3d] border border-[#b8cfc2]'
+                            }`}
+                          >
+                            {v.category || 'Mobil Operasional'}
+                          </span>
+                          {v.dedicatedUser && (
+                            <span className="text-[10px] font-bold text-[#1a4a33] bg-[#d7f1e2] px-1.5 py-0.2 rounded border border-[#a2d8ba]">
+                              User: {v.dedicatedUser}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-5 py-3.5 text-[#075b3d] font-extrabold text-xs">
+                        <span className="rounded-md bg-[#dff5e9] px-2 py-0.5 border border-[#b8cfc2]">
                           {v.capacity || 7} Kursi
                         </span>
                       </td>
@@ -222,12 +247,12 @@ export function AdminVehicles() {
                       </td>
                       <td className="px-5 py-3.5">
                         {activeTrip ? (
-                          <span className="inline-flex items-center gap-1 rounded-md bg-[#e4efff] px-2 py-0.5 text-[10px] font-semibold text-[#1e40af]">
+                          <span className="inline-flex items-center gap-1 rounded-md bg-[#e4efff] px-2 py-0.5 text-[10px] font-bold text-[#1e40af] border border-blue-200">
                             <span className="size-1.5 animate-pulse rounded-full bg-[#1e40af]" />
                             {activeTrip.status === 'ON_TRIP' ? 'Sedang Bertugas' : 'Siap Berangkat'}
                           </span>
                         ) : (
-                          <span className="text-[11px] text-[#93a097]">Idle / Standby</span>
+                          <span className="text-[11px] font-medium text-[#506359]">Idle / Standby</span>
                         )}
                       </td>
                       <td className="px-5 py-3.5 text-right">
@@ -379,6 +404,19 @@ export function AdminVehicles() {
                     <option value="Mobil Expat">Mobil Expat (Direksi & Tamu Jepang)</option>
                     <option value="Mobil Sewa">Mobil Sewa (Rental Armada Cadangan)</option>
                   </select>
+                </label>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-[#66766d]">
+                  User Khusus / Pemilik Kendaraan {formData.category === 'Mobil Expat' ? '(Wajib untuk Expat)' : '(Opsional)'}
+                  <input
+                    type="text"
+                    value={formData.dedicatedUser}
+                    onChange={(e) => setFormData({ ...formData, dedicatedUser: e.target.value.toUpperCase() })}
+                    placeholder="Contoh: FUJIYOSHI, ISODA, KATO, TATEISHI, OPERATIONAL"
+                    className={`${inputCls} font-mono`}
+                  />
                 </label>
               </div>
 

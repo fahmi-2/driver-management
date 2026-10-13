@@ -74,6 +74,7 @@ export async function fetchVehiclesFromSupabase(): Promise<Vehicle[] | null> {
       capacity: v.capacity,
       status: v.status,
       category: v.category,
+      dedicatedUser: v.dedicated_user,
     }))
   } catch (err) {
     console.error('Error fetching vehicles from Supabase:', err)
@@ -89,6 +90,7 @@ export async function upsertVehicleToSupabase(v: Vehicle): Promise<boolean> {
       capacity: v.capacity || 7,
       status: v.status || 'Active',
       category: v.category || 'Mobil Operasional',
+      dedicated_user: v.dedicatedUser || null,
       updated_at: new Date().toISOString(),
     })
     return !error
@@ -135,7 +137,7 @@ export async function upsertDriverToSupabase(d: Driver): Promise<boolean> {
       name: d.name,
       phone: d.phone || null,
       sim_type: d.simType || 'SIM A',
-      shift: d.shift || 'General (08:00 - 17:00)',
+      shift: d.shift || null,
       default_plate: d.defaultPlate || null,
       on_leave: d.onLeave,
       updated_at: new Date().toISOString(),

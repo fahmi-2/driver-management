@@ -149,16 +149,14 @@ export function AdminDrivers() {
   const [showModal, setShowModal] = useState(false)
   const [editingDriver, setEditingDriver] = useState<Driver | null>(null)
   const [search, setSearch] = useState('')
-  const [shiftFilter, setShiftFilter] = useState('ALL')
   const [statusFilter, setStatusFilter] = useState('ALL')
   const [currentPage, setCurrentPage] = useState(1)
   const pageSize = 10
 
-  // Form State
+  // Form State (Tanpa Jam Shift: Penugasan fleksibel mengikuti admin)
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
-    shift: 'Pagi (07:00 - 15:00)' as ShiftType,
     defaultPlate: '',
     simType: 'SIM A',
     onLeave: false,
@@ -169,7 +167,6 @@ export function AdminDrivers() {
     setFormData({
       name: '',
       phone: '',
-      shift: 'Pagi (07:00 - 15:00)',
       defaultPlate: '',
       simType: 'SIM A',
       onLeave: false,
@@ -182,7 +179,6 @@ export function AdminDrivers() {
     setFormData({
       name: driver.name,
       phone: driver.phone || '',
-      shift: (driver.shift as ShiftType) || 'General (08:00 - 17:00)',
       defaultPlate: driver.defaultPlate || '',
       simType: driver.simType || 'SIM A',
       onLeave: !!driver.onLeave,
@@ -198,7 +194,6 @@ export function AdminDrivers() {
       updateDriver(editingDriver.id, {
         name: formData.name.trim(),
         phone: formData.phone.trim() || undefined,
-        shift: formData.shift,
         defaultPlate: formData.defaultPlate.trim().toUpperCase() || undefined,
         simType: formData.simType.trim() || undefined,
         onLeave: formData.onLeave,
@@ -208,7 +203,6 @@ export function AdminDrivers() {
       addDriver({
         name: formData.name.trim(),
         phone: formData.phone.trim() || undefined,
-        shift: formData.shift,
         defaultPlate: formData.defaultPlate.trim().toUpperCase() || undefined,
         simType: formData.simType.trim() || undefined,
       })
@@ -221,7 +215,7 @@ export function AdminDrivers() {
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [search, shiftFilter, statusFilter])
+  }, [search, statusFilter])
 
   const filteredDrivers = db.drivers.filter((d) => {
     const s = driverState(db, d.id)
@@ -229,9 +223,8 @@ export function AdminDrivers() {
       d.name.toLowerCase().includes(search.toLowerCase()) ||
       (d.phone && d.phone.toLowerCase().includes(search.toLowerCase())) ||
       (d.defaultPlate && d.defaultPlate.toLowerCase().includes(search.toLowerCase()))
-    const matchShift = shiftFilter === 'ALL' || d.shift === shiftFilter
     const matchStatus = statusFilter === 'ALL' || s === statusFilter
-    return matchSearch && matchShift && matchStatus
+    return matchSearch && matchStatus
   })
 
   const totalPages = Math.max(1, Math.ceil(filteredDrivers.length / pageSize))
@@ -310,18 +303,6 @@ export function AdminDrivers() {
               className="h-8 w-44 sm:w-56 rounded-lg bg-[#f5f7f5] px-3 text-[11px] outline-none border border-transparent focus:border-[#075b3d]"
             />
             <select
-              value={shiftFilter}
-              onChange={(e) => setShiftFilter(e.target.value)}
-              className="h-8 rounded-lg bg-[#f5f7f5] px-2 text-[11px] outline-none text-[#506056] border border-transparent focus:border-[#075b3d]"
-            >
-              <option value="ALL">Semua Shift</option>
-              {SHIFT_OPTIONS.map((opt) => (
-                <option key={opt} value={opt}>
-                  {opt}
-                </option>
-              ))}
-            </select>
-            <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
               className="h-8 rounded-lg bg-[#f5f7f5] px-2 text-[11px] outline-none text-[#506056] border border-transparent focus:border-[#075b3d]"
@@ -338,12 +319,11 @@ export function AdminDrivers() {
           <Empty text="Tidak ada sopir yang cocok dengan filter pencarian." />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[850px] border-collapse text-left">
-              <thead className="bg-[#f7faf8]">
+            <table className="w-full min-w-[800px] border-collapse text-left">
+              <thead className="bg-[#eef4f0] text-[11px] font-extrabold text-[#1a382b]">
                 <tr>
                   <th className={thCls}>NAMA SOPIR</th>
-                  <th className={thCls}>SHIFT KERJA</th>
-                  <th className={thCls}>ALOKASI MOBIL / PLAT</th>
+                  <th className={thCls}>ALOKASI KENDARAAN (1 DRIVER 1 MOBIL)</th>
                   <th className={thCls}>STATUS TUGAS</th>
                   <th className={thCls}>INFO PENUGASAN AKTIF</th>
                   <th className={thCls}>KONTAK &amp; LISENSI</th>
@@ -362,40 +342,37 @@ export function AdminDrivers() {
                     <tr key={d.id} className="border-t border-[#edf1ee] hover:bg-[#fafcfb]">
                       <td className={tdCls}>
                         <div className="flex items-center gap-2.5">
-                          <div className="flex size-8 items-center justify-center rounded-full bg-[#dff5e9] font-bold text-[#138053] text-xs">
+                          <div className="flex size-8 items-center justify-center rounded-full bg-[#dff5e9] font-extrabold text-[#075b3d] text-xs">
                             {d.name.split(' ').map((n) => n[0]).slice(0, 2).join('')}
                           </div>
                           <div>
-                            <p className="font-bold text-[#10251c]">{d.name}</p>
-                            <p className="text-[10px] text-[#93a097]">ID: {d.id}</p>
+                            <p className="font-extrabold text-[#052313]">{d.name}</p>
+                            <p className="text-[10px] font-semibold text-[#66766d]">ID: {d.id}</p>
                           </div>
-                        </div>
-                      </td>
-                      <td className={tdCls}>
-                        <div className="flex items-center gap-1.5 text-[#506056]">
-                          <Clock3 size={13} className="text-[#93a097]" />
-                          <span className="font-medium text-[11px]">{d.shift ?? 'General (08:00 - 17:00)'}</span>
                         </div>
                       </td>
                       <td className={tdCls}>
                         {activeTrip?.plate ? (
                           <div>
-                            <span className="inline-flex items-center gap-1 font-bold text-[#075b3d]">
-                              <Truck size={12} />
+                            <span className="inline-flex items-center gap-1 font-extrabold text-[#075b3d]">
+                              <Truck size={13} />
                               {activeTrip.plate}
                             </span>
-                            <p className="text-[10px] text-[#708078]">
+                            <p className="text-[10px] text-[#506359] font-medium">
                               {db.vehicles.find((v) => v.plate === activeTrip.plate)?.type || 'Armada Operasional'}
                             </p>
                           </div>
                         ) : d.defaultPlate ? (
                           <div>
-                            <span className="inline-flex items-center gap-1 text-[#506056] font-semibold">
-                              <Truck size={12} className="text-[#93a097]" />
+                            <span className="inline-flex items-center gap-1 text-[#052313] font-bold">
+                              <Truck size={13} className="text-[#075b3d]" />
                               {d.defaultPlate}
                             </span>
-                            <p className="text-[10px] text-[#93a097]">
+                            <p className="text-[10px] text-[#506359]">
                               {db.vehicles.find((v) => v.plate === d.defaultPlate)?.type || 'Mobil Default'}
+                              {db.vehicles.find((v) => v.plate === d.defaultPlate)?.dedicatedUser
+                                ? ` · User: ${db.vehicles.find((v) => v.plate === d.defaultPlate)?.dedicatedUser}`
+                                : ''}
                             </p>
                           </div>
                         ) : (
@@ -578,43 +555,27 @@ export function AdminDrivers() {
                 </div>
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div>
-                  <label className="text-xs font-semibold text-[#10251c]">
-                    Jadwal Shift Kerja <span className="text-[#b83a31]">*</span>
-                  </label>
-                  <select
-                    value={formData.shift}
-                    onChange={(e) => setFormData({ ...formData, shift: e.target.value as ShiftType })}
-                    className={inputCls}
-                  >
-                    {SHIFT_OPTIONS.map((opt) => (
-                      <option key={opt} value={opt}>
-                        {opt}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="text-xs font-semibold text-[#10251c]">
-                    Alokasi Mobil / Default (Opsional)
-                  </label>
-                  <input
-                    list="registered-plates"
-                    placeholder="Pilih atau ketik No. Pol"
-                    value={formData.defaultPlate}
-                    onChange={(e) => setFormData({ ...formData, defaultPlate: e.target.value.toUpperCase() })}
-                    className={inputCls}
-                  />
-                  <datalist id="registered-plates">
-                    {db.vehicles.map((v) => (
-                      <option key={v.plate} value={v.plate}>
-                        {v.type} ({v.plate})
-                      </option>
-                    ))}
-                  </datalist>
-                </div>
+              <div>
+                <label className="text-xs font-semibold text-[#10251c]">
+                  Alokasi Armada Default (Aturan Tetap: 1 Driver 1 Kendaraan)
+                </label>
+                <input
+                  list="registered-plates"
+                  placeholder="Pilih atau ketik No. Pol (misal: W 1318 TI)"
+                  value={formData.defaultPlate}
+                  onChange={(e) => setFormData({ ...formData, defaultPlate: e.target.value.toUpperCase() })}
+                  className={inputCls}
+                />
+                <datalist id="registered-plates">
+                  {db.vehicles.map((v) => (
+                    <option key={v.plate} value={v.plate}>
+                      {v.type} ({v.plate}) {v.dedicatedUser ? `[${v.dedicatedUser}]` : ''}
+                    </option>
+                  ))}
+                </datalist>
+                <p className="mt-1 text-[11px] text-[#62736b]">
+                  *Jadwal jam kerja penugasan fleksibel mengikuti pengaturan pemetaan admin.
+                </p>
               </div>
 
               {/* Status Kehadiran / Cuti dengan Warna Kontras Tinggi */}

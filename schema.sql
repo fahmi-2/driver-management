@@ -79,6 +79,7 @@ CREATE TABLE vehicles (
     capacity INT NOT NULL DEFAULT 7,
     status vehicle_status NOT NULL DEFAULT 'Active',
     category vehicle_category NOT NULL DEFAULT 'Mobil Operasional',
+    dedicated_user VARCHAR(150), -- Keterangan pemilik / pengguna khusus (Mobil Expat: Fujiyoshi, Isoda, dll.)
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -91,8 +92,8 @@ CREATE TABLE drivers (
     name VARCHAR(150) NOT NULL,
     phone VARCHAR(30),
     sim_type VARCHAR(30) DEFAULT 'SIM A',
-    shift driver_shift NOT NULL DEFAULT 'General (08:00 - 17:00)',
-    default_plate VARCHAR(20) REFERENCES vehicles(plate) ON DELETE SET NULL,
+    shift VARCHAR(100), -- Opsional, jadwal/jam penugasan dinamis mengikuti admin
+    default_plate VARCHAR(20) UNIQUE REFERENCES vehicles(plate) ON DELETE SET NULL, -- 1 driver 1 kendaraan default
     on_leave BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
