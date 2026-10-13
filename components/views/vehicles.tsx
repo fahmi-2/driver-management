@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { Plus, Trash2, Edit3, Truck, AlertTriangle, CheckCircle, Search, Wrench, ShieldCheck, X } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Plus, Trash2, Edit3, Truck, AlertTriangle, CheckCircle, Search, Wrench, ShieldCheck, X, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useStore, type Vehicle, type VehicleStatus } from '@/lib/store'
 import { Card, PageHeader, Pill, btnGhost, btnPrimary, inputCls, useToast } from '../ui-bits'
 
@@ -13,6 +13,8 @@ export function AdminVehicles() {
   const [filterStatus, setFilterStatus] = useState<'ALL' | VehicleStatus>('ALL')
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingPlate, setEditingPlate] = useState<string | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const pageSize = 10
 
   // Form State
   const [formData, setFormData] = useState({
@@ -87,6 +89,10 @@ export function AdminVehicles() {
     }
   }
 
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [search, filterStatus])
+
   const filteredVehicles = db.vehicles.filter((v) => {
     const matchSearch =
       v.plate.toLowerCase().includes(search.toLowerCase()) ||
@@ -94,6 +100,9 @@ export function AdminVehicles() {
     const matchStatus = filterStatus === 'ALL' || (v.status || 'Active') === filterStatus
     return matchSearch && matchStatus
   })
+
+  const totalPages = Math.max(1, Math.ceil(filteredVehicles.length / pageSize))
+  const paginatedVehicles = filteredVehicles.slice((currentPage - 1) * pageSize, currentPage * pageSize)
 
   const countActive = db.vehicles.filter((v) => (v.status || 'Active') === 'Active').length
   const countMaint = db.vehicles.filter((v) => v.status === 'Maintenance').length
@@ -190,7 +199,7 @@ export function AdminVehicles() {
                   </td>
                 </tr>
               ) : (
-                filteredVehicles.map((v) => {
+                paginatedVehicles.map((v) => {
                   const isMaintenance = v.status === 'Maintenance'
                   const activeTrip = db.trips.find(
                     (t) => t.plate === v.plate && (t.status === 'READY' || t.status === 'ON_TRIP')
@@ -246,12 +255,57 @@ export function AdminVehicles() {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Bar */}
+        {filteredVehicles.length > pageSize && (
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#edf1ee] bg-[#f8faf9] px-5 py-3">
+            <div className="text-[11px] font-medium text-[#62736b]">
+              Halaman <span className="font-bold text-[#10251c]">{currentPage}</span> dari {totalPages} (Menampilkan {(currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, filteredVehicles.length)} dari {filteredVehicles.length} kendaraan)
+            </div>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                disabled={currentPage <= 1}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                className="flex items-center gap-1 rounded-lg border border-[#dce7df] bg-white px-2.5 py-1.5 text-xs font-semibold text-[#10251c] transition hover:bg-[#eef5f0] disabled:opacity-40 disabled:pointer-events-none"
+              >
+                <ChevronLeft size={14} />
+                Sebelumnya
+              </button>
+              <div className="flex items-center gap-1 px-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((pg) => (
+                  <button
+                    key={pg}
+                    type="button"
+                    onClick={() => setCurrentPage(pg)}
+                    className={`size-7 rounded-lg text-xs font-bold transition ${
+                      currentPage === pg
+                        ? 'bg-[#075b3d] text-white shadow-xs'
+                        : 'border border-[#dce7df] bg-white text-[#62736b] hover:bg-[#eef5f0]'
+                    }`}
+                  >
+                    {pg}
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                disabled={currentPage >= totalPages}
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                className="flex items-center gap-1 rounded-lg border border-[#dce7df] bg-white px-2.5 py-1.5 text-xs font-semibold text-[#10251c] transition hover:bg-[#eef5f0] disabled:opacity-40 disabled:pointer-events-none"
+              >
+                Selanjutnya
+                <ChevronRight size={14} />
+              </button>
+            </div>
+          </div>
+        )}
       </Card>
 
       {/* Modal Add / Edit Vehicle */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="relative w-full max-w-md rounded-2xl bg-white shadow-2xl border border-[#dce7df] overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="relative w-full max-w-md rounded-2xl bg-white shadow-2xl border border-[#dce7df] overflow-hidden my-auto max-h-[88vh] flex flex-col animate-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between border-b border-[#edf1ee] bg-[#f7faf8] px-6 py-4">
               <div className="flex items-center gap-2.5">
                 <div className="flex size-9 items-center justify-center rounded-xl bg-[#075b3d] text-white">
@@ -272,7 +326,7 @@ export function AdminVehicles() {
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+            <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1">
               <label className="block text-xs font-semibold text-[#66766d]">
                 Nomor Polisi (Plat Nomor)
                 <input

@@ -17,7 +17,9 @@ import {
   AlertCircle,
   X,
   Check,
-  Info
+  Info,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react'
 import {
   type Account,
@@ -41,6 +43,8 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
   const [accounts, setAccounts] = useState<Account[]>([])
   const [search, setSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState<'ALL' | Role>('ALL')
+  const [currentPage, setCurrentPage] = useState(1)
+  const pageSize = 10
 
   // Password Reveal States (Verifikasi Password Admin)
   const [revealedPasswords, setRevealedPasswords] = useState<Record<string, boolean>>({})
@@ -88,6 +92,11 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
     }
   }, [])
 
+  // Reset halaman saat filter atau search berubah
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [search, roleFilter])
+
   // Filtered accounts
   const filteredAccounts = accounts.filter((a) => {
     const q = search.toLowerCase()
@@ -100,6 +109,10 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
     const matchRole = roleFilter === 'ALL' || a.role === roleFilter
     return matchSearch && matchRole
   })
+
+  // Pagination calculation
+  const totalPages = Math.max(1, Math.ceil(filteredAccounts.length / pageSize))
+  const paginatedAccounts = filteredAccounts.slice((currentPage - 1) * pageSize, currentPage * pageSize)
 
   // Open Add Modal
   const openAddModal = () => {
@@ -355,7 +368,7 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
                   </td>
                 </tr>
               ) : (
-                filteredAccounts.map((acc) => {
+                paginatedAccounts.map((acc) => {
                   const isRevealed = !!revealedPasswords[acc.username]
                   const isCurrentAdmin = acc.username === currentUser.username
 
@@ -471,12 +484,57 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Bar */}
+        {filteredAccounts.length > pageSize && (
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#edf1ee] bg-[#f8faf9] px-5 py-3">
+            <div className="text-[11px] font-medium text-[#62736b]">
+              Halaman <span className="font-bold text-[#10251c]">{currentPage}</span> dari {totalPages} (Menampilkan {(currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, filteredAccounts.length)} dari {filteredAccounts.length} akun)
+            </div>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                disabled={currentPage <= 1}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                className="flex items-center gap-1 rounded-lg border border-[#dce7df] bg-white px-2.5 py-1.5 text-xs font-semibold text-[#10251c] transition hover:bg-[#eef5f0] disabled:opacity-40 disabled:pointer-events-none"
+              >
+                <ChevronLeft size={14} />
+                Sebelumnya
+              </button>
+              <div className="flex items-center gap-1 px-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((pg) => (
+                  <button
+                    key={pg}
+                    type="button"
+                    onClick={() => setCurrentPage(pg)}
+                    className={`size-7 rounded-lg text-xs font-bold transition ${
+                      currentPage === pg
+                        ? 'bg-[#075b3d] text-white shadow-xs'
+                        : 'border border-[#dce7df] bg-white text-[#62736b] hover:bg-[#eef5f0]'
+                    }`}
+                  >
+                    {pg}
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                disabled={currentPage >= totalPages}
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                className="flex items-center gap-1 rounded-lg border border-[#dce7df] bg-white px-2.5 py-1.5 text-xs font-semibold text-[#10251c] transition hover:bg-[#eef5f0] disabled:opacity-40 disabled:pointer-events-none"
+              >
+                Selanjutnya
+                <ChevronRight size={14} />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* MODAL 1: Verifikasi Password Admin untuk Melihat Password */}
       {verifyModalTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-in fade-in duration-150">
-          <div className="w-full max-w-sm rounded-2xl bg-white shadow-2xl border border-[#dce7df] overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="w-full max-w-sm rounded-2xl bg-white shadow-2xl border border-[#dce7df] overflow-hidden my-auto animate-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between border-b border-[#edf1ee] bg-[#f8faf9] px-5 py-3.5">
               <div className="flex items-center gap-2">
                 <div className="flex size-8 items-center justify-center rounded-lg bg-[#075b3d] text-white">
@@ -555,8 +613,8 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
 
       {/* MODAL 2: Tambah / Edit Akun */}
       {formModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-in fade-in duration-150">
-          <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl border border-[#dce7df] overflow-hidden max-h-[90vh] flex flex-col">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl border border-[#dce7df] overflow-hidden my-auto max-h-[88vh] flex flex-col animate-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between border-b border-[#edf1ee] bg-[#f8faf9] px-6 py-4">
               <div className="flex items-center gap-2.5">
                 <div className="flex size-9 items-center justify-center rounded-xl bg-[#075b3d] text-white">

@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { Clock3, Download, Edit3, Phone, Plus, Shield, Trash2, Truck, UserCheck, UserPlus, UserRound, X } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Clock3, Download, Edit3, Phone, Plus, Shield, Trash2, Truck, UserCheck, UserPlus, UserRound, X, ChevronLeft, ChevronRight } from 'lucide-react'
 import { COUPON_LABEL, STATUS_LABEL, driverState, fmtDate, fmtDur, fmtTime, useStore, vehicleState, type Driver, type ShiftType, type Trip } from '@/lib/store'
 import { Card, Empty, PageHeader, Pill, btnGhost, btnPrimary, couponTone, inputCls, tdCls, thCls, tripTone, useToast } from '../ui-bits'
 import { WorkloadCard } from './dashboard'
@@ -151,6 +151,8 @@ export function AdminDrivers() {
   const [search, setSearch] = useState('')
   const [shiftFilter, setShiftFilter] = useState('ALL')
   const [statusFilter, setStatusFilter] = useState('ALL')
+  const [currentPage, setCurrentPage] = useState(1)
+  const pageSize = 10
 
   // Form State
   const [formData, setFormData] = useState({
@@ -217,6 +219,10 @@ export function AdminDrivers() {
     setEditingDriver(null)
   }
 
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [search, shiftFilter, statusFilter])
+
   const filteredDrivers = db.drivers.filter((d) => {
     const s = driverState(db, d.id)
     const matchSearch =
@@ -227,6 +233,9 @@ export function AdminDrivers() {
     const matchStatus = statusFilter === 'ALL' || s === statusFilter
     return matchSearch && matchShift && matchStatus
   })
+
+  const totalPages = Math.max(1, Math.ceil(filteredDrivers.length / pageSize))
+  const paginatedDrivers = filteredDrivers.slice((currentPage - 1) * pageSize, currentPage * pageSize)
 
   const countAvailable = db.drivers.filter((d) => driverState(db, d.id) === 'Tersedia').length
   const countOnDuty = db.drivers.filter((d) => driverState(db, d.id) === 'Sedang Bertugas').length
@@ -342,7 +351,7 @@ export function AdminDrivers() {
                 </tr>
               </thead>
               <tbody>
-                {filteredDrivers.map((d) => {
+                {paginatedDrivers.map((d) => {
                   const s = driverState(db, d.id)
                   const activeTrip = db.trips.find(
                     (t) => t.driverId === d.id && (t.status === 'READY' || t.status === 'ON_TRIP')
@@ -446,12 +455,57 @@ export function AdminDrivers() {
             </table>
           </div>
         )}
+
+        {/* Pagination Bar */}
+        {filteredDrivers.length > pageSize && (
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#edf1ee] bg-[#f8faf9] px-5 py-3">
+            <div className="text-[11px] font-medium text-[#62736b]">
+              Halaman <span className="font-bold text-[#10251c]">{currentPage}</span> dari {totalPages} (Menampilkan {(currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, filteredDrivers.length)} dari {filteredDrivers.length} sopir)
+            </div>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                disabled={currentPage <= 1}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                className="flex items-center gap-1 rounded-lg border border-[#dce7df] bg-white px-2.5 py-1.5 text-xs font-semibold text-[#10251c] transition hover:bg-[#eef5f0] disabled:opacity-40 disabled:pointer-events-none"
+              >
+                <ChevronLeft size={14} />
+                Sebelumnya
+              </button>
+              <div className="flex items-center gap-1 px-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((pg) => (
+                  <button
+                    key={pg}
+                    type="button"
+                    onClick={() => setCurrentPage(pg)}
+                    className={`size-7 rounded-lg text-xs font-bold transition ${
+                      currentPage === pg
+                        ? 'bg-[#075b3d] text-white shadow-xs'
+                        : 'border border-[#dce7df] bg-white text-[#62736b] hover:bg-[#eef5f0]'
+                    }`}
+                  >
+                    {pg}
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                disabled={currentPage >= totalPages}
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                className="flex items-center gap-1 rounded-lg border border-[#dce7df] bg-white px-2.5 py-1.5 text-xs font-semibold text-[#10251c] transition hover:bg-[#eef5f0] disabled:opacity-40 disabled:pointer-events-none"
+              >
+                Selanjutnya
+                <ChevronRight size={14} />
+              </button>
+            </div>
+          </div>
+        )}
       </Card>
 
       {/* Modal Tambah / Edit Sopir */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
-          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl border border-[#dce7df] animate-in zoom-in-95 duration-150">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl border border-[#dce7df] my-auto max-h-[88vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between border-b border-[#edf1ee] pb-4">
               <div className="flex items-center gap-2.5">
                 <div className="flex size-9 items-center justify-center rounded-xl bg-[#dff5e9] text-[#075b3d]">
@@ -479,7 +533,7 @@ export function AdminDrivers() {
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="mt-4 space-y-3.5">
+            <form onSubmit={handleSubmit} className="mt-4 space-y-3.5 overflow-y-auto flex-1 pr-1">
               <div>
                 <label className="text-xs font-semibold text-[#10251c]">
                   Nama Lengkap Sopir <span className="text-[#b83a31]">*</span>
