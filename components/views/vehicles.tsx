@@ -185,7 +185,7 @@ export function AdminVehicles() {
       >
         <div className="overflow-x-auto">
           <table className="w-full min-w-[700px] text-left text-xs">
-            <thead className="border-b border-[#dce7df] bg-[#eef4f0] text-[11px] font-extrabold uppercase tracking-wider text-[#1a382b]">
+            <thead className="border-b border-emerald-500/20 bg-emerald-950/40 text-[11px] font-extrabold uppercase tracking-wider text-emerald-200">
               <tr>
                 <th className="px-5 py-3.5">No. Polisi (Plat)</th>
                 <th className="px-5 py-3.5">Nama / Tipe Kendaraan</th>
@@ -211,31 +211,31 @@ export function AdminVehicles() {
                   )
 
                   return (
-                    <tr key={v.plate} className="hover:bg-[#f6faf7] transition">
-                      <td className="px-5 py-3.5 font-extrabold font-mono text-sm text-[#052313]">{v.plate}</td>
+                    <tr key={v.plate} className="hover:bg-white/5 transition">
+                      <td className="px-5 py-3.5 font-extrabold font-mono text-sm text-emerald-200">{v.plate}</td>
                       <td className="px-5 py-3.5">
-                        <p className="text-xs font-bold text-[#0c2417]">{v.type}</p>
+                        <p className="text-xs font-bold text-white">{v.type}</p>
                       </td>
                       <td className="px-5 py-3.5">
                         <div className="flex flex-col gap-1 items-start">
                           <span
                             className={`rounded-md px-2 py-0.5 text-[10px] font-extrabold ${
                               v.category === 'Mobil Expat'
-                                ? 'bg-purple-100 text-purple-900 border border-purple-300'
-                                : 'bg-[#e4f3ea] text-[#075b3d] border border-[#b8cfc2]'
+                                ? 'bg-purple-900/60 text-purple-200 border border-purple-400/40'
+                                : 'bg-emerald-950/70 text-emerald-300 border border-emerald-500/30'
                             }`}
                           >
                             {v.category || 'Mobil Operasional'}
                           </span>
                           {v.dedicatedUser && (
-                            <span className="text-[10px] font-bold text-[#1a4a33] bg-[#d7f1e2] px-1.5 py-0.2 rounded border border-[#a2d8ba]">
+                            <span className="text-[10px] font-bold text-emerald-200 bg-emerald-900/50 px-1.5 py-0.5 rounded border border-emerald-500/30">
                               User: {v.dedicatedUser}
                             </span>
                           )}
                         </div>
                       </td>
-                      <td className="px-5 py-3.5 text-[#075b3d] font-extrabold text-xs">
-                        <span className="rounded-md bg-[#dff5e9] px-2 py-0.5 border border-[#b8cfc2]">
+                      <td className="px-5 py-3.5 font-extrabold text-xs">
+                        <span className="rounded-md bg-emerald-950/70 text-emerald-300 px-2 py-0.5 border border-emerald-500/30">
                           {v.capacity || 7} Kursi
                         </span>
                       </td>
@@ -247,12 +247,12 @@ export function AdminVehicles() {
                       </td>
                       <td className="px-5 py-3.5">
                         {activeTrip ? (
-                          <span className="inline-flex items-center gap-1 rounded-md bg-[#e4efff] px-2 py-0.5 text-[10px] font-bold text-[#1e40af] border border-blue-200">
-                            <span className="size-1.5 animate-pulse rounded-full bg-[#1e40af]" />
+                          <span className="inline-flex items-center gap-1 rounded-md bg-blue-950/70 px-2 py-0.5 text-[10px] font-bold text-blue-300 border border-blue-400/30">
+                            <span className="size-1.5 animate-pulse rounded-full bg-blue-400" />
                             {activeTrip.status === 'ON_TRIP' ? 'Sedang Bertugas' : 'Siap Berangkat'}
                           </span>
                         ) : (
-                          <span className="text-[11px] font-medium text-[#506359]">Idle / Standby</span>
+                          <span className="text-[11px] font-medium text-emerald-300/80">Idle / Standby</span>
                         )}
                       </td>
                       <td className="px-5 py-3.5 text-right">

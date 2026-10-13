@@ -320,7 +320,7 @@ export function AdminDrivers() {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[800px] border-collapse text-left">
-              <thead className="bg-[#eef4f0] text-[11px] font-extrabold text-[#1a382b]">
+              <thead className="border-b border-emerald-500/20 bg-emerald-950/40 text-[11px] font-extrabold uppercase tracking-wider text-emerald-200">
                 <tr>
                   <th className={thCls}>NAMA SOPIR</th>
                   <th className={thCls}>ALOKASI KENDARAAN (1 DRIVER 1 MOBIL)</th>
@@ -339,36 +339,36 @@ export function AdminDrivers() {
                   const tone = s === 'Tersedia' ? 'green' : s === 'Sedang Bertugas' ? 'blue' : 'gray'
 
                   return (
-                    <tr key={d.id} className="border-t border-[#edf1ee] hover:bg-[#fafcfb]">
+                    <tr key={d.id} className="border-t border-emerald-500/10 hover:bg-white/5 transition">
                       <td className={tdCls}>
                         <div className="flex items-center gap-2.5">
-                          <div className="flex size-8 items-center justify-center rounded-full bg-[#dff5e9] font-extrabold text-[#075b3d] text-xs">
+                          <div className="flex size-8 items-center justify-center rounded-full bg-emerald-500/20 font-extrabold text-lime-400 text-xs border border-lime-400/30">
                             {d.name.split(' ').map((n) => n[0]).slice(0, 2).join('')}
                           </div>
                           <div>
-                            <p className="font-extrabold text-[#052313]">{d.name}</p>
-                            <p className="text-[10px] font-semibold text-[#66766d]">ID: {d.id}</p>
+                            <p className="font-extrabold text-white text-sm">{d.name}</p>
+                            <p className="text-[10px] font-semibold text-emerald-300/80">ID: {d.id}</p>
                           </div>
                         </div>
                       </td>
                       <td className={tdCls}>
                         {activeTrip?.plate ? (
                           <div>
-                            <span className="inline-flex items-center gap-1 font-extrabold text-[#075b3d]">
+                            <span className="inline-flex items-center gap-1 font-extrabold text-lime-400">
                               <Truck size={13} />
                               {activeTrip.plate}
                             </span>
-                            <p className="text-[10px] text-[#506359] font-medium">
+                            <p className="text-[10px] text-emerald-200/90 font-medium">
                               {db.vehicles.find((v) => v.plate === activeTrip.plate)?.type || 'Armada Operasional'}
                             </p>
                           </div>
                         ) : d.defaultPlate ? (
                           <div>
-                            <span className="inline-flex items-center gap-1 text-[#052313] font-bold">
-                              <Truck size={13} className="text-[#075b3d]" />
+                            <span className="inline-flex items-center gap-1 text-emerald-200 font-bold font-mono">
+                              <Truck size={13} className="text-lime-400" />
                               {d.defaultPlate}
                             </span>
-                            <p className="text-[10px] text-[#506359]">
+                            <p className="text-[10px] text-emerald-300/80">
                               {db.vehicles.find((v) => v.plate === d.defaultPlate)?.type || 'Mobil Default'}
                               {db.vehicles.find((v) => v.plate === d.defaultPlate)?.dedicatedUser
                                 ? ` · User: ${db.vehicles.find((v) => v.plate === d.defaultPlate)?.dedicatedUser}`
@@ -376,7 +376,7 @@ export function AdminDrivers() {
                             </p>
                           </div>
                         ) : (
-                          <span className="text-[#93a097] text-[11px] italic">Fleksibel / Pool Bebas</span>
+                          <span className="text-emerald-400/60 text-[11px] italic">Fleksibel / Pool Bebas</span>
                         )}
                       </td>
                       <td className={tdCls}>
@@ -401,14 +401,14 @@ export function AdminDrivers() {
                       <td className={tdCls}>
                         <div className="space-y-0.5 text-[11px]">
                           {d.phone && (
-                            <p className="flex items-center gap-1 text-[#506056]">
-                              <Phone size={11} className="text-[#93a097]" />
+                            <p className="flex items-center gap-1 text-emerald-200">
+                              <Phone size={11} className="text-lime-400" />
                               {d.phone}
                             </p>
                           )}
                           {d.simType && (
-                            <p className="flex items-center gap-1 text-[#708078]">
-                              <Shield size={11} className="text-[#93a097]" />
+                            <p className="flex items-center gap-1 text-emerald-300/90 font-medium">
+                              <Shield size={11} className="text-lime-400" />
                               {d.simType}
                             </p>
                           )}

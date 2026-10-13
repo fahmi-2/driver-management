@@ -704,10 +704,10 @@ export function VehicleTimelineScheduler({
                       {/* Sticky Frozen Vehicle Resource Column */}
                       <div className="sticky left-0 z-20 flex w-[220px] shrink-0 items-center justify-between border-r border-[#edf1ee] bg-white py-3 pl-3 pr-3 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.06)] group-hover/row:bg-[#f6faf7]">
                         <div className="overflow-hidden">
-                          <p className="text-xs font-extrabold text-[#052313] tracking-tight truncate">{v.plate}</p>
-                          <p className="text-[11px] font-semibold text-[#1f382b] truncate">{v.type}</p>
+                          <p className="text-xs font-extrabold text-emerald-200 tracking-tight truncate font-mono">{v.plate}</p>
+                          <p className="text-[11px] font-semibold text-white/90 truncate">{v.type}</p>
                           {v.dedicatedUser && (
-                            <p className="text-[9px] font-bold text-purple-700 truncate mt-0.5">
+                            <p className="text-[9px] font-bold text-purple-300 truncate mt-0.5">
                               User: {v.dedicatedUser}
                             </p>
                           )}
