@@ -406,16 +406,25 @@ export function AdminSchedulingCenter({ user }: { user: Account }) {
           </Card>
 
           {/* Quick Guidance Box */}
-          <div className="rounded-2xl border border-[#cbe0d3] bg-[#f0f7f3] p-4 text-xs text-[#0f241a] shadow-xs">
-            <h5 className="font-bold flex items-center gap-1.5 text-[#075b3d] text-[13px]">
-              <Info size={16} className="text-[#075b3d] shrink-0" />
+          <div className="rounded-2xl border-2 border-[#166534]/30 bg-white p-4.5 text-xs shadow-md">
+            <h5 className="font-extrabold flex items-center gap-2 text-[#064e3b] text-sm mb-2.5" style={{ color: '#064e3b' }}>
+              <Info size={17} className="text-[#064e3b] shrink-0" />
               Cara Menjadwalkan Pengajuan:
             </h5>
-            <ol className="mt-2.5 list-decimal list-inside space-y-1.5 text-xs font-medium text-[#10251c] leading-relaxed">
-              <li>Klik salah satu pengajuan di antrean sebelah kiri.</li>
-              <li>Arahkan kursor ke baris kendaraan tujuan pada kalender timeline di sebelah kanan.</li>
-              <li><strong className="font-bold text-[#075b3d]">Klik & drag</strong> pada rentang jam kosong untuk memilih durasi waktu.</li>
-              <li>Isi catatan opsional & pilih supir pada jendela konfirmasi.</li>
+            <ol className="list-decimal list-inside space-y-2 text-xs font-semibold leading-relaxed" style={{ color: '#0f172a' }}>
+              <li style={{ color: '#0f172a' }}>
+                <span className="text-black font-semibold" style={{ color: '#0f172a' }}>Klik salah satu pengajuan di antrean sebelah kiri.</span>
+              </li>
+              <li style={{ color: '#0f172a' }}>
+                <span className="text-black font-semibold" style={{ color: '#0f172a' }}>Arahkan kursor ke baris kendaraan tujuan pada kalender timeline di sebelah kanan.</span>
+              </li>
+              <li style={{ color: '#0f172a' }}>
+                <strong className="font-black" style={{ color: '#047857' }}>Klik & drag</strong>{' '}
+                <span className="text-black font-semibold" style={{ color: '#0f172a' }}>pada rentang jam kosong untuk memilih durasi waktu.</span>
+              </li>
+              <li style={{ color: '#0f172a' }}>
+                <span className="text-black font-semibold" style={{ color: '#0f172a' }}>Isi catatan opsional & pilih supir pada jendela konfirmasi.</span>
+              </li>
             </ol>
           </div>
         </div>
