@@ -482,12 +482,12 @@ export function VehicleTimelineScheduler({
   }, [currentDate, viewMode, weeklyColumns])
 
   return (
-    <div className="timeline-calendar-light relative select-none rounded-2xl border border-slate-300 bg-white p-5 shadow-lg">
+    <div className="timeline-calendar-wrapper relative select-none rounded-2xl border border-slate-300 bg-white p-5 shadow-xl text-slate-800">
       {/* Top Bar: Title, Mode Indicator, View Mode Switcher, Date Nav */}
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#edf1ee] pb-4">
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 pb-4">
         <div>
           <div className="flex items-center gap-2.5">
-            <h2 className="text-sm font-bold text-[#10251c]">Jadwal Timeline Kendaraan</h2>
+            <h2 className="text-base font-extrabold text-slate-900 tracking-tight">Jadwal Timeline Kendaraan</h2>
             {isInteractive ? (
               <span className="inline-flex items-center gap-1 rounded-full bg-[#dff4e8] px-2.5 py-0.5 text-[10px] font-bold text-[#075b3d] shadow-xs">
                 <span className="size-1.5 animate-pulse rounded-full bg-[#075b3d]" />
@@ -512,15 +512,15 @@ export function VehicleTimelineScheduler({
         {/* View Mode Selector (Daily / Weekly / Monthly) + Navigation */}
         <div className="flex flex-wrap items-center gap-2.5">
           {/* Mode Tabs */}
-          <div className="flex rounded-xl bg-[#f0f4f1] p-1 text-xs font-semibold">
+          <div className="flex rounded-xl bg-slate-100 border border-slate-300 p-1 text-xs font-semibold">
             {(['daily', 'weekly', 'monthly'] as TimelineViewMode[]).map((mode) => (
               <button
                 key={mode}
                 onClick={() => setViewMode(mode)}
                 className={`rounded-lg px-3 py-1.5 text-[11px] capitalize transition-all ${
                   viewMode === mode
-                    ? 'bg-white font-bold text-[#075b3d] shadow-xs'
-                    : 'text-[#62736b] hover:text-[#10251c]'
+                    ? 'bg-white font-extrabold text-emerald-800 border border-slate-300 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900 font-semibold'
                 }`}
               >
                 {mode === 'daily' ? 'Harian (24 Jam)' : mode === 'weekly' ? 'Mingguan' : 'Bulanan'}
@@ -529,10 +529,10 @@ export function VehicleTimelineScheduler({
           </div>
 
           {/* Date Navigator */}
-          <div className="flex items-center gap-1 rounded-xl border border-[#dce7df] bg-[#f8faf9] p-1 shadow-inner">
+          <div className="flex items-center gap-1 rounded-xl border border-slate-300 bg-slate-50 p-1 shadow-inner">
             <button
               onClick={() => navigateTimeline(-1)}
-              className="flex size-7 items-center justify-center rounded-lg text-[#63726a] hover:bg-white hover:shadow-xs transition"
+              className="flex size-7 items-center justify-center rounded-lg text-slate-700 hover:bg-white hover:text-slate-900 shadow-xs transition"
               title="Sebelumnya"
             >
               <ChevronLeft size={15} />
@@ -540,18 +540,18 @@ export function VehicleTimelineScheduler({
             <button
               onClick={() => setCurrentDate(ymd())}
               className={`rounded-lg px-2.5 py-1 text-[11px] font-bold transition ${
-                currentDate === ymd() ? 'bg-[#075b3d] text-white shadow-xs' : 'text-[#63726a] hover:bg-white'
+                currentDate === ymd() ? 'bg-emerald-700 text-white shadow-xs' : 'text-slate-700 hover:bg-white'
               }`}
             >
               Hari Ini
             </button>
-            <div className="flex items-center gap-1.5 px-2 text-xs font-bold text-[#10251c]">
-              <Calendar size={13} className="text-[#075b3d]" />
+            <div className="flex items-center gap-1.5 px-2 text-xs font-bold text-slate-900">
+              <Calendar size={13} className="text-emerald-700" />
               <span className="whitespace-nowrap">{headerDateTitle}</span>
             </div>
             <button
               onClick={() => navigateTimeline(1)}
-              className="flex size-7 items-center justify-center rounded-lg text-[#63726a] hover:bg-white hover:shadow-xs transition"
+              className="flex size-7 items-center justify-center rounded-lg text-slate-700 hover:bg-white hover:text-slate-900 shadow-xs transition"
               title="Berikutnya"
             >
               <ChevronRight size={15} />
@@ -564,19 +564,19 @@ export function VehicleTimelineScheduler({
       <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-xs">
         <div className="flex items-center gap-2">
           <div className="relative">
-            <Search size={13} className="absolute left-2.5 top-2.5 text-[#93a097]" />
+            <Search size={13} className="absolute left-2.5 top-2.5 text-slate-500" />
             <input
               type="text"
               value={searchFilter}
               onChange={(e) => setSearchFilter(e.target.value)}
               placeholder="Cari plat atau armada…"
-              className="h-8 w-44 rounded-lg border border-[#dce7df] bg-[#fafcfb] pl-8 pr-2 text-[11px] outline-none focus:border-[#075b3d]"
+              className="h-8 w-44 rounded-lg border border-slate-300 bg-white pl-8 pr-2 text-[11px] font-semibold text-slate-900 placeholder:text-slate-400 outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600"
             />
           </div>
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as any)}
-            className="h-8 rounded-lg border border-[#dce7df] bg-[#fafcfb] px-2 text-[11px] outline-none focus:border-[#075b3d]"
+            className="h-8 rounded-lg border border-slate-300 bg-white px-2 text-[11px] font-bold text-slate-800 outline-none focus:border-emerald-600"
           >
             <option value="ALL">Semua Status Armada</option>
             <option value="Active">Hanya Aktif</option>
@@ -585,7 +585,11 @@ export function VehicleTimelineScheduler({
         </div>
 
         {/* Legend */}
-        <div className="flex items-center gap-3 text-[11px] text-[#63726a]">
+        <div className="flex items-center gap-3 text-[11px] font-semibold text-slate-700">
+          <span className="flex items-center gap-1.5">
+            <span className="size-2.5 rounded bg-amber-500" />
+            <span>Pending SPV Pool</span>
+          </span>
           <span className="flex items-center gap-1.5">
             <span className="size-2.5 rounded bg-gradient-to-r from-[#2563eb] to-[#1d4ed8]" />
             <span>Terjadwal / On-Trip</span>
@@ -596,7 +600,7 @@ export function VehicleTimelineScheduler({
           </span>
           {isInteractive && (
             <span className="flex items-center gap-1.5">
-              <span className="size-2.5 rounded border border-blue-400 bg-blue-100" />
+              <span className="size-2.5 rounded border border-blue-500 bg-blue-100" />
               <span>Drag Seleksi</span>
             </span>
           )}
@@ -604,14 +608,14 @@ export function VehicleTimelineScheduler({
       </div>
 
       {/* Grid Container with Frozen Vehicle Column & Scrollable Time Axis */}
-      <div className="mt-4 overflow-hidden rounded-xl border border-[#edf1ee]" ref={gridRef}>
+      <div className="mt-4 overflow-hidden rounded-xl border border-slate-300 bg-white shadow-xs" ref={gridRef}>
         <div className="overflow-x-auto pb-1" ref={scrollContainerRef}>
           <div className="min-w-max">
             {/* Header Row: Frozen Resources Header (Sticky Left) + Scrollable Time Axis */}
-            <div className="flex border-b border-[#edf1ee] bg-[#f8faf9] text-[11px] font-bold text-[#62736b]">
+            <div className="flex border-b border-slate-300 bg-slate-100 text-[11px] font-bold text-slate-800">
               {/* Sticky Frozen Vehicle Column Header */}
-              <div className="sticky left-0 z-30 flex w-[220px] shrink-0 items-center gap-2 border-r border-[#edf1ee] bg-[#f8faf9] py-3 pl-3 pr-2 text-xs uppercase tracking-wider text-[#9aa7a0] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.06)]">
-                <Truck size={14} className="text-[#075b3d]" />
+              <div className="sticky left-0 z-30 flex w-[220px] shrink-0 items-center gap-2 border-r border-slate-300 bg-slate-100 py-3 pl-3 pr-2 text-xs uppercase tracking-wider font-extrabold text-slate-800 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.12)]">
+                <Truck size={14} className="text-emerald-700" />
                 Kendaraan ({visibleVehicles.length})
               </div>
 
@@ -621,11 +625,11 @@ export function VehicleTimelineScheduler({
                   dailyColumns.map((col) => (
                     <div
                       key={col.index}
-                      className={`w-16 shrink-0 text-center font-mono text-[10px] text-[#718279] border-l border-[#edf1ee] py-3 first:border-l-0 ${
-                        col.index % 2 === 0 ? 'bg-[#f8faf9]' : 'bg-[#eef3f0]/70'
+                      className={`w-16 shrink-0 text-center font-mono text-[11px] border-l border-slate-300 py-3 first:border-l-0 ${
+                        col.index % 2 === 0 ? 'bg-slate-100/90 text-slate-900 font-extrabold' : 'bg-slate-50 text-slate-700 font-bold'
                       }`}
                     >
-                      <span className={col.index % 2 === 0 ? 'font-bold text-[#1a382c]' : 'font-semibold text-[#516359]'}>
+                      <span>
                         {col.label}
                       </span>
                     </div>
@@ -635,12 +639,12 @@ export function VehicleTimelineScheduler({
                   weeklyColumns.map((col) => (
                     <div
                       key={col.index}
-                      className={`w-36 shrink-0 text-center text-[10px] border-l border-[#edf1ee] py-2.5 first:border-l-0 ${
+                      className={`w-36 shrink-0 text-center text-[11px] border-l border-slate-300 py-2.5 first:border-l-0 ${
                         col.isToday
-                          ? 'bg-[#eef8f3] font-bold text-[#075b3d]'
+                          ? 'bg-emerald-100 font-extrabold text-emerald-900 border-b-2 border-b-emerald-600'
                           : col.index % 2 === 0
-                          ? 'bg-[#f8faf9] text-[#62736b]'
-                          : 'bg-[#eef3f0]/70 text-[#62736b]'
+                          ? 'bg-slate-100 text-slate-900 font-bold'
+                          : 'bg-slate-50 text-slate-700 font-semibold'
                       }`}
                     >
                       <div>{col.label}</div>
@@ -651,25 +655,25 @@ export function VehicleTimelineScheduler({
                   monthlyColumns.map((col) => (
                     <div
                       key={col.index}
-                      className={`w-12 shrink-0 text-center text-[10px] border-l border-[#edf1ee] py-2 first:border-l-0 ${
+                      className={`w-12 shrink-0 text-center text-[11px] border-l border-slate-300 py-2 first:border-l-0 ${
                         col.isToday
-                          ? 'bg-[#eef8f3] font-bold text-[#075b3d]'
+                          ? 'bg-emerald-100 font-extrabold text-emerald-900 border-b-2 border-b-emerald-600'
                           : col.index % 2 === 0
-                          ? 'bg-[#f8faf9] text-[#62736b]'
-                          : 'bg-[#eef3f0]/70 text-[#62736b]'
+                          ? 'bg-slate-100 text-slate-900 font-bold'
+                          : 'bg-slate-50 text-slate-700 font-semibold'
                       }`}
                     >
                       <div className="font-mono">{col.label}</div>
-                      <div className="text-[9px] text-[#93a097]">{col.weekday}</div>
+                      <div className="text-[9px] font-bold text-slate-500">{col.weekday}</div>
                     </div>
                   ))}
               </div>
             </div>
 
             {/* Vehicle Rows */}
-            <div className="divide-y divide-[#edf1ee] bg-white">
+            <div className="divide-y divide-slate-200 bg-white">
               {visibleVehicles.length === 0 ? (
-                <div className="py-8 text-center text-xs text-[#9aa7a0]">
+                <div className="py-8 text-center text-xs text-emerald-400/60">
                   Tidak ada kendaraan yang sesuai filter.
                 </div>
               ) : (
@@ -698,16 +702,16 @@ export function VehicleTimelineScheduler({
                     <div
                       key={v.plate}
                       className={`flex items-center group/row transition-colors ${
-                        isUnderMaintenance ? 'bg-[#fffbfa]' : 'hover:bg-[#fafcfb]'
+                        isUnderMaintenance ? 'bg-red-50' : 'hover:bg-slate-50'
                       }`}
                     >
                       {/* Sticky Frozen Vehicle Resource Column */}
-                      <div className="sticky left-0 z-20 flex w-[220px] shrink-0 items-center justify-between border-r border-[#edf1ee] bg-white py-3 pl-3 pr-3 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.06)] group-hover/row:bg-[#f6faf7]">
+                      <div className="sticky left-0 z-20 flex w-[220px] shrink-0 items-center justify-between border-r border-slate-300 bg-white py-3 pl-3 pr-3 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] group-hover/row:bg-slate-50">
                         <div className="overflow-hidden">
-                          <p className="text-xs font-extrabold text-emerald-200 tracking-tight truncate font-mono">{v.plate}</p>
-                          <p className="text-[11px] font-semibold text-white/90 truncate">{v.type}</p>
+                          <p className="text-xs font-black text-slate-900 tracking-tight truncate font-mono">{v.plate}</p>
+                          <p className="text-[11px] font-bold text-slate-700 truncate">{v.type}</p>
                           {v.dedicatedUser && (
-                            <p className="text-[9px] font-bold text-purple-300 truncate mt-0.5">
+                            <p className="text-[9px] font-bold text-purple-700 truncate mt-0.5">
                               User: {v.dedicatedUser}
                             </p>
                           )}
@@ -716,12 +720,12 @@ export function VehicleTimelineScheduler({
                           <span
                             className={`shrink-0 rounded-md px-1.5 py-0.5 text-[9px] font-extrabold ${
                               isUnderMaintenance
-                                ? 'bg-[#fee2e2] text-[#b91c1c] border border-red-200'
+                                ? 'bg-red-100 text-red-800 border border-red-300'
                                 : v.category === 'Mobil Expat'
-                                ? 'bg-purple-100 text-purple-900 border border-purple-300'
+                                ? 'bg-purple-100 text-purple-800 border border-purple-300'
                                 : v.category === 'Mobil Sewa'
-                                ? 'bg-amber-100 text-amber-900 border border-amber-300'
-                                : 'bg-[#eaf4ee] text-[#075b3d] border border-[#b8cfc2]'
+                                ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                                : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
                             }`}
                           >
                             {isUnderMaintenance ? 'Maintenance' : v.category || 'Mobil Operasional'}
@@ -732,11 +736,11 @@ export function VehicleTimelineScheduler({
                       {/* Timeline Grid Body (Scrollable with columns) */}
                       <div
                         style={{ width: `${rowGridWidthPx}px` }}
-                        className="relative h-14 shrink-0 flex items-center"
+                        className="relative h-14 shrink-0 flex items-center bg-white"
                       >
                         {/* Maintenance Banner */}
                         {isUnderMaintenance && (
-                          <div className="absolute inset-0 z-10 flex items-center justify-center bg-stripes-red/10 text-[10px] font-bold text-red-600">
+                          <div className="absolute inset-0 z-10 flex items-center justify-center bg-red-100/70 text-[10px] font-bold text-red-700">
                             Unit Dalam Perbaikan / Servis Rutin
                           </div>
                         )}
@@ -759,17 +763,17 @@ export function VehicleTimelineScheduler({
                                 style={{ width: `${unitWidthPx}px` }}
                                 onMouseDown={(e) => !isUnderMaintenance && handleUnitMouseDown(v.plate, unitIdx, e)}
                                 onMouseEnter={() => !isUnderMaintenance && handleUnitMouseEnter(v.plate, unitIdx)}
-                                className={`shrink-0 h-full border-l border-[#edf1ee] first:border-l-0 transition-colors ${
-                                  unitIdx % 2 === 0 ? 'bg-white' : 'bg-[#f7faf8]'
+                                className={`shrink-0 h-full border-l border-slate-200 first:border-l-0 transition-colors ${
+                                  unitIdx % 2 === 0 ? 'bg-white' : 'bg-slate-50/70'
                                 } ${
                                   isInteractive && !isUnderMaintenance
                                     ? 'cursor-crosshair'
                                     : 'cursor-default'
                                 } ${
                                   isDragSelected
-                                    ? '!bg-blue-100/70 border-blue-300'
+                                    ? '!bg-blue-100 border-blue-400'
                                     : isInteractive && !isUnderMaintenance
-                                    ? 'hover:bg-[#eaf4ee]/70'
+                                    ? 'hover:bg-emerald-50'
                                     : ''
                                 }`}
                               />

@@ -655,17 +655,29 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* Username / ID */}
                 <div>
-                  <label className="block text-[11px] font-bold text-[#10251c] mb-1">
-                    Username / ID Akun <span className="text-red-500">*</span>
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-[11px] font-bold text-[#10251c]">
+                      Username / ID Akun <span className="text-red-500">*</span>
+                    </label>
+                    {editingAccount && (
+                      <span className="text-[10px] font-medium text-[#075b3d] bg-[#eef8f3] px-1.5 py-0.5 rounded">
+                        Dapat Diubah
+                      </span>
+                    )}
+                  </div>
                   <input
                     type="text"
                     required
                     placeholder="misal: requester3, driver5"
                     value={formData.username}
-                    onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                    onChange={(e) => setFormData({ ...formData, username: e.target.value.toLowerCase() })}
                     className="h-10 w-full rounded-xl border border-[#dce7df] bg-[#fafcfb] px-3 font-mono text-xs text-[#10251c] focus:border-[#075b3d] focus:outline-none"
                   />
+                  {editingAccount && (
+                    <p className="mt-1 text-[10px] text-[#718279]">
+                      Admin dapat mengubah username ini. Pastikan username baru unik.
+                    </p>
+                  )}
                 </div>
 
                 {/* Password */}

@@ -264,48 +264,85 @@ button:not(:disabled):active { transform: scale(.97); }
 
 /* cards: general elevation */
 section.rounded-2xl { border: 1px solid var(--line); box-shadow: 0 24px 50px -26px rgba(0,0,0,.85), inset 0 1px 0 rgba(255,255,255,.05) !important; }
+/* ========================================================
+   ISOLASI TIMELINE KALENDER (MODE TERANG DENGAN FONT GELAP)
+   ======================================================== */
+.timeline-calendar-wrapper,
+.timeline-calendar-wrapper * {
+  box-sizing: border-box;
+}
 
-/* Timeline Kalender dibuat mode terang bersih dengan kontras tinggi */
-.timeline-calendar-light {
+.timeline-calendar-wrapper {
   background: #ffffff !important;
   color: #0f172a !important;
   border-color: #cbd5e1 !important;
-  box-shadow: 0 10px 30px -10px rgba(0,0,0,0.3) !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.25) !important;
 }
-.timeline-calendar-light .bg-white {
+
+.timeline-calendar-wrapper .bg-white {
   background: #ffffff !important;
 }
-.timeline-calendar-light .text-\[\#10251c\] {
-  color: #0f172a !important;
-}
-.timeline-calendar-light .text-\[\#708078\],
-.timeline-calendar-light .text-\[\#93a097\],
-.timeline-calendar-light .text-\[\#9aa7a0\],
-.timeline-calendar-light .text-\[\#62736b\],
-.timeline-calendar-light .text-\[\#63726a\],
-.timeline-calendar-light .text-\[\#86958d\] {
-  color: #475569 !important;
-}
-.timeline-calendar-light .border-\[\#edf1ee\],
-.timeline-calendar-light .border-\[\#e4ece6\],
-.timeline-calendar-light .border-\[\#dce7df\] {
-  border-color: #e2e8f0 !important;
-}
-.timeline-calendar-light .bg-\[\#f8faf9\],
-.timeline-calendar-light .bg-\[\#f0f4f1\],
-.timeline-calendar-light .bg-\[\#fafcfb\] {
+
+.timeline-calendar-wrapper .bg-slate-50 {
   background: #f8fafc !important;
 }
-.timeline-calendar-light .divide-\[\#edf1ee\] > :not(:last-child) {
+
+.timeline-calendar-wrapper .bg-slate-100 {
+  background: #f1f5f9 !important;
+}
+
+.timeline-calendar-wrapper .border-slate-200 {
   border-color: #e2e8f0 !important;
 }
-.timeline-calendar-light .hover\:bg-\[\#fafcfb\]:hover,
-.timeline-calendar-light tbody tr:hover,
-.timeline-calendar-light .group\/row:hover .group-hover\/row\:bg-\[\#fafcfb\] {
+
+.timeline-calendar-wrapper .border-slate-300 {
+  border-color: #cbd5e1 !important;
+}
+
+.timeline-calendar-wrapper .divide-slate-200 > :not(:last-child) {
+  border-color: #e2e8f0 !important;
+}
+
+/* Force dark contrast font on all text elements inside calendar */
+.timeline-calendar-wrapper .text-slate-900 {
+  color: #0f172a !important;
+}
+
+.timeline-calendar-wrapper .text-slate-800 {
+  color: #1e293b !important;
+}
+
+.timeline-calendar-wrapper .text-slate-700 {
+  color: #334155 !important;
+}
+
+.timeline-calendar-wrapper .text-slate-600 {
+  color: #475569 !important;
+}
+
+.timeline-calendar-wrapper .text-slate-500 {
+  color: #64748b !important;
+}
+
+.timeline-calendar-wrapper .text-emerald-700,
+.timeline-calendar-wrapper .text-emerald-800,
+.timeline-calendar-wrapper .text-emerald-900 {
+  color: #065f46 !important;
+}
+
+.timeline-calendar-wrapper .text-purple-700,
+.timeline-calendar-wrapper .text-purple-800 {
+  color: #6b21a8 !important;
+}
+
+.timeline-calendar-wrapper .hover\:bg-slate-50:hover,
+.timeline-calendar-wrapper tr:hover,
+.timeline-calendar-wrapper .group\/row:hover .group-hover\/row\:bg-slate-50 {
   background-color: #f1f5f9 !important;
 }
-.timeline-calendar-light input,
-.timeline-calendar-light select {
+
+.timeline-calendar-wrapper input,
+.timeline-calendar-wrapper select {
   background: #ffffff !important;
   color: #0f172a !important;
   border-color: #cbd5e1 !important;
@@ -315,3 +352,4 @@ section.rounded-2xl { border: 1px solid var(--line); box-shadow: 0 24px 50px -26
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+

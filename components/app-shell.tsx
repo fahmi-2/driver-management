@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { BusFront, CalendarDays, ChevronDown, Contact, Database, FileText, Inbox, LayoutDashboard, ListChecks, LogOut, Menu, RotateCcw, ShieldCheck, Table2, Ticket, Truck, Users, UsersRound, X, type LucideIcon } from 'lucide-react'
+import { BusFront, CalendarDays, ChevronDown, Contact, Database, FileText, Inbox, LayoutDashboard, ListChecks, LogOut, Menu, ShieldCheck, Table2, Ticket, Truck, Users, UsersRound, X, type LucideIcon } from 'lucide-react'
 import { ROLE_LABEL, getSession, setSession, type Account, type Role } from '@/lib/accounts'
 import { YazakiBadge, YazakiEmblem } from '@/components/yazaki-logo'
 import { ProfileSettingsModal } from '@/components/profile-settings-modal'
@@ -91,7 +91,6 @@ function Badge({ role, id, user }: { role: Role; id: string; user?: Account }) {
 }
 
 function Shell({ user, onLogout }: { user: Account; onLogout: () => void }) {
-  const { resetDemo } = useStore()
   const [currentUser, setCurrentUser] = useState<Account>(user)
   const [profileModalOpen, setProfileModalOpen] = useState(false)
   const nav = NAV[currentUser.role] || NAV.requester
@@ -240,19 +239,6 @@ function Shell({ user, onLogout }: { user: Account; onLogout: () => void }) {
 
           {/* User Profile & Action Controls */}
           <div className="flex items-center gap-2 sm:gap-3">
-            {user.role === 'admin' && (
-              <button
-                onClick={() => {
-                  if (confirm('Reset semua data demo ke kondisi awal?')) resetDemo()
-                }}
-                title="Reset Data Demo"
-                className="hidden sm:flex items-center gap-1.5 rounded-xl border border-[#dce7df] px-3 py-1.5 text-[11px] font-medium text-[#708078] hover:bg-[#f1f5f2] transition"
-              >
-                <RotateCcw size={13} />
-                <span>Reset Data</span>
-              </button>
-            )}
-
             {/* User Profile Button / Trigger for Settings */}
             <button
               type="button"
@@ -314,17 +300,6 @@ function Shell({ user, onLogout }: { user: Account; onLogout: () => void }) {
               <span className="text-[10px] font-bold uppercase tracking-[.14em] text-[#9aa7a0]">
                 Navigasi Menu ({ROLE_LABEL[user.role]})
               </span>
-              {user.role === 'admin' && (
-                <button
-                  onClick={() => {
-                    if (confirm('Reset semua data demo ke kondisi awal?')) resetDemo()
-                    setOpen(false)
-                  }}
-                  className="text-[10px] font-semibold text-[#075b3d] flex items-center gap-1 hover:underline"
-                >
-                  <RotateCcw size={11} /> Reset Data
-                </button>
-              )}
             </div>
             <div className="grid gap-1">
               {nav.map((item) => {
