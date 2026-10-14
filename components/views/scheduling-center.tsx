@@ -406,15 +406,15 @@ export function AdminSchedulingCenter({ user }: { user: Account }) {
           </Card>
 
           {/* Quick Guidance Box */}
-          <div className="rounded-2xl border border-[#d8e8de] bg-[#f4f9f6] p-4 text-xs text-[#264b38]">
-            <h5 className="font-bold flex items-center gap-1.5 text-[#075b3d]">
-              <Info size={15} />
+          <div className="rounded-2xl border border-[#cbe0d3] bg-[#f0f7f3] p-4 text-xs text-[#0f241a] shadow-xs">
+            <h5 className="font-bold flex items-center gap-1.5 text-[#075b3d] text-[13px]">
+              <Info size={16} className="text-[#075b3d] shrink-0" />
               Cara Menjadwalkan Pengajuan:
             </h5>
-            <ol className="mt-2 list-decimal list-inside space-y-1 text-[11px] text-[#55695e]">
+            <ol className="mt-2.5 list-decimal list-inside space-y-1.5 text-xs font-medium text-[#10251c] leading-relaxed">
               <li>Klik salah satu pengajuan di antrean sebelah kiri.</li>
               <li>Arahkan kursor ke baris kendaraan tujuan pada kalender timeline di sebelah kanan.</li>
-              <li><strong>Klik & drag</strong> pada rentang jam kosong untuk memilih durasi waktu.</li>
+              <li><strong className="font-bold text-[#075b3d]">Klik & drag</strong> pada rentang jam kosong untuk memilih durasi waktu.</li>
               <li>Isi catatan opsional & pilih supir pada jendela konfirmasi.</li>
             </ol>
           </div>
