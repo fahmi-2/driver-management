@@ -133,7 +133,6 @@ function Shell({ user, onLogout }: { user: Account; onLogout: () => void }) {
   const [page, setPage] = useState(isApproverRole ? 'approvals' : 'dashboard')
   const [open, setOpen] = useState(false)
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null)
-  const dropdownRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     setCurrentUser(user)
@@ -151,9 +150,11 @@ function Shell({ user, onLogout }: { user: Account; onLogout: () => void }) {
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setActiveDropdown(null)
+      const target = e.target as HTMLElement | null
+      if (target && target.closest('[data-nav-dropdown]')) {
+        return
       }
+      setActiveDropdown(null)
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
@@ -213,7 +214,7 @@ function Shell({ user, onLogout }: { user: Account; onLogout: () => void }) {
                 const isChildActive = item.children.some((c) => c.id === page)
                 const isMenuOpen = activeDropdown === item.id
                 return (
-                  <div key={item.id} className="relative" ref={dropdownRef}>
+                  <div key={item.id} className="relative" data-nav-dropdown>
                     <button
                       type="button"
                       onClick={() => setActiveDropdown(isMenuOpen ? null : item.id)}
@@ -242,11 +243,15 @@ function Shell({ user, onLogout }: { user: Account; onLogout: () => void }) {
                             return (
                               <button
                                 key={child.id}
+                                type="button"
+                                onMouseDown={(e) => {
+                                  e.stopPropagation()
+                                }}
                                 onClick={() => {
                                   setPage(child.id)
                                   setActiveDropdown(null)
                                 }}
-                                className={`flex w-full items-start gap-3 rounded-xl p-2.5 text-left transition ${isSubActive
+                                className={`flex w-full cursor-pointer items-start gap-3 rounded-xl p-2.5 text-left transition ${isSubActive
                                   ? 'bg-[#eef5f0] text-[#075b3d] font-bold'
                                   : 'text-[#4b5b52] hover:bg-[#f7faf8]'
                                   }`}

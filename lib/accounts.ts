@@ -861,7 +861,7 @@ export const ROLE_LABEL: Record<Role, string> = {
   requester: 'Requester (Pemohon)',
   approver: 'Approver SPV Departemen (Tahap 1)',
   approver_pool: 'Approver SPV Kendaraan (Tahap 2)',
-  admin: 'Admin Utama (Pool GA)',
+  admin: 'Super Admin (Pool GA)',
   admin_lobby: 'Admin Lobby Frontdesk',
   driver: 'Driver (Sopir)',
   security: 'Security Gerbang',

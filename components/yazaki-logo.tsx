@@ -73,12 +73,12 @@ export function YazakiEmblem({ className = 'size-6' }: { className?: string }) {
 export function YazakiBadge({ className = 'h-11' }: { className?: string }) {
   return (
     <div
-      className={`inline-flex items-center justify-center rounded-lg bg-white overflow-hidden select-none shadow-[0_6px_20px_rgba(0,0,0,0.28)] transition-all duration-300 hover:shadow-[0_8px_25px_rgba(0,0,0,0.35)] ${className}`}
+      className={`inline-flex items-center justify-center rounded-xl bg-white p-1.5 select-none transition-all duration-300 shadow-[0_0_18px_rgba(0,0,0,0.35),0_0_30px_rgba(255,255,255,0.12)] hover:shadow-[0_0_24px_rgba(0,0,0,0.45),0_0_36px_rgba(163,230,53,0.25)] ${className}`}
     >
       <img
         src="/yazaki-logo.jpg"
         alt="Yazaki PT Jatim Autocomp Indonesia Logo"
-        className="h-full w-auto object-cover scale-[1.08]"
+        className="h-full w-auto object-contain block max-w-none"
       />
     </div>
   )

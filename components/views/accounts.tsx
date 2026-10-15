@@ -349,7 +349,7 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
               <option value="requester">Requester (Pemohon)</option>
               <option value="approver">Approver SPV Departemen (Tahap 1)</option>
               <option value="approver_pool">Approver SPV Kendaraan (Tahap 2)</option>
-              <option value="admin">Admin Utama (Pool GA)</option>
+              <option value="admin">Super Admin (Pool GA)</option>
               <option value="admin_lobby">Admin Lobby Frontdesk</option>
               <option value="driver">Driver (Sopir)</option>
               <option value="security">Security Gerbang</option>
@@ -737,7 +737,7 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
                     <option value="requester">Requester (Pemohon)</option>
                     <option value="approver">Approver SPV Departemen (Tahap 1)</option>
                     <option value="approver_pool">Approver SPV Kendaraan (Tahap 2)</option>
-                    <option value="admin">Admin Utama (Pool GA)</option>
+                    <option value="admin">Super Admin (Pool GA)</option>
                     <option value="admin_lobby">Admin Lobby Frontdesk</option>
                     <option value="driver">Driver (Sopir)</option>
                     <option value="security">Security Gerbang</option>
