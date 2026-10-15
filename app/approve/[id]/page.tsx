@@ -25,7 +25,7 @@ function Approve() {
 
   // Otentikasi: Tautan email tidak lagi menyetujui secara instan tanpa login,
   // melainkan mengarahkan atasan untuk login akun ber-role Approver
-  const isApproverLoggedIn = currentUser && (currentUser.role === 'approver' || currentUser.role === 'admin')
+  const isApproverLoggedIn = currentUser && (currentUser.role === 'approver' || currentUser.role === 'admin' || currentUser.role === 'admin_lobby')
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-[#e9eeeb] p-4 text-[#10251c]">

@@ -57,6 +57,22 @@ const NAV: Record<Role, NavItem[]> = {
     { id: 'live', label: 'Live Data', icon: Table2 },
     { id: 'workload', label: 'Beban Kerja', icon: UsersRound },
   ],
+  admin_lobby: [
+    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'scheduling', label: 'Waiting List & Jadwal', icon: ListChecks },
+    {
+      id: 'kelola-data',
+      label: 'Kelola Data',
+      icon: Database,
+      isDropdown: true,
+      children: [
+        { id: 'vehicles', label: 'Daftar Kendaraan', icon: Truck, desc: 'Master armada & status kendaraan' },
+        { id: 'drivers', label: 'Daftar Sopir', icon: Contact, desc: 'Database personil sopir & shift' },
+      ],
+    },
+    { id: 'live', label: 'Live Data', icon: Table2 },
+    { id: 'workload', label: 'Beban Kerja', icon: UsersRound },
+  ],
   security: [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'gate', label: 'Gate Clearance', icon: ShieldCheck },
@@ -82,7 +98,7 @@ function Badge({ role, id, user }: { role: Role; id: string; user?: Account }) {
     return pending ? <span className="rounded-md bg-amber-500 px-1.5 py-0.5 text-[9px] font-bold text-black">{pending}</span> : null
   }
 
-  const n = role === 'admin' && (id === 'scheduling' || id === 'approval') ? db.trips.filter((t) => t.status === 'WAITING_ASSIGN').length
+  const n = (role === 'admin' || role === 'admin_lobby') && (id === 'scheduling' || id === 'approval') ? db.trips.filter((t) => t.status === 'WAITING_ASSIGN').length
     : role === 'security' && id === 'gate' ? db.trips.filter((t) => t.status === 'READY' || t.status === 'ON_TRIP').length
     : role === 'coupon' && id === 'pending' ? db.trips.filter((t) => t.coupon === 'PR_PENDING' || t.coupon === 'PR_PROGRESS').length
     : role === 'requester' && id === 'inbox' ? db.trips.filter((t) => t.status === 'READY').length
@@ -133,7 +149,13 @@ function Shell({ user, onLogout }: { user: Account; onLogout: () => void }) {
   else if (page === 'scheduling' || page === 'approval') view = <AdminSchedulingCenter user={currentUser} />
   else if (page === 'vehicles') view = <AdminVehicles />
   else if (page === 'drivers') view = <AdminDrivers />
-  else if (page === 'accounts') view = <AdminAccounts currentUser={currentUser} />
+  else if (page === 'accounts') {
+    if (currentUser?.role === 'admin_lobby') {
+      view = <Dashboard user={currentUser} />
+    } else {
+      view = <AdminAccounts currentUser={currentUser} />
+    }
+  }
   else if (page === 'live') view = <AdminLiveData />
   else if (page === 'workload') view = <AdminWorkload />
   else if (page === 'gate') view = <SecurityGate user={currentUser} />

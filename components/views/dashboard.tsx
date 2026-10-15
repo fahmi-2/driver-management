@@ -176,7 +176,7 @@ export function WorkloadCard() {
 
 export function Dashboard({ user }: { user: Account }) {
   const { db, toggleLeave } = useStore()
-  const isAdmin = user.role === 'admin'
+  const isAdmin = user.role === 'admin' || user.role === 'admin_lobby'
   const today = ymd()
   const todays = db.trips.filter((t) => t.date === today)
   const active = db.trips.filter((t) => t.status === 'ON_TRIP')

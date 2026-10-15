@@ -1,4 +1,4 @@
-export type Role = 'requester' | 'approver' | 'approver_pool' | 'admin' | 'driver' | 'security' | 'coupon'
+export type Role = 'requester' | 'approver' | 'approver_pool' | 'admin' | 'admin_lobby' | 'driver' | 'security' | 'coupon'
 
 export type OrgMatrixItem = {
   dept: string
@@ -301,7 +301,7 @@ export const DEPARTMENT_APPROVERS: Record<string, string[]> = ORG_MATRIX.reduce(
 
 // Master Akun Resmi Sistem PT. JAI (Semua Dept, Section, Manager, SSPV, Requester, Driver, Security, Kupon)
 export const ACCOUNTS: Account[] = [
-  // 1. Akun Admin Utama (Pool GA)
+  // 1. Akun Admin Utama (Pool GA) & Admin Lobby
   {
     username: 'admin1',
     password: 'admin123',
@@ -311,6 +311,16 @@ export const ACCOUNTS: Account[] = [
     dept: 'PGA',
     section: 'GAGS, STATIONARY & UTILITY, INTERPRETER',
     title: 'Admin Operasional Pool GA',
+  },
+  {
+    username: 'admin_lobby',
+    password: 'admin123',
+    name: 'Admin Lobby Frontdesk',
+    email: 'admin.lobby@jai.co.id',
+    role: 'admin_lobby',
+    dept: 'PGA',
+    section: 'GAGS, STATIONARY & UTILITY, INTERPRETER',
+    title: 'Admin Lobby Frontdesk',
   },
 
   // 2. Akun SPV Kendaraan (Approver Tahap 2 - Pool GA)
@@ -852,6 +862,7 @@ export const ROLE_LABEL: Record<Role, string> = {
   approver: 'Approver SPV Departemen (Tahap 1)',
   approver_pool: 'Approver SPV Kendaraan (Tahap 2)',
   admin: 'Admin Utama (Pool GA)',
+  admin_lobby: 'Admin Lobby Frontdesk',
   driver: 'Driver (Sopir)',
   security: 'Security Gerbang',
   coupon: 'Admin Kupon',
@@ -901,7 +912,18 @@ export function getAllAccounts(): Account[] {
       window.localStorage.setItem(ACCOUNTS_STORAGE_KEY, JSON.stringify(ACCOUNTS))
       return ACCOUNTS
     }
-    const parsed = JSON.parse(raw) as Account[]
+    let parsed = JSON.parse(raw) as Account[]
+    // Pastikan jika ada akun bawaan baru (misal admin_lobby) otomatis terinjeksi jika belum ada di storage
+    let needsUpdate = false
+    for (const defAcc of ACCOUNTS) {
+      if (!parsed.some((p) => p.username.toLowerCase() === defAcc.username.toLowerCase())) {
+        parsed.push(defAcc)
+        needsUpdate = true
+      }
+    }
+    if (needsUpdate) {
+      window.localStorage.setItem(ACCOUNTS_STORAGE_KEY, JSON.stringify(parsed))
+    }
     // Gabungkan dengan custom profiles jika ada
     const customs = getCustomProfiles()
     return parsed.map((acc) => {
@@ -971,9 +993,9 @@ export function updateAccount(originalUsername: string, updates: Partial<Account
 
 export function deleteAccount(username: string): { success: boolean; message?: string } {
   const cleanUsername = username.trim().toLowerCase()
-  // Admin utama tidak boleh dihapus
-  if (cleanUsername === 'admin' || cleanUsername === 'admin1') {
-    return { success: false, message: 'Akun Admin Utama tidak boleh dihapus!' }
+  // Admin utama & Admin lobby bawaan tidak boleh dihapus
+  if (cleanUsername === 'admin' || cleanUsername === 'admin1' || cleanUsername === 'admin_lobby') {
+    return { success: false, message: 'Akun Admin Sistem tidak boleh dihapus!' }
   }
 
   const curSession = getSession()

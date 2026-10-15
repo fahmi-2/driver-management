@@ -300,8 +300,8 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
       </div>
 
       {/* Stats Summary Cards */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
-        {(['ALL', 'requester', 'approver', 'admin', 'driver', 'security'] as const).map((r) => {
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
+        {(['ALL', 'requester', 'approver', 'admin', 'admin_lobby', 'driver', 'security'] as const).map((r) => {
           const count = r === 'ALL' ? accounts.length : accounts.filter((a) => a.role === r).length
           const label = r === 'ALL' ? 'Total Semua' : ROLE_LABEL[r]
           const isSelected = roleFilter === r
@@ -350,6 +350,7 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
               <option value="approver">Approver SPV Departemen (Tahap 1)</option>
               <option value="approver_pool">Approver SPV Kendaraan (Tahap 2)</option>
               <option value="admin">Admin Utama (Pool GA)</option>
+              <option value="admin_lobby">Admin Lobby Frontdesk</option>
               <option value="driver">Driver (Sopir)</option>
               <option value="security">Security Gerbang</option>
               <option value="coupon">Admin Kupon</option>
@@ -421,6 +422,8 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
                             className={`rounded-md px-2 py-0.5 text-[10px] font-bold ${
                               acc.role === 'admin'
                                 ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                                : acc.role === 'admin_lobby'
+                                ? 'bg-teal-100 text-teal-800 border border-teal-300'
                                 : acc.role === 'approver_pool'
                                 ? 'bg-orange-100 text-orange-900 border border-orange-300'
                                 : acc.role === 'approver'
@@ -735,6 +738,7 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
                     <option value="approver">Approver SPV Departemen (Tahap 1)</option>
                     <option value="approver_pool">Approver SPV Kendaraan (Tahap 2)</option>
                     <option value="admin">Admin Utama (Pool GA)</option>
+                    <option value="admin_lobby">Admin Lobby Frontdesk</option>
                     <option value="driver">Driver (Sopir)</option>
                     <option value="security">Security Gerbang</option>
                     <option value="coupon">Admin Kupon</option>

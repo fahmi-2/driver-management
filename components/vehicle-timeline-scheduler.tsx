@@ -87,7 +87,7 @@ export function VehicleTimelineScheduler({
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'Active' | 'Maintenance'>('ALL')
 
   // Drag selection state (Only active in Interactive mode)
-  const isInteractive = interactive ?? user.role === 'admin'
+  const isInteractive = interactive ?? (user.role === 'admin' || user.role === 'admin_lobby')
   const [dragState, setDragState] = useState<{
     isDragging: boolean
     vehiclePlate: string | null
@@ -103,7 +103,7 @@ export function VehicleTimelineScheduler({
   const [hoveredTrip, setHoveredTrip] = useState<Trip | null>(null)
   const [hoverPos, setHoverPos] = useState<{ x: number; y: number } | null>(null)
   const gridRef = useRef<HTMLDivElement>(null)
-  const isAdmin = user.role === 'admin'
+  const isAdmin = user.role === 'admin' || user.role === 'admin_lobby'
 
   // Filter vehicles by search and status
   const visibleVehicles = useMemo(() => {
