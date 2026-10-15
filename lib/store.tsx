@@ -260,35 +260,114 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setReady(true)
 
     // Sync data langsung dari Supabase saat online
-    import('./sync').then(async ({ fetchTripsFromSupabase, fetchVehiclesFromSupabase, fetchDriversFromSupabase }) => {
-      const [remoteTrips, remoteVehicles, remoteDrivers] = await Promise.all([
-        fetchTripsFromSupabase(),
-        fetchVehiclesFromSupabase(),
-        fetchDriversFromSupabase(),
-      ])
+    const loadFromRemote = async () => {
+      try {
+        const { fetchTripsFromSupabase, fetchVehiclesFromSupabase, fetchDriversFromSupabase } = await import('./sync')
+        const [remoteTrips, remoteVehicles, remoteDrivers] = await Promise.all([
+          fetchTripsFromSupabase(),
+          fetchVehiclesFromSupabase(),
+          fetchDriversFromSupabase(),
+        ])
 
-      setDb((prev) => {
-        const next: DB = {
-          trips: remoteTrips != null ? remoteTrips : prev.trips,
-          vehicles: remoteVehicles && remoteVehicles.length > 0 ? remoteVehicles : prev.vehicles,
-          drivers: remoteDrivers && remoteDrivers.length > 0 ? remoteDrivers : prev.drivers,
-        }
-        window.localStorage.setItem(KEY, JSON.stringify(next))
-        return next
-      })
+        setDb((prev) => {
+          const next: DB = {
+            trips: remoteTrips != null ? remoteTrips : prev.trips,
+            vehicles: remoteVehicles && remoteVehicles.length > 0 ? remoteVehicles : prev.vehicles,
+            drivers: remoteDrivers && remoteDrivers.length > 0 ? remoteDrivers : prev.drivers,
+          }
+          window.localStorage.setItem(KEY, JSON.stringify(next))
+          return next
+        })
+      } catch (err) {
+        console.warn('Realtime fetch sync err:', err)
+      }
+    }
+
+    // Panggil segera saat mount
+    loadFromRemote()
+
+    // Realtime Supabase Channel: mendengarkan INSERT, UPDATE, DELETE di tabel trips, vehicles, drivers
+    let subscriptionChannel: any = null
+    import('./supabase').then(({ supabase }) => {
+      subscriptionChannel = supabase
+        .channel('db-live-sync-realtime')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'trips' }, () => {
+          loadFromRemote()
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'vehicles' }, () => {
+          loadFromRemote()
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'drivers' }, () => {
+          loadFromRemote()
+        })
+        .subscribe()
     })
 
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === KEY && e.newValue) setDb(JSON.parse(e.newValue))
+    // BroadcastChannel untuk sinkronisasi seketika antar-tab/window di browser yang sama
+    let broadcastChannel: BroadcastChannel | null = null
+    if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+      try {
+        broadcastChannel = new BroadcastChannel('ff_store_sync_channel')
+        broadcastChannel.onmessage = (event) => {
+          if (event.data === 'sync' || event.data?.type === 'sync') {
+            loadFromRemote()
+          }
+        }
+      } catch {
+        // Fallback jika tidak didukung
+      }
     }
+
+    // Polling backup cepat (setiap 3.5 detik) agar jika websocket sleep di server/device, data langsung update
+    const intervalId = setInterval(loadFromRemote, 3500)
+
+    // Trigger sinkronisasi seketika saat user kembali fokus ke tab atau jendela browser
+    const onWindowFocus = () => {
+      loadFromRemote()
+    }
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        loadFromRemote()
+      }
+    }
+
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === KEY && e.newValue) {
+        setDb(JSON.parse(e.newValue))
+      }
+    }
+
     window.addEventListener('storage', onStorage)
-    return () => window.removeEventListener('storage', onStorage)
+    window.addEventListener('focus', onWindowFocus)
+    document.addEventListener('visibilitychange', onVisibilityChange)
+
+    return () => {
+      window.removeEventListener('storage', onStorage)
+      window.removeEventListener('focus', onWindowFocus)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+      clearInterval(intervalId)
+      if (broadcastChannel) {
+        broadcastChannel.close()
+      }
+      if (subscriptionChannel) {
+        import('./supabase').then(({ supabase }) => {
+          supabase.removeChannel(subscriptionChannel)
+        })
+      }
+    }
   }, [])
 
   const update = useCallback((fn: (d: DB) => DB) => {
     setDb((prev) => {
       const next = fn(prev)
       window.localStorage.setItem(KEY, JSON.stringify(next))
+      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        try {
+          const bc = new BroadcastChannel('ff_store_sync_channel')
+          bc.postMessage({ type: 'sync' })
+          bc.close()
+        } catch {}
+      }
       return next
     })
   }, [])
@@ -325,7 +404,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         ...d,
         trips: [...d.trips, newTrip],
       }))
-      import('./sync').then(({ upsertTripToSupabase }) => upsertTripToSupabase(newTrip))
+      import('./sync').then(({ upsertTripToSupabase }) => {
+        upsertTripToSupabase(newTrip).then(() => {
+          if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+            try {
+              const bc = new BroadcastChannel('ff_store_sync_channel')
+              bc.postMessage({ type: 'sync' })
+              bc.close()
+            } catch {}
+          }
+        })
+      })
       return id
     },
     // Direct Booking oleh Admin Utama via drag-to-book di kalender

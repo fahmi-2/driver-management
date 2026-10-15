@@ -11,7 +11,7 @@ export default function LoginPage() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [show, setShow] = useState(false)
-  const [remember, setRemember] = useState(true)
+  const [remember, setRemember] = useState(false)
   const [error, setError] = useState('')
   const [shakeKey, setShakeKey] = useState(0)
 

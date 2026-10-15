@@ -1123,28 +1123,70 @@ export function findAccount(username: string, password: string) {
 }
 
 const KEY = 'ff_session'
+const SESSION_TIME_KEY = 'ff_session_time'
+// Sesi kedaluwarsa setelah 4 jam tidak aktif jika memilih remember, atau 1 jam jika sesi standar
+const SESSION_MAX_AGE_MS = 4 * 60 * 60 * 1000
+
 export function getSession(): Account | null {
   if (typeof window === 'undefined') return null
-  // Cek sessionStorage terlebih dahulu (per tab aktif)
+
+  // 1. Cek waktu login / aktivitas terakhir untuk mencegah session menggantung selamanya
+  const storedTime = window.sessionStorage.getItem(SESSION_TIME_KEY) || window.localStorage.getItem(SESSION_TIME_KEY)
+  if (storedTime) {
+    const elapsed = Date.now() - parseInt(storedTime, 10)
+    if (elapsed > SESSION_MAX_AGE_MS) {
+      // Sesi kedaluwarsa, bersihkan dan minta user login ulang
+      setSession(null)
+      return null
+    }
+  }
+
+  // Cek sessionStorage terlebih dahulu (per tab aktif agar mandiri per tab/jendela)
+  // kemudian localStorage jika user mencentang 'Ingat Saya'
   const u = window.sessionStorage.getItem(KEY) || window.localStorage.getItem(KEY)
   if (!u) return null
+
   const all = getAllAccounts()
-  const base = all.find((a) => a.username === u)
-  if (!base) return null
+  const base = all.find((a) => a.username.toLowerCase() === u.toLowerCase())
+  if (!base) {
+    setSession(null)
+    return null
+  }
+
+  // Refresh timestamp aktivitas sesi
+  const now = Date.now().toString()
+  if (window.sessionStorage.getItem(KEY)) {
+    window.sessionStorage.setItem(SESSION_TIME_KEY, now)
+  }
+  if (window.localStorage.getItem(KEY)) {
+    window.localStorage.setItem(SESSION_TIME_KEY, now)
+  }
+
   const customs = getCustomProfiles()
   const custom = customs[base.username]
   return custom ? { ...base, ...custom } : base
 }
 
-export function setSession(username: string | null, remember: boolean = true) {
+export function setSession(username: string | null, remember: boolean = false) {
   if (typeof window === 'undefined') return
   if (username) {
+    const now = Date.now().toString()
+    // Simpan selalu di sessionStorage untuk tab saat ini
     window.sessionStorage.setItem(KEY, username)
+    window.sessionStorage.setItem(SESSION_TIME_KEY, now)
+
     if (remember) {
       window.localStorage.setItem(KEY, username)
+      window.localStorage.setItem(SESSION_TIME_KEY, now)
+    } else {
+      // Jika tidak dicentang remember, hapus dari localStorage agar device/browser lain tidak otomatis login
+      window.localStorage.removeItem(KEY)
+      window.localStorage.removeItem(SESSION_TIME_KEY)
     }
   } else {
     window.sessionStorage.removeItem(KEY)
+    window.sessionStorage.removeItem(SESSION_TIME_KEY)
     window.localStorage.removeItem(KEY)
+    window.localStorage.removeItem(SESSION_TIME_KEY)
   }
 }

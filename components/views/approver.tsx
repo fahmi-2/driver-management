@@ -43,20 +43,31 @@ export function ApproverInbox({ user }: { user: Account }) {
   const allTrips = db.trips.slice().reverse()
 
   const pendingTrips = allTrips.filter((t) => {
+    // Normalisasi email & nama user untuk pencocokan dinamis
+    const userEmail = user.email?.trim().toLowerCase()
+    const userName = user.name?.trim().toUpperCase()
+    const isTargetedApprover = (userEmail && (t.approverEmail?.toLowerCase() === userEmail || t.spvEmail?.toLowerCase() === userEmail)) ||
+      (userName && t.spvName && t.spvName.toUpperCase().includes(userName))
+
     if (isPoolSpv) {
       // SPV Kendaraan / Pool GA bisa review Tahap 2 (WAITING_POOL_SPV)
-      // dan juga pengajuan departemennya sendiri di Tahap 1 (WAITING_SPV)
-      return t.status === 'WAITING_POOL_SPV' || (t.status === 'WAITING_SPV' && t.dept === user.dept)
+      // dan juga pengajuan departemennya sendiri atau yang ditujukan kepadanya di Tahap 1 (WAITING_SPV)
+      return t.status === 'WAITING_POOL_SPV' || (t.status === 'WAITING_SPV' && (t.dept === user.dept || isTargetedApprover))
     }
-    // SPV Departemen biasa: hanya trip departemennya yang butuh Tahap 1
-    return t.dept === user.dept && t.status === 'WAITING_SPV'
+    // SPV Departemen: trip departemennya ATAU trip yang ditujukan spesifik ke email/namanya di Tahap 1
+    return t.status === 'WAITING_SPV' && (t.dept === user.dept || isTargetedApprover)
   })
 
   const historyTrips = allTrips.filter((t) => {
+    const userEmail = user.email?.trim().toLowerCase()
+    const userName = user.name?.trim().toUpperCase()
+    const isTargetedApprover = (userEmail && (t.approverEmail?.toLowerCase() === userEmail || t.spvEmail?.toLowerCase() === userEmail)) ||
+      (userName && t.spvName && t.spvName.toUpperCase().includes(userName))
+
     if (isPoolSpv) {
-      return t.poolSpvAt || (t.dept === user.dept && t.spvAt)
+      return t.poolSpvAt || ((t.dept === user.dept || isTargetedApprover) && t.spvAt)
     }
-    return t.dept === user.dept && t.spvAt
+    return (t.dept === user.dept || isTargetedApprover) && t.spvAt
   })
 
   const currentList = activeTab === 'pending' ? pendingTrips : historyTrips

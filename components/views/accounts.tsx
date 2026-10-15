@@ -94,12 +94,40 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
     syncAccountsWithSupabase().then((latest) => {
       if (latest && latest.length > 0) setAccounts(latest)
     })
+
+    // Listener Supabase realtime untuk tabel accounts
+    let channel: any = null
+    import('@/lib/supabase').then(({ supabase }) => {
+      channel = supabase
+        .channel('accounts-live-sync')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'accounts' }, () => {
+          syncAccountsWithSupabase().then((latest) => {
+            if (latest && latest.length > 0) setAccounts(latest)
+          })
+        })
+        .subscribe()
+    })
+
     const handleUpdate = () => refreshAccounts()
+    const handleFocus = () => {
+      syncAccountsWithSupabase().then((latest) => {
+        if (latest && latest.length > 0) setAccounts(latest)
+      })
+    }
+
     window.addEventListener('accounts_updated', handleUpdate)
     window.addEventListener('profile_updated', handleUpdate)
+    window.addEventListener('focus', handleFocus)
+
     return () => {
       window.removeEventListener('accounts_updated', handleUpdate)
       window.removeEventListener('profile_updated', handleUpdate)
+      window.removeEventListener('focus', handleFocus)
+      if (channel) {
+        import('@/lib/supabase').then(({ supabase }) => {
+          supabase.removeChannel(channel)
+        })
+      }
     }
   }, [])
 

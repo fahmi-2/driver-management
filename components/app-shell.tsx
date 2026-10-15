@@ -110,9 +110,15 @@ function Badge({ role, id, user }: { role: Role; id: string; user?: Account }) {
   const { db } = useStore()
   if ((role === 'approver' || role === 'approver_pool') && id === 'approvals') {
     const isPoolSpv = role === 'approver_pool' || user?.username === 'spv_pool' || user?.dept === 'HR & GA'
+    const userEmail = user?.email?.trim().toLowerCase()
+    const userName = user?.name?.trim().toUpperCase()
+
     const pending = db.trips.filter((t) => {
-      if (isPoolSpv) return t.status === 'WAITING_POOL_SPV' || (t.status === 'WAITING_SPV' && t.dept === user?.dept)
-      return t.dept === user?.dept && t.status === 'WAITING_SPV'
+      const isTargetedApprover = (userEmail && (t.approverEmail?.toLowerCase() === userEmail || t.spvEmail?.toLowerCase() === userEmail)) ||
+        (userName && t.spvName && t.spvName.toUpperCase().includes(userName))
+
+      if (isPoolSpv) return t.status === 'WAITING_POOL_SPV' || (t.status === 'WAITING_SPV' && (t.dept === user?.dept || isTargetedApprover))
+      return t.status === 'WAITING_SPV' && (t.dept === user?.dept || isTargetedApprover)
     }).length
     return pending ? <span className="rounded-md bg-amber-500 px-1.5 py-0.5 text-[9px] font-bold text-black">{pending}</span> : null
   }
