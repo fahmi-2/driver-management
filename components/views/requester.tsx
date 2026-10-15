@@ -19,6 +19,7 @@ import {
   DEPARTMENT_APPROVERS,
   getSectionsByDept,
   getApproversBySection,
+  getManagerBySection,
   type Account,
 } from '@/lib/accounts'
 import {
@@ -63,16 +64,16 @@ export function RequesterForm({ user }: { user: Account }) {
   const initialDept = user.dept && DEPARTMENTS.includes(user.dept) ? user.dept : 'PGA'
   const availableSections = getSectionsByDept(initialDept)
   const initialSection = user.section && availableSections.includes(user.section) ? user.section : availableSections[0] || ''
-  const initialApprovers = getApproversBySection(initialDept, initialSection)
+  const initialManager = getManagerBySection(initialDept, initialSection)
 
   const [f, setF] = useState({
     category: 'Dinas' as Category,
-    requesterName: '',
-    requesterNik: '',
+    requesterName: user.name || '',
+    requesterNik: user.nik || '',
     dept: initialDept,
     section: initialSection,
-    approvedBy: initialApprovers[0]?.name || '',
-    approverEmail: initialApprovers[0]?.email || '',
+    approvedBy: initialManager.name,
+    approverEmail: initialManager.email,
     driverOnly: false, // Opsi "Hanya Driver" (tanpa penumpang / antar barang)
     additionalUsers: [] as Passenger[], // User tambahan yang bertambah saat klik "+ Tambah"
     destination: '',
@@ -90,23 +91,23 @@ export function RequesterForm({ user }: { user: Account }) {
   const handleDeptChange = (newDept: string) => {
     const secList = getSectionsByDept(newDept)
     const newSec = secList[0] || ''
-    const approvers = getApproversBySection(newDept, newSec)
+    const manager = getManagerBySection(newDept, newSec)
     setF((prev) => ({
       ...prev,
       dept: newDept,
       section: newSec,
-      approvedBy: approvers[0]?.name || '',
-      approverEmail: approvers[0]?.email || '',
+      approvedBy: manager.name,
+      approverEmail: manager.email,
     }))
   }
 
   const handleSectionChange = (newSection: string) => {
-    const approvers = getApproversBySection(f.dept, newSection)
+    const manager = getManagerBySection(f.dept, newSection)
     setF((prev) => ({
       ...prev,
       section: newSection,
-      approvedBy: approvers[0]?.name || '',
-      approverEmail: approvers[0]?.email || '',
+      approvedBy: manager.name,
+      approverEmail: manager.email,
     }))
   }
 
@@ -200,15 +201,15 @@ export function RequesterForm({ user }: { user: Account }) {
         : `Terkirim! Email notifikasi persetujuan otomatis dikirim ke ${f.approvedBy} (${f.approverEmail}) dari Section ${f.section || f.dept}.`
     )
 
-    const resetApprovers = getApproversBySection(initialDept, initialSection)
+    const resetManager = getManagerBySection(initialDept, initialSection)
     setF({
       category: 'Dinas',
-      requesterName: '',
-      requesterNik: '',
+      requesterName: user.name || '',
+      requesterNik: user.nik || '',
       dept: initialDept,
       section: initialSection,
-      approvedBy: resetApprovers[0]?.name || '',
-      approverEmail: resetApprovers[0]?.email || '',
+      approvedBy: resetManager.name,
+      approverEmail: resetManager.email,
       driverOnly: false,
       additionalUsers: [],
       destination: '',
@@ -306,9 +307,15 @@ export function RequesterForm({ user }: { user: Account }) {
                 <p className="text-xs font-bold text-white flex items-center gap-1.5">
                   <User size={14} className="text-[#a3e635]" /> Data Pemohon & Penerima Persetujuan
                 </p>
-                <span className="rounded-full bg-[#a3e635]/15 border border-[#a3e635]/30 px-2.5 py-0.5 text-[10px] font-bold text-[#bef264]">
-                  {totalUserCount} / {maxVehicleCapacity} Orang (Termasuk Pemohon)
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="flex items-center gap-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-300">
+                    <User size={11} className="text-[#a3e635]" />
+                    Pemohon: <strong className="text-white">{user.name}</strong> ({user.email || 'Email belum terdaftar'})
+                  </span>
+                  <span className="rounded-full bg-[#a3e635]/15 border border-[#a3e635]/30 px-2.5 py-0.5 text-[10px] font-bold text-[#bef264]">
+                    {totalUserCount} / {maxVehicleCapacity} Orang (Termasuk Pemohon)
+                  </span>
+                </div>
               </div>
 
               {/* Grid 4 Kolom: Nama Pemohon, NIK, Departemen, Section */}
@@ -381,12 +388,12 @@ export function RequesterForm({ user }: { user: Account }) {
                 <div className="flex items-center gap-2 text-[#e2f8d8]">
                   <Mail size={14} className="text-[#a3e635] shrink-0" />
                   <span>
-                    Approval Otomatis: <strong className="text-white">{f.approvedBy || 'Manager/SSPV Section'}</strong>{' '}
-                    <span className="text-[#bef264]">({f.approverEmail || 'Email terdaftar'})</span>
+                    Approval Ditujukan ke: <strong className="text-white">{f.approvedBy || `Manager ${f.dept}`}</strong>{' '}
+                    <span className="font-mono text-[#bef264]">({f.approverEmail || 'Email terdaftar'})</span>
                   </span>
                 </div>
                 <span className="inline-block rounded-md bg-[#052e16] px-2.5 py-0.5 text-[10px] font-extrabold text-[#bef264] border border-[#a3e635]/40 shrink-0">
-                  Rule Section Aktif
+                  Manajer Approver (Otomatis)
                 </span>
               </div>
 

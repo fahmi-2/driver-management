@@ -21,6 +21,7 @@ import {
   ChevronLeft,
   ChevronRight,
   RefreshCw,
+  Mail,
 } from 'lucide-react'
 import {
   type Account,
@@ -62,6 +63,7 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
     username: string
     password: string
     name: string
+    email: string
     role: Role
     dept: string
     section: string
@@ -72,6 +74,7 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
     username: '',
     password: '',
     name: '',
+    email: '',
     role: 'requester',
     dept: 'PGA',
     section: getSectionsByDept('PGA')[0] || '',
@@ -132,6 +135,7 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
       username: '',
       password: '',
       name: '',
+      email: '',
       role: 'requester',
       dept: defaultDept,
       section: defaultSecs[0] || '',
@@ -153,6 +157,7 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
       username: acc.username,
       password: acc.password,
       name: acc.name,
+      email: acc.email || '',
       role: acc.role,
       dept: curDept,
       section: curSection,
@@ -177,11 +182,13 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
     }
 
     const isOrgRole = ['requester', 'approver', 'approver_pool'].includes(formData.role)
+    const cleanEmail = formData.email.trim() || undefined
     if (editingAccount) {
       const res = updateAccount(editingAccount.username, {
         username: cleanUsername,
         password: cleanPassword,
         name: cleanName,
+        email: cleanEmail,
         role: formData.role,
         dept: isOrgRole ? formData.dept : undefined,
         section: isOrgRole ? formData.section || undefined : undefined,
@@ -199,6 +206,7 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
         username: cleanUsername,
         password: cleanPassword,
         name: cleanName,
+        email: cleanEmail,
         role: formData.role,
         dept: isOrgRole ? formData.dept : undefined,
         section: isOrgRole ? formData.section || undefined : undefined,
@@ -402,6 +410,7 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
               <tr className="border-b border-[#edf1ee] bg-[#f8faf9] text-[11px] font-bold text-[#62736b]">
                 <th className="py-3.5 pl-5 pr-3">User ID (Username)</th>
                 <th className="px-3 py-3.5">Nama & Identitas</th>
+                <th className="px-3 py-3.5">Email Pengguna</th>
                 <th className="px-3 py-3.5">Peran & Divisi</th>
                 <th className="px-3 py-3.5">Password</th>
                 <th className="py-3.5 pl-3 pr-5 text-right">Aksi</th>
@@ -410,7 +419,7 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
             <tbody className="divide-y divide-[#edf1ee]">
               {filteredAccounts.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-12 text-center text-xs text-[#8fa096]">
+                  <td colSpan={6} className="py-12 text-center text-xs text-[#8fa096]">
                     Tidak ada data akun yang sesuai dengan pencarian.
                   </td>
                 </tr>
@@ -445,6 +454,20 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
                           {acc.nik ? `NIK: ${acc.nik} · ` : ''}
                           {acc.title}
                         </p>
+                      </td>
+
+                      {/* Email */}
+                      <td className="px-3 py-4">
+                        {acc.email ? (
+                          <div className="flex items-center gap-1.5 text-xs font-medium text-[#10251c]">
+                            <Mail size={13} className="text-[#075b3d] shrink-0" />
+                            <span className="font-mono text-[11px] truncate max-w-[170px]" title={acc.email}>
+                              {acc.email}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-[11px] text-[#93a097] italic">—</span>
+                        )}
                       </td>
 
                       {/* Role & Dept */}
@@ -740,19 +763,34 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
                 </div>
               </div>
 
-              {/* Full Name */}
-              <div>
-                <label className="block text-[11px] font-bold text-[#10251c] mb-1">
-                  Nama Lengkap Pengguna <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="misal: Budi Santoso, Rina Kartika"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="h-10 w-full rounded-xl border border-[#dce7df] bg-[#fafcfb] px-3 text-xs text-[#10251c] focus:border-[#075b3d] focus:outline-none"
-                />
+              {/* Full Name & Email */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[11px] font-bold text-[#10251c] mb-1">
+                    Nama Lengkap Pengguna <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="misal: Budi Santoso, Rina Kartika"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    className="h-10 w-full rounded-xl border border-[#dce7df] bg-[#fafcfb] px-3 text-xs text-[#10251c] focus:border-[#075b3d] focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-[#10251c] mb-1">
+                    Email Pengguna (Notifikasi)
+                  </label>
+                  <input
+                    type="email"
+                    placeholder="misal: budi.s@jai.co.id"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    className="h-10 w-full rounded-xl border border-[#dce7df] bg-[#fafcfb] px-3 font-mono text-xs text-[#10251c] focus:border-[#075b3d] focus:outline-none"
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

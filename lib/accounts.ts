@@ -256,14 +256,45 @@ export function getSectionsByDept(dept: string): string[] {
   return Array.from(new Set(ORG_MATRIX.filter((m) => m.dept === dept).map((m) => m.section)))
 }
 
-// Fungsi bantu mendapatkan approver (Manager & SSPV) berdasarkan Section & Dept
+// Fungsi bantu mendapatkan data Manajer resmi berdasarkan Section & Dept
+export function getManagerBySection(dept: string, section?: string): { name: string; email: string } {
+  // 1. Cek dari ORG_MATRIX berdasarkan section yang cocok
+  const matchedMatrix = ORG_MATRIX.find((m) => m.dept === dept && (!section || m.section === section))
+  if (matchedMatrix && matchedMatrix.managerName && matchedMatrix.managerEmail) {
+    return {
+      name: `${matchedMatrix.managerName} (Manager)`,
+      email: matchedMatrix.managerEmail,
+    }
+  }
+
+  // 2. Fallback cek dari akun approver yang terdaftar di database dengan dept yang sama
+  const allAcc = getAllAccounts()
+  const approverAcc = allAcc.find(
+    (a) => a.dept === dept && a.role === 'approver' && a.title.toLowerCase().includes('manager')
+  ) || allAcc.find((a) => a.dept === dept && a.role === 'approver')
+
+  if (approverAcc && approverAcc.email) {
+    return {
+      name: `${approverAcc.name} (Manager)`,
+      email: approverAcc.email,
+    }
+  }
+
+  // 3. Fallback umum jika belum terkonfigurasi
+  return {
+    name: matchedMatrix?.managerName ? `${matchedMatrix.managerName} (Manager)` : `Manager ${dept}`,
+    email: matchedMatrix?.managerEmail || `manager.${dept.toLowerCase().replace(/[^a-z0-9]/g, '')}@jai.co.id`,
+  }
+}
+
+// Fungsi bantu mendapatkan approver (Utama: Manajer, Opsi: SSPV) berdasarkan Section & Dept
 export function getApproversBySection(dept: string, section?: string): { name: string; email: string; role: string }[] {
   const matching = ORG_MATRIX.filter((m) => m.dept === dept && (!section || m.section === section))
   const approvers: { name: string; email: string; role: string }[] = []
   const seen = new Set<string>()
 
+  // Selalu tempatkan Manager di urutan pertama (Default Approval)
   matching.forEach((m) => {
-    // 1. Manager (Otomatis tujuan utama approve per departemen/section)
     const mgrKey = `Manager: ${m.managerName}`
     if (!seen.has(mgrKey)) {
       seen.add(mgrKey)
@@ -273,16 +304,20 @@ export function getApproversBySection(dept: string, section?: string): { name: s
         role: 'Manager',
       })
     }
+  })
 
-    // 2. SSPV
-    const sspvKey = `SSPV: ${m.sspvName}`
-    if (!seen.has(sspvKey)) {
-      seen.add(sspvKey)
-      approvers.push({
-        name: `${m.sspvName} (SSPV)`,
-        email: m.sspvEmail,
-        role: 'SSPV',
-      })
+  // Tambahkan SSPV jika ada
+  matching.forEach((m) => {
+    if (m.sspvName) {
+      const sspvKey = `SSPV: ${m.sspvName}`
+      if (!seen.has(sspvKey)) {
+        seen.add(sspvKey)
+        approvers.push({
+          name: `${m.sspvName} (SSPV)`,
+          email: m.sspvEmail,
+          role: 'SSPV',
+        })
+      }
     }
   })
 
