@@ -935,6 +935,31 @@ export function getAllAccounts(): Account[] {
   }
 }
 
+export async function syncAccountsWithSupabase(): Promise<Account[]> {
+  if (typeof window === 'undefined') return ACCOUNTS
+  try {
+    const { fetchAccountsFromSupabase } = await import('./sync')
+    const remote = await fetchAccountsFromSupabase()
+    if (remote && remote.length > 0) {
+      // Pastikan akun default penting (seperti admin1, admin_lobby) tidak hilang jika remote belum lengkap
+      let merged = [...remote]
+      let hasNew = false
+      for (const defAcc of ACCOUNTS) {
+        if (!merged.some((m) => m.username.toLowerCase() === defAcc.username.toLowerCase())) {
+          merged.push(defAcc)
+          hasNew = true
+        }
+      }
+      window.localStorage.setItem(ACCOUNTS_STORAGE_KEY, JSON.stringify(merged))
+      window.dispatchEvent(new Event('accounts_updated'))
+      return merged
+    }
+  } catch (err) {
+    console.error('Failed to sync accounts from Supabase:', err)
+  }
+  return getAllAccounts()
+}
+
 export function saveAllAccounts(accounts: Account[]) {
   if (typeof window === 'undefined') return
   try {

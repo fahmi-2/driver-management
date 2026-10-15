@@ -17,6 +17,7 @@ INSERT INTO accounts (
 )
 VALUES
   ('admin1', 'admin123', 'Admin Pool GA', 'admin.pool@jai.co.id', NULL, 'admin', 'PGA', 'GAGS, STATIONARY & UTILITY, INTERPRETER', NULL, 'Admin Operasional Pool GA'),
+  ('admin_lobby', 'admin123', 'Admin Lobby Frontdesk', 'admin.lobby@jai.co.id', NULL, 'admin_lobby', 'PGA', 'GAGS, STATIONARY & UTILITY, INTERPRETER', NULL, 'Admin Lobby Frontdesk'),
   ('hayu.p', 'spv123', 'HAYU PRASETYO UTOMO', 'hayu.p@jai.co.id', NULL, 'approver_pool', 'PGA', 'GAGS, STATIONARY & UTILITY, INTERPRETER', NULL, 'SPV Kendaraan & Pool GA'),
   ('cahyo.n', 'app123', 'CAHYO ADI NUGROHO', 'cahyo@jai.co.id', NULL, 'approver', 'PGA', NULL, NULL, 'Manager PGA'),
   ('evis.m', 'app123', 'EVIS METHAWAN', 'evis.m@jai.co.id', NULL, 'approver', 'PGA', 'SHE, QSA, PURCHASE', NULL, 'Manager PGA (SHE, QSA, Purchase)'),

@@ -20,6 +20,7 @@ import {
   Info,
   ChevronLeft,
   ChevronRight,
+  RefreshCw,
 } from 'lucide-react'
 import {
   type Account,
@@ -33,6 +34,7 @@ import {
   updateAccount,
   deleteAccount,
   verifyAdminPassword,
+  syncAccountsWithSupabase,
 } from '@/lib/accounts'
 import { useStore } from '@/lib/store'
 import { Card, PageHeader, Pill, btnGhost, btnPrimary, inputCls, useToast } from '../ui-bits'
@@ -86,6 +88,9 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
 
   useEffect(() => {
     refreshAccounts()
+    syncAccountsWithSupabase().then((latest) => {
+      if (latest && latest.length > 0) setAccounts(latest)
+    })
     const handleUpdate = () => refreshAccounts()
     window.addEventListener('accounts_updated', handleUpdate)
     window.addEventListener('profile_updated', handleUpdate)
@@ -266,16 +271,43 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
     setVerifyError('')
   }
 
+  const [isSyncing, setIsSyncing] = useState(false)
+
+  const handleSyncSupabase = async () => {
+    setIsSyncing(true)
+    try {
+      const latest = await syncAccountsWithSupabase()
+      if (latest && latest.length > 0) {
+        setAccounts(latest)
+        notify(`Berhasil sinkronisasi! ${latest.length} data akun dimuat dari Supabase & dicadangkan ke lokal.`)
+      } else {
+        notify('Sinkronisasi selesai (tidak ada pembaruan data remote).')
+      }
+    } catch {
+      notify('Gagal sinkronisasi data dari Supabase. Menggunakan data lokal cadangan.')
+    } finally {
+      setIsSyncing(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <PageHeader
             title="Kelola Data Akun Pengguna"
-            desc="Kelola kredensial akun, ID pengguna, peran, dan reset password. Dilengkapi proteksi verifikasi password Admin."
+            desc="Kelola kredensial akun, ID pengguna, peran, dan reset password. Terhubung langsung dengan Supabase & auto-backup ke database lokal."
           />
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={handleSyncSupabase}
+            disabled={isSyncing}
+            className="flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-[#062417]/80 px-3.5 py-2.5 text-xs font-bold text-[#a3e635] shadow-xs transition hover:bg-[#062417] active:scale-[0.98] disabled:opacity-50"
+          >
+            <RefreshCw size={15} className={isSyncing ? 'animate-spin' : ''} />
+            {isSyncing ? 'Sinkronisasi…' : 'Sinkron Supabase'}
+          </button>
           <button
             onClick={() => {
               if (confirm('Sinkronkan seluruh data akun kembali ke data matriks resmi PT. JAI? Akun default akan diperbarui.')) {

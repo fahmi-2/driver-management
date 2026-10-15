@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowRight, CheckCircle2, Eye, EyeOff, Loader2, Lock, ShieldCheck, User } from 'lucide-react'
 import { YazakiBadge } from '@/components/yazaki-logo'
-import { ROLE_LABEL, findAccount, getAllAccounts, setSession, type Account } from '@/lib/accounts'
+import { ROLE_LABEL, findAccount, getAllAccounts, setSession, syncAccountsWithSupabase, type Account } from '@/lib/accounts'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -23,6 +23,9 @@ export default function LoginPage() {
 
   useEffect(() => {
     setAccountsList(getAllAccounts())
+    syncAccountsWithSupabase().then((latest) => {
+      if (latest && latest.length > 0) setAccountsList(latest)
+    })
   }, [])
 
   const submit = (e: React.FormEvent) => {
