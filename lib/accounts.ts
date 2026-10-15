@@ -257,64 +257,99 @@ export function getSectionsByDept(dept: string): string[] {
 }
 
 // Fungsi bantu mendapatkan data Manajer resmi berdasarkan Section & Dept
+// Prioritas 1: Langsung ambil profil & email yang TERDAFTAR di database akun (termasuk hasil editan user)
 export function getManagerBySection(dept: string, section?: string): { name: string; email: string } {
-  // 1. Cek dari ORG_MATRIX berdasarkan section yang cocok
+  const allAcc = getAllAccounts()
   const matchedMatrix = ORG_MATRIX.find((m) => m.dept === dept && (!section || m.section === section))
-  if (matchedMatrix && matchedMatrix.managerName && matchedMatrix.managerEmail) {
+  const expectedManagerName = matchedMatrix?.managerName?.toUpperCase()
+
+  // Prioritas 1: Cari akun terdaftar yang namanya cocok dengan manajer matriks (misal CAHYO ADI NUGROHO)
+  if (expectedManagerName) {
+    const accByName = allAcc.find(
+      (a) =>
+        (a.role === 'approver' || a.role === 'admin' || a.role === 'approver_pool') &&
+        (a.name.toUpperCase().includes(expectedManagerName) || expectedManagerName.includes(a.name.toUpperCase()))
+    )
+    if (accByName) {
+      return {
+        name: `${accByName.name} (Manager)`,
+        email: accByName.email !== undefined && accByName.email !== null ? accByName.email : (matchedMatrix?.managerEmail || ''),
+      }
+    }
+  }
+
+  // Prioritas 2: Cari akun approver yang bertugas di departemen ini dan title/jabatannya Manager
+  const accByDeptManager = allAcc.find(
+    (a) =>
+      a.dept === dept &&
+      a.role === 'approver' &&
+      a.title &&
+      a.title.toLowerCase().includes('manager')
+  )
+  if (accByDeptManager) {
+    return {
+      name: `${accByDeptManager.name} (Manager)`,
+      email: accByDeptManager.email || '',
+    }
+  }
+
+  // Prioritas 3: Cari akun approver apapun di departemen ini
+  const anyDeptApprover = allAcc.find((a) => a.dept === dept && a.role === 'approver')
+  if (anyDeptApprover) {
+    return {
+      name: `${anyDeptApprover.name} (Manager)`,
+      email: anyDeptApprover.email || '',
+    }
+  }
+
+  // Fallback terakhir: jika belum ada akun yang dibuat/disimpan sama sekali, gunakan data default ORG_MATRIX
+  if (matchedMatrix && matchedMatrix.managerName) {
     return {
       name: `${matchedMatrix.managerName} (Manager)`,
-      email: matchedMatrix.managerEmail,
+      email: matchedMatrix.managerEmail || '',
     }
   }
 
-  // 2. Fallback cek dari akun approver yang terdaftar di database dengan dept yang sama
-  const allAcc = getAllAccounts()
-  const approverAcc = allAcc.find(
-    (a) => a.dept === dept && a.role === 'approver' && a.title.toLowerCase().includes('manager')
-  ) || allAcc.find((a) => a.dept === dept && a.role === 'approver')
-
-  if (approverAcc && approverAcc.email) {
-    return {
-      name: `${approverAcc.name} (Manager)`,
-      email: approverAcc.email,
-    }
-  }
-
-  // 3. Fallback umum jika belum terkonfigurasi
   return {
-    name: matchedMatrix?.managerName ? `${matchedMatrix.managerName} (Manager)` : `Manager ${dept}`,
-    email: matchedMatrix?.managerEmail || `manager.${dept.toLowerCase().replace(/[^a-z0-9]/g, '')}@jai.co.id`,
+    name: `Manager ${dept}`,
+    email: '',
   }
 }
 
 // Fungsi bantu mendapatkan approver (Utama: Manajer, Opsi: SSPV) berdasarkan Section & Dept
 export function getApproversBySection(dept: string, section?: string): { name: string; email: string; role: string }[] {
+  const allAcc = getAllAccounts()
   const matching = ORG_MATRIX.filter((m) => m.dept === dept && (!section || m.section === section))
   const approvers: { name: string; email: string; role: string }[] = []
   const seen = new Set<string>()
 
-  // Selalu tempatkan Manager di urutan pertama (Default Approval)
-  matching.forEach((m) => {
-    const mgrKey = `Manager: ${m.managerName}`
-    if (!seen.has(mgrKey)) {
-      seen.add(mgrKey)
-      approvers.push({
-        name: `${m.managerName} (Manager)`,
-        email: m.managerEmail,
-        role: 'Manager',
-      })
-    }
-  })
+  // 1. Manager: Ambil dari getManagerBySection (mengikuti email database terupdate)
+  const dynamicMgr = getManagerBySection(dept, section)
+  if (dynamicMgr.name && !seen.has(dynamicMgr.name)) {
+    seen.add(dynamicMgr.name)
+    approvers.push({
+      name: dynamicMgr.name,
+      email: dynamicMgr.email,
+      role: 'Manager',
+    })
+  }
 
-  // Tambahkan SSPV jika ada
+  // 2. SSPV: Cek akun database dulu, lalu fallback matriks
   matching.forEach((m) => {
     if (m.sspvName) {
-      const sspvKey = `SSPV: ${m.sspvName}`
-      if (!seen.has(sspvKey)) {
-        seen.add(sspvKey)
+      const sspvUpper = m.sspvName.toUpperCase()
+      const liveSspvAcc = allAcc.find(
+        (a) =>
+          (a.role === 'approver' || a.role === 'approver_pool') &&
+          (a.name.toUpperCase().includes(sspvUpper) || sspvUpper.includes(a.name.toUpperCase()))
+      )
+      const sspvEmail = liveSspvAcc?.email || m.sspvEmail
+      const sspvNameLabel = `${m.sspvName} (SSPV)`
+      if (!seen.has(sspvNameLabel)) {
+        seen.add(sspvNameLabel)
         approvers.push({
-          name: `${m.sspvName} (SSPV)`,
-          email: m.sspvEmail,
+          name: sspvNameLabel,
+          email: sspvEmail,
           role: 'SSPV',
         })
       }

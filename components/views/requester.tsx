@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   AlertCircle,
   Building,
@@ -84,6 +84,28 @@ export function RequesterForm({ user }: { user: Account }) {
     distance_km: undefined as number | undefined,
     estimated_duration_minutes: undefined as number | undefined,
   })
+
+  // Sync approver & email secara realtime jika ada perubahan pada akun di database
+  useEffect(() => {
+    const handleAccountsChanged = () => {
+      const manager = getManagerBySection(f.dept, f.section)
+      setF((prev) => ({
+        ...prev,
+        approvedBy: manager.name,
+        approverEmail: manager.email,
+      }))
+    }
+
+    // Refresh segera saat mount untuk memastikan data paling up-to-date
+    handleAccountsChanged()
+
+    window.addEventListener('accounts_updated', handleAccountsChanged)
+    window.addEventListener('profile_updated', handleAccountsChanged)
+    return () => {
+      window.removeEventListener('accounts_updated', handleAccountsChanged)
+      window.removeEventListener('profile_updated', handleAccountsChanged)
+    }
+  }, [f.dept, f.section])
 
   // Total user dalam perjalanan: jika driverOnly = 0 penumpang, jika tidak = 1 + additionalUsers
   const totalUserCount = f.driverOnly ? 0 : 1 + f.additionalUsers.length
