@@ -66,17 +66,19 @@ export function YazakiEmblem({ className = 'size-6' }: { className?: string }) {
 }
 
 /**
- * Yazaki Logo Badge with clean white background card
+ * Yazaki Logo Badge:
+ * Tanpa border kotak kaku/garis pembatas samping, logo tampil penuh (full),
+ * dengan efek soft drop-shadow elegan di belakang.
  */
-export function YazakiBadge({ className = 'h-10 px-2' }: { className?: string }) {
+export function YazakiBadge({ className = 'h-11' }: { className?: string }) {
   return (
     <div
-      className={`flex items-center justify-center rounded-xl bg-white shadow-md shadow-black/20 border border-white/80 overflow-hidden select-none ${className}`}
+      className={`inline-flex items-center justify-center rounded-lg bg-white overflow-hidden select-none shadow-[0_6px_20px_rgba(0,0,0,0.28)] transition-all duration-300 hover:shadow-[0_8px_25px_rgba(0,0,0,0.35)] ${className}`}
     >
       <img
         src="/yazaki-logo.jpg"
         alt="Yazaki PT Jatim Autocomp Indonesia Logo"
-        className="h-full w-auto max-h-8 object-contain"
+        className="h-full w-auto object-cover scale-[1.08]"
       />
     </div>
   )

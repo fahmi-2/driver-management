@@ -80,8 +80,8 @@ export default function LoginPage() {
         <div className="relative grid min-h-[540px] items-center gap-6 p-6 sm:p-10 md:grid-cols-[1fr_390px] lg:grid-cols-[1fr_400px]">
           {/* Brand & Left Details */}
           <div className="hidden self-start pt-6 md:block">
-            <div className="flex items-center gap-3">
-              <YazakiBadge className="h-12 px-3 shadow-2xl" />
+            <div className="flex items-center gap-4">
+              <YazakiBadge className="h-14 shadow-[0_12px_32px_rgba(0,0,0,0.5),0_0_24px_rgba(255,255,255,0.15)]" />
               <div>
                 <span className="block text-3xl font-extrabold tracking-tight text-white drop-shadow-[0_4px_16px_rgba(0,0,0,.6)]">JAI-FLEET Management</span>
                 <span className="block text-sm font-semibold text-[#a3e635] drop-shadow-[0_2px_8px_rgba(0,0,0,.7)]">Gas Operations</span>

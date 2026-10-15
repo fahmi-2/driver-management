@@ -144,6 +144,9 @@ Peran sentral yang bertugas mengelola fisik armada, supir, dan plotting jadwal.
    - **Data Akun**: Menambah atau mengedit username, nama lengkap, NIK, peran, dan reset password seluruh akun pengguna. Dilengkapi verifikasi otentikasi password admin untuk melihat password akun.
 4. **Live Data**: Tabel tabular menyeluruh seluruh riwayat perjalanan dengan filter tanggal, pencarian, dan opsi export.
 5. **Beban Kerja**: Grafik analitik pembagian jam terbang dan ritase kerja masing-masing driver untuk pemerataan tugas.
+6. **Panduan / Guidance (Dropdown Khusus Admin Utama)**:
+   - **Panduan / Guidance**: Menampilkan slide presentasi interaktif berjalan otomatis (auto-play dengan pause, timer durasi, dan indikator progres).
+   - **Kelola Panduan**: Mengatur materi slide PPT per akun/peran, menambah slide baru, mengedit teks/checklist, mengatur durasi perpindahan slide (detik), hingga opsi embed tautan PPT eksternal (Google Slides/Canva/OneDrive).
 
 ---
 

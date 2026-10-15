@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { BusFront, CalendarDays, ChevronDown, Contact, Database, FileText, Inbox, LayoutDashboard, ListChecks, LogOut, Menu, ShieldCheck, Table2, Ticket, Truck, Users, UsersRound, X, type LucideIcon } from 'lucide-react'
+import { BookOpen, BusFront, CalendarDays, ChevronDown, Contact, Database, FileText, Inbox, LayoutDashboard, ListChecks, LogOut, Menu, Presentation, ShieldCheck, Sliders, Table2, Ticket, Truck, Users, UsersRound, X, type LucideIcon } from 'lucide-react'
 import { ROLE_LABEL, getSession, setSession, type Account, type Role } from '@/lib/accounts'
 import { YazakiBadge, YazakiEmblem } from '@/components/yazaki-logo'
 import { ProfileSettingsModal } from '@/components/profile-settings-modal'
@@ -19,6 +19,8 @@ import { SecurityGate } from './views/security'
 import { CouponHistory, CouponPending } from './views/coupon'
 import { ApproverInbox } from './views/approver'
 import { DriverDashboard } from './views/driver-dashboard'
+import { GuidancePlayerView } from './views/guidance-player'
+import { AdminManageGuidanceView } from './views/admin-guidance'
 
 type NavSubItem = { id: string; label: string; icon: LucideIcon; desc?: string }
 type NavItem =
@@ -31,14 +33,17 @@ const NAV: Record<Role, NavItem[]> = {
     { id: 'request', label: 'Ajukan Kendaraan', icon: FileText },
     { id: 'inbox', label: 'Notifikasi & Riwayat', icon: Inbox },
     { id: 'coupons', label: 'Panel Kupon', icon: Ticket },
+    { id: 'guidance', label: 'Panduan / Guidance', icon: Presentation },
   ],
   approver: [
     { id: 'approvals', label: 'Inbox Persetujuan (E-Sign)', icon: Inbox },
     { id: 'dashboard', label: 'Dashboard Armada', icon: LayoutDashboard },
+    { id: 'guidance', label: 'Panduan / Guidance', icon: Presentation },
   ],
   approver_pool: [
     { id: 'approvals', label: 'Inbox Approval SPV Kendaraan', icon: Inbox },
     { id: 'dashboard', label: 'Dashboard Armada', icon: LayoutDashboard },
+    { id: 'guidance', label: 'Panduan / Guidance', icon: Presentation },
   ],
   admin: [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -56,6 +61,16 @@ const NAV: Record<Role, NavItem[]> = {
     },
     { id: 'live', label: 'Live Data', icon: Table2 },
     { id: 'workload', label: 'Beban Kerja', icon: UsersRound },
+    {
+      id: 'panduan-menu',
+      label: 'Panduan / Guidance',
+      icon: Presentation,
+      isDropdown: true,
+      children: [
+        { id: 'guidance', label: 'Panduan / Guidance', icon: BookOpen, desc: 'Slide materi presentasi interaktif' },
+        { id: 'manage-guidance', label: 'Kelola Panduan', icon: Sliders, desc: 'Atur slide & PPT per peran akun' },
+      ],
+    },
   ],
   admin_lobby: [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -72,18 +87,22 @@ const NAV: Record<Role, NavItem[]> = {
     },
     { id: 'live', label: 'Live Data', icon: Table2 },
     { id: 'workload', label: 'Beban Kerja', icon: UsersRound },
+    { id: 'guidance', label: 'Panduan / Guidance', icon: Presentation },
   ],
   security: [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'gate', label: 'Gate Clearance', icon: ShieldCheck },
+    { id: 'guidance', label: 'Panduan / Guidance', icon: Presentation },
   ],
   coupon: [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'pending', label: 'Pending Claims', icon: CalendarDays },
     { id: 'history', label: 'Riwayat', icon: Ticket },
+    { id: 'guidance', label: 'Panduan / Guidance', icon: Presentation },
   ],
   driver: [
     { id: 'dashboard', label: 'Jadwal Tugas Driver', icon: Truck },
+    { id: 'guidance', label: 'Panduan / Guidance', icon: Presentation },
   ],
 }
 
@@ -113,7 +132,7 @@ function Shell({ user, onLogout }: { user: Account; onLogout: () => void }) {
   const isApproverRole = currentUser.role === 'approver' || currentUser.role === 'approver_pool'
   const [page, setPage] = useState(isApproverRole ? 'approvals' : 'dashboard')
   const [open, setOpen] = useState(false)
-  const [dropdownOpen, setDropdownOpen] = useState(false)
+  const [activeDropdown, setActiveDropdown] = useState<string | null>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -133,7 +152,7 @@ function Shell({ user, onLogout }: { user: Account; onLogout: () => void }) {
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setDropdownOpen(false)
+        setActiveDropdown(null)
       }
     }
     document.addEventListener('mousedown', handleClickOutside)
@@ -141,7 +160,7 @@ function Shell({ user, onLogout }: { user: Account; onLogout: () => void }) {
   }, [])
 
   let view
-  if (currentUser?.role === 'driver') view = <DriverDashboard user={currentUser} />
+  if (currentUser?.role === 'driver' && page === 'dashboard') view = <DriverDashboard user={currentUser} />
   else if (page === 'approvals') view = <ApproverInbox user={currentUser} />
   else if (page === 'request') view = <RequesterForm user={currentUser} />
   else if (page === 'inbox') view = <RequesterInbox user={currentUser} />
@@ -158,6 +177,14 @@ function Shell({ user, onLogout }: { user: Account; onLogout: () => void }) {
   }
   else if (page === 'live') view = <AdminLiveData />
   else if (page === 'workload') view = <AdminWorkload />
+  else if (page === 'guidance') view = <GuidancePlayerView user={currentUser} />
+  else if (page === 'manage-guidance') {
+    if (currentUser?.role === 'admin') {
+      view = <AdminManageGuidanceView />
+    } else {
+      view = <GuidancePlayerView user={currentUser} />
+    }
+  }
   else if (page === 'gate') view = <SecurityGate user={currentUser} />
   else if (page === 'pending') view = <CouponPending user={currentUser} />
   else if (page === 'history') view = <CouponHistory />
@@ -171,8 +198,8 @@ function Shell({ user, onLogout }: { user: Account; onLogout: () => void }) {
       <header className="glass sticky top-0 z-40 rounded-none border-x-0 border-t-0 anim-fade-in">
         <div className="mx-auto flex h-[72px] max-w-[1440px] items-center justify-between px-4 sm:px-6 lg:px-8">
           {/* Logo & Brand */}
-          <div className="flex items-center gap-3">
-            <YazakiBadge className="h-10 px-2.5 transition-transform hover:scale-105" />
+          <div className="flex items-center gap-3.5">
+            <YazakiBadge className="h-11 transition-transform hover:scale-105" />
             <div>
               <span className="text-[17px] font-extrabold tracking-tight text-white block leading-tight">JAI-FLEET Management</span>
               <p className="text-[10px] text-[#9aa7a0] hidden sm:block mt-0.5">Gas Operations</p>
@@ -184,11 +211,12 @@ function Shell({ user, onLogout }: { user: Account; onLogout: () => void }) {
             {nav.map((item) => {
               if (item.isDropdown) {
                 const isChildActive = item.children.some((c) => c.id === page)
+                const isMenuOpen = activeDropdown === item.id
                 return (
                   <div key={item.id} className="relative" ref={dropdownRef}>
                     <button
                       type="button"
-                      onClick={() => setDropdownOpen(!dropdownOpen)}
+                      onClick={() => setActiveDropdown(isMenuOpen ? null : item.id)}
                       className={`flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold transition-all whitespace-nowrap ${isChildActive
                         ? 'bg-[#075b3d] text-white shadow-md shadow-[#075b3d]/20'
                         : 'text-[#64746b] hover:bg-[#eef5f0] hover:text-[#087348]'
@@ -198,15 +226,15 @@ function Shell({ user, onLogout }: { user: Account; onLogout: () => void }) {
                       <span>{item.label}</span>
                       <ChevronDown
                         size={13}
-                        className={`transition-transform duration-200 ${dropdownOpen ? 'rotate-180' : ''}`}
+                        className={`transition-transform duration-200 ${isMenuOpen ? 'rotate-180' : ''}`}
                       />
                     </button>
 
                     {/* Dropdown Menu */}
-                    {dropdownOpen && (
-                      <div className="absolute left-0 top-full mt-1.5 w-60 rounded-2xl border border-[#dce7df] bg-white p-2 shadow-xl animate-in fade-in-50 zoom-in-95 duration-100 z-50">
+                    {isMenuOpen && (
+                      <div className="absolute left-0 top-full mt-1.5 w-64 rounded-2xl border border-[#dce7df] bg-white p-2 shadow-xl animate-in fade-in-50 zoom-in-95 duration-100 z-50">
                         <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-[#9aa7a0]">
-                          Sub Menu Kelola Data
+                          {item.label}
                         </div>
                         <div className="space-y-1">
                           {item.children.map((child) => {
@@ -216,7 +244,7 @@ function Shell({ user, onLogout }: { user: Account; onLogout: () => void }) {
                                 key={child.id}
                                 onClick={() => {
                                   setPage(child.id)
-                                  setDropdownOpen(false)
+                                  setActiveDropdown(null)
                                 }}
                                 className={`flex w-full items-start gap-3 rounded-xl p-2.5 text-left transition ${isSubActive
                                   ? 'bg-[#eef5f0] text-[#075b3d] font-bold'

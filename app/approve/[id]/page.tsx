@@ -31,8 +31,8 @@ function Approve() {
     <main className="flex min-h-screen items-center justify-center bg-[#e9eeeb] p-4 text-[#10251c]">
       <div className="w-full max-w-lg rounded-3xl bg-white p-7 shadow-[0_20px_60px_rgba(19,45,33,0.12)]">
         <div className="mb-5 flex items-center justify-between border-b border-[#edf1ee] pb-4">
-          <div className="flex items-center gap-3">
-            <YazakiBadge className="h-10 px-2.5" />
+          <div className="flex items-center gap-3.5">
+            <YazakiBadge className="h-11" />
             <div>
               <p className="font-bold text-[15px]">JAI-FLEET Management</p>
               <p className="text-[11px] text-[#93a097]">Gas Operations · Portal E-Sign Persetujuan</p>
