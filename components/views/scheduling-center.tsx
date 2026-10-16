@@ -565,7 +565,24 @@ export function AdminSchedulingCenter({ user }: { user: Account }) {
               <div className="rounded-xl border border-[#bbf7d0] bg-[#f0fdf4] p-4 text-xs space-y-3">
                 <div className="flex justify-between items-center text-[#166534] font-semibold border-b border-[#dcfce7] pb-1.5">
                   <span>Hasil Seleksi Timeline:</span>
-                  <span className="font-mono font-bold">{confirmModalData.selection.date}</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs text-[#15803d]">Tanggal:</span>
+                    <input
+                      type="date"
+                      value={confirmModalData.selection.date}
+                      onChange={(e) =>
+                        setConfirmModalData({
+                          ...confirmModalData,
+                          selection: {
+                            ...confirmModalData.selection,
+                            date: e.target.value,
+                          },
+                        })
+                      }
+                      className="rounded-lg border border-[#bbf7d0] bg-white px-2 py-0.5 text-xs font-mono font-bold text-[#14532d] shadow-xs outline-none focus:border-[#075b3d]"
+                      required
+                    />
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-[11px] text-[#15803d]">
                   <div>
@@ -716,10 +733,27 @@ export function AdminSchedulingCenter({ user }: { user: Account }) {
             <form onSubmit={handleDirectBookingSubmit} className="p-6 space-y-4.5 overflow-y-auto flex-1">
               {/* Slot Terpilih & Pengaturan Jam Presisi */}
               <div className="rounded-xl border border-emerald-500/30 bg-emerald-950/40 p-3.5 text-xs space-y-3">
-                <div className="flex justify-between items-center text-[11px] text-[#8fa99b]">
-                  <span className="flex items-center gap-1.5 text-emerald-300 font-semibold">
-                    <CalendarDays size={13} /> Tanggal: <strong className="text-white font-mono">{directBookingData.selection.date}</strong>
-                  </span>
+                <div className="flex flex-wrap justify-between items-center gap-2 text-[11px] text-[#8fa99b]">
+                  <div className="flex items-center gap-2">
+                    <span className="flex items-center gap-1.5 text-emerald-300 font-semibold shrink-0">
+                      <CalendarDays size={14} className="text-[#a3e635]" /> Tanggal:
+                    </span>
+                    <input
+                      type="date"
+                      value={directBookingData.selection.date}
+                      onChange={(e) =>
+                        setDirectBookingData({
+                          ...directBookingData,
+                          selection: {
+                            ...directBookingData.selection,
+                            date: e.target.value,
+                          },
+                        })
+                      }
+                      className="rounded-lg border border-emerald-500/40 bg-black/60 px-2.5 py-1 text-xs font-mono font-bold text-white shadow-inner outline-none transition focus:border-[#a3e635] focus:ring-1 focus:ring-[#a3e635]"
+                      required
+                    />
+                  </div>
                   <span>Armada Baris: <strong className="text-emerald-400 font-mono">{directBookingData.selection.selectedVehiclePlate}</strong> ({maxVehicleCapacity} Kursi)</span>
                 </div>
 
