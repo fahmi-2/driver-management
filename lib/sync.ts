@@ -232,7 +232,15 @@ export async function fetchTripsFromSupabase(): Promise<Trip[] | null> {
   }
 }
 
-export async function upsertTripToSupabase(trip: Trip): Promise<boolean> {
+export type SyncResult = {
+  success: boolean
+  error?: string
+  code?: string
+  details?: string
+  hint?: string
+}
+
+export async function upsertTripToSupabase(trip: Trip): Promise<SyncResult> {
   try {
     const { error } = await supabase.from('trips').upsert({
       id: trip.id,
@@ -285,15 +293,35 @@ export async function upsertTripToSupabase(trip: Trip): Promise<boolean> {
     })
 
     if (error) {
-      console.warn('Trip upsert error in Supabase:', error.message)
-      return false
+      console.error('Trip upsert error in Supabase:', {
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+      })
+
+      let friendlyMsg = error.message
+      if (error.message.includes('row-level security') || error.code === '42501') {
+        friendlyMsg = `Supabase RLS Policy memblokir penyimpanan trip: "${error.message}". Silakan periksa atau jalankan query supabase_rls.sql di SQL Editor Supabase untuk mengizinkan role anon.`
+      }
+
+      return {
+        success: false,
+        error: friendlyMsg,
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+      }
     }
 
     // Upsert passengers jika ada
     if (trip.passengers && trip.passengers.length > 0) {
       // Hapus data penumpang lama trip ini lalu insert ulang
-      await supabase.from('trip_passengers').delete().eq('trip_id', trip.id)
-      await supabase.from('trip_passengers').insert(
+      const { error: delErr } = await supabase.from('trip_passengers').delete().eq('trip_id', trip.id)
+      if (delErr) {
+        console.warn('Trip passenger delete warning:', delErr)
+      }
+      const { error: insErr } = await supabase.from('trip_passengers').insert(
         trip.passengers.map((p) => ({
           trip_id: trip.id,
           name: p.name,
@@ -301,11 +329,22 @@ export async function upsertTripToSupabase(trip: Trip): Promise<boolean> {
           dept: p.dept,
         }))
       )
+      if (insErr) {
+        console.error('Trip passenger insert error in Supabase:', insErr)
+        return {
+          success: false,
+          error: `Trip tersimpan, namun data penumpang gagal disimpan: ${insErr.message}`,
+          code: insErr.code,
+        }
+      }
     }
 
-    return true
-  } catch (err) {
+    return { success: true }
+  } catch (err: any) {
     console.error('Failed to upsert trip to Supabase:', err)
-    return false
+    return {
+      success: false,
+      error: err?.message || 'Terjadi kesalahan saat menghubungi server Supabase.',
+    }
   }
 }

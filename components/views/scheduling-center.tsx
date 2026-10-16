@@ -154,7 +154,7 @@ export function AdminSchedulingCenter({ user }: { user: Account }) {
   }
 
   // Handle Submit Direct Booking
-  const handleDirectBookingSubmit = (e: React.FormEvent) => {
+  const handleDirectBookingSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!directBookingData) return
 
@@ -202,7 +202,7 @@ export function AdminSchedulingCenter({ user }: { user: Account }) {
     // Tentukan plat: jika Mobil Lain, gunakan nama mobil lain
     const targetPlate = isOtherVehicle && otherVehicleName.trim() ? otherVehicleName.trim() : selection.selectedVehiclePlate
 
-    directBooking({
+    const res = await directBooking({
       plate: targetPlate,
       driverId: driverId || undefined,
       date: selection.date,
@@ -225,6 +225,11 @@ export function AdminSchedulingCenter({ user }: { user: Account }) {
       distance_km,
       estimated_duration_minutes,
     })
+
+    if (!res.success) {
+      notify(`Gagal Direct Booking: ${res.error || 'Terjadi kesalahan database'}`, 'error')
+      return
+    }
 
     notify(
       `Permohonan Direct Booking armada ${targetPlate} (${selection.startTime} - ${selection.endTime}) berhasil diajukan! Menunggu ACC SPV Kendaraan (Tahap 2).`

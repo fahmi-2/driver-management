@@ -1,7 +1,7 @@
 'use client'
 
 import { createContext, useCallback, useContext, useState, type ReactNode } from 'react'
-import { Check } from 'lucide-react'
+import { AlertCircle, Check, Info } from 'lucide-react'
 import type { CouponStatus, TripStatus } from '@/lib/store'
 
 const TONES: Record<string, string> = {
@@ -67,22 +67,43 @@ export const thCls = 'px-4 py-3 text-[10px] font-semibold uppercase tracking-[.1
 export const tdCls = 'px-4 py-3 text-xs whitespace-nowrap'
 
 // ---------- toast ----------
-const ToastCtx = createContext<(m: string) => void>(() => {})
+export type ToastType = 'success' | 'error' | 'info'
+export type NotifyFn = (m: string, type?: ToastType, duration?: number) => void
+
+const ToastCtx = createContext<NotifyFn>(() => {})
 export const useToast = () => useContext(ToastCtx)
 
 export function ToastProvider({ children }: { children: ReactNode }) {
-  const [msg, setMsg] = useState('')
-  const notify = useCallback((m: string) => {
-    setMsg(m)
-    window.setTimeout(() => setMsg(''), 2800)
+  const [toast, setToast] = useState<{ msg: string; type: ToastType } | null>(null)
+
+  const notify = useCallback<NotifyFn>((m: string, type: ToastType = 'success', duration?: number) => {
+    setToast({ msg: m, type })
+    const delay = duration || (type === 'error' ? 7000 : 3000)
+    window.setTimeout(() => setToast(null), delay)
   }, [])
+
   return (
     <ToastCtx.Provider value={notify}>
       {children}
-      {msg && (
-        <div role="status" className="anim-fade-up glass fixed bottom-5 right-5 z-50 flex items-center gap-2 rounded-xl px-4 py-3 text-xs font-medium text-white">
-          <Check size={15} className="text-[#a3e635]" />
-          {msg}
+      {toast && (
+        <div
+          role="status"
+          className={`anim-fade-up fixed bottom-5 right-5 z-50 flex max-w-md items-start gap-3 rounded-2xl p-4 text-xs font-medium shadow-2xl backdrop-blur-md transition-all ${
+            toast.type === 'error'
+              ? 'border border-rose-500/40 bg-rose-950/95 text-rose-100 ring-1 ring-rose-500/30'
+              : toast.type === 'info'
+              ? 'border border-sky-500/40 bg-sky-950/95 text-sky-100 ring-1 ring-sky-500/30'
+              : 'border border-[#a3e635]/30 bg-[#10251c]/95 text-white ring-1 ring-[#a3e635]/20'
+          }`}
+        >
+          {toast.type === 'error' ? (
+            <AlertCircle size={18} className="text-rose-400 shrink-0 mt-0.5" />
+          ) : toast.type === 'info' ? (
+            <Info size={18} className="text-sky-400 shrink-0 mt-0.5" />
+          ) : (
+            <Check size={18} className="text-[#a3e635] shrink-0 mt-0.5" />
+          )}
+          <div className="flex-1 leading-relaxed break-words">{toast.msg}</div>
         </div>
       )}
     </ToastCtx.Provider>

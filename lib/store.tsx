@@ -214,11 +214,17 @@ type DirectBookingParams = {
   estimated_duration_minutes?: number
 }
 
+export type TripSubmitResult = {
+  id: string
+  success: boolean
+  error?: string
+}
+
 type Ctx = {
   ready: boolean
   db: DB
-  createTrip: (t: NewTrip) => string
-  directBooking: (params: DirectBookingParams) => string
+  createTrip: (t: NewTrip) => Promise<TripSubmitResult>
+  directBooking: (params: DirectBookingParams) => Promise<TripSubmitResult>
   spvDecision: (id: string, approve: boolean, note?: string) => void
   poolSpvDecision: (id: string, approve: boolean, note?: string, approverName?: string) => void
   assignTrip: (id: string, driverId: string, plate: string) => void
@@ -390,7 +396,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<Ctx>(() => ({
     ready, db,
-    createTrip: (t) => {
+    createTrip: async (t) => {
       const id = `T-${Date.now().toString().slice(-6)}`
       const newTrip: Trip = {
         ...t,
@@ -400,25 +406,29 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         spvName: t.spvName || `SPV ${t.dept}`,
         coupon: t.driverOnly ? 'VOID' : 'NONE',
       }
-      update((d) => ({
-        ...d,
-        trips: [...d.trips, newTrip],
-      }))
-      import('./sync').then(({ upsertTripToSupabase }) => {
-        upsertTripToSupabase(newTrip).then(() => {
-          if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
-            try {
-              const bc = new BroadcastChannel('ff_store_sync_channel')
-              bc.postMessage({ type: 'sync' })
-              bc.close()
-            } catch {}
-          }
-        })
-      })
-      return id
+      
+      const { upsertTripToSupabase } = await import('./sync')
+      const syncRes = await upsertTripToSupabase(newTrip)
+
+      if (syncRes.success) {
+        update((d) => ({
+          ...d,
+          trips: [...d.trips, newTrip],
+        }))
+        if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+          try {
+            const bc = new BroadcastChannel('ff_store_sync_channel')
+            bc.postMessage({ type: 'sync' })
+            bc.close()
+          } catch {}
+        }
+        return { id, success: true }
+      } else {
+        return { id, success: false, error: syncRes.error }
+      }
     },
     // Direct Booking oleh Admin Utama via drag-to-book di kalender
-    directBooking: (params) => {
+    directBooking: async (params) => {
       const id = `T-${Date.now().toString().slice(-6)}`
       // Cek apakah driver membawa mobil lain, jika ya blokir defaultPlate driver
       const assignedDriver = params.driverId ? db.drivers.find((d) => d.id === params.driverId) : null
@@ -460,12 +470,25 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         coupon: params.driverOnly ? 'VOID' : 'NONE',
       }
 
-      update((d) => ({
-        ...d,
-        trips: [...d.trips, newTrip],
-      }))
-      import('./sync').then(({ upsertTripToSupabase }) => upsertTripToSupabase(newTrip))
-      return id
+      const { upsertTripToSupabase } = await import('./sync')
+      const syncRes = await upsertTripToSupabase(newTrip)
+
+      if (syncRes.success) {
+        update((d) => ({
+          ...d,
+          trips: [...d.trips, newTrip],
+        }))
+        if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+          try {
+            const bc = new BroadcastChannel('ff_store_sync_channel')
+            bc.postMessage({ type: 'sync' })
+            bc.close()
+          } catch {}
+        }
+        return { id, success: true }
+      } else {
+        return { id, success: false, error: syncRes.error }
+      }
     },
     // Tahap 1: SPV Departemen ACC -> Masuk ke antrean Admin (WAITING_ASSIGN)
     spvDecision: (id, approve, note) =>

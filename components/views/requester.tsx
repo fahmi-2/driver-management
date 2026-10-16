@@ -13,6 +13,7 @@ import {
   User,
   UserCheck,
   Users,
+  Loader2,
 } from 'lucide-react'
 import {
   DEPARTMENTS,
@@ -167,19 +168,23 @@ export function RequesterForm({ user }: { user: Account }) {
     }))
   }
 
-  const submit = (e: React.FormEvent) => {
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
+
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setSubmitError(null)
 
     if (!f.requesterName.trim()) {
-      notify('Nama Pemohon wajib diisi!')
+      notify('Nama Pemohon wajib diisi!', 'error')
       return
     }
     if (!f.requesterNik.trim()) {
-      notify('NIK Pemohon wajib diisi!')
+      notify('NIK Pemohon wajib diisi!', 'error')
       return
     }
     if (!f.destination.trim()) {
-      notify('Tujuan lokasi wajib diisi!')
+      notify('Tujuan lokasi wajib diisi!', 'error')
       return
     }
 
@@ -195,53 +200,71 @@ export function RequesterForm({ user }: { user: Account }) {
       ? `Hanya Driver (Kirim Barang / Dokumen oleh ${f.requesterName.trim()})`
       : f.requesterName.trim()
 
-    createTrip({
-      category: f.category,
-      guest: guestLabel,
-      requesterNik: f.requesterNik.trim(),
-      dept: f.dept,
-      section: f.section,
-      spvName: f.approvedBy || `Approver (${f.dept})`,
-      spvEmail: f.approverEmail,
-      approverEmail: f.approverEmail,
-      passengers: allPassengers,
-      driverOnly: f.driverOnly,
-      destination: f.destination,
-      destinations: f.destinations.filter(Boolean),
-      purpose: f.purpose,
-      estDeparture: f.estDeparture,
-      estReturn: f.estReturn,
-      distance_km: f.distance_km,
-      estimated_duration_minutes: f.estimated_duration_minutes,
-      requesterUser: user.username,
-      requesterName: f.requesterName.trim(),
-    })
+    setIsSubmitting(true)
 
-    notify(
-      f.driverOnly
-        ? `Terkirim (Hanya Driver - Kupon Hangus). Email e-sign dikirim ke ${f.approvedBy} (${f.approverEmail}).`
-        : `Terkirim! Email notifikasi persetujuan otomatis dikirim ke ${f.approvedBy} (${f.approverEmail}) dari Section ${f.section || f.dept}.`
-    )
+    try {
+      const res = await createTrip({
+        category: f.category,
+        guest: guestLabel,
+        requesterNik: f.requesterNik.trim(),
+        dept: f.dept,
+        section: f.section,
+        spvName: f.approvedBy || `Approver (${f.dept})`,
+        spvEmail: f.approverEmail,
+        approverEmail: f.approverEmail,
+        passengers: allPassengers,
+        driverOnly: f.driverOnly,
+        destination: f.destination,
+        destinations: f.destinations.filter(Boolean),
+        purpose: f.purpose,
+        estDeparture: f.estDeparture,
+        estReturn: f.estReturn,
+        distance_km: f.distance_km,
+        estimated_duration_minutes: f.estimated_duration_minutes,
+        requesterUser: user.username,
+        requesterName: f.requesterName.trim(),
+      })
 
-    const resetManager = getManagerBySection(initialDept, initialSection)
-    setF({
-      category: 'Dinas',
-      requesterName: user.name || '',
-      requesterNik: user.nik || '',
-      dept: initialDept,
-      section: initialSection,
-      approvedBy: resetManager.name,
-      approverEmail: resetManager.email,
-      driverOnly: false,
-      additionalUsers: [],
-      destination: '',
-      destinations: [''],
-      purpose: '',
-      estDeparture: '08:00',
-      estReturn: '12:00',
-      distance_km: undefined,
-      estimated_duration_minutes: undefined,
-    })
+      if (!res.success) {
+        const errorMsg = res.error || 'Gagal menyimpan permohonan ke database Supabase.'
+        setSubmitError(errorMsg)
+        notify(`Gagal Mengajukan: ${errorMsg}`, 'error')
+        return
+      }
+
+      notify(
+        f.driverOnly
+          ? `Terkirim (Hanya Driver - Kupon Hangus). Email e-sign dikirim ke ${f.approvedBy} (${f.approverEmail}).`
+          : `Terkirim! Email notifikasi persetujuan otomatis dikirim ke ${f.approvedBy} (${f.approverEmail}) dari Section ${f.section || f.dept}.`
+      )
+
+      const resetManager = getManagerBySection(initialDept, initialSection)
+      setF({
+        category: 'Dinas',
+        requesterName: user.name || '',
+        requesterNik: user.nik || '',
+        dept: initialDept,
+        section: initialSection,
+        approvedBy: resetManager.name,
+        approverEmail: resetManager.email,
+        driverOnly: false,
+        additionalUsers: [],
+        destination: '',
+        destinations: [''],
+        purpose: '',
+        estDeparture: '08:00',
+        estReturn: '12:00',
+        distance_km: undefined,
+        estimated_duration_minutes: undefined,
+      })
+      setSubmitError(null)
+    } catch (err: any) {
+      const errMsg = err?.message || 'Terjadi kesalahan sistem saat memproses pengajuan.'
+      setSubmitError(errMsg)
+      notify(errMsg, 'error')
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const mine = db.trips.filter((t) => t.requesterUser === user.username).slice().reverse()
@@ -629,9 +652,42 @@ export function RequesterForm({ user }: { user: Account }) {
               </label>
             </div>
 
-            <button id="submit-request" className={`${btnPrimary} mt-2 w-full py-3.5 text-xs`}>
-              <Plus size={16} />
-              Kirim Permohonan Perjalanan
+            {submitError && (
+              <div className="rounded-xl border border-rose-500/30 bg-rose-950/40 p-4 text-xs text-rose-200 space-y-2">
+                <div className="flex items-start gap-2.5">
+                  <AlertCircle size={18} className="text-rose-400 shrink-0 mt-0.5" />
+                  <div className="flex-1 space-y-1">
+                    <p className="font-bold text-rose-300">Gagal Mengajukan Perjalanan</p>
+                    <p className="font-mono text-[11px] text-rose-200/90 leading-relaxed bg-black/40 p-2.5 rounded-lg border border-rose-500/20 break-words">
+                      {submitError}
+                    </p>
+                    {submitError.toLowerCase().includes('row-level security') && (
+                      <div className="mt-2 text-[11px] text-rose-300/80 leading-relaxed">
+                        <strong className="text-white">Solusi RLS Supabase:</strong> Terdeteksi penolakan oleh Row-Level Security. Jalankan query SQL dari file <code className="bg-black/50 px-1 py-0.5 rounded text-[#a3e635]">supabase_rls.sql</code> di Supabase SQL Editor agar public/anon dapat menginput trip.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <button
+              id="submit-request"
+              type="submit"
+              disabled={isSubmitting}
+              className={`${btnPrimary} mt-2 w-full py-3.5 text-xs ${isSubmitting ? 'opacity-70 cursor-not-allowed' : ''}`}
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 size={16} className="animate-spin text-black" />
+                  Menyimpan ke Server Supabase...
+                </>
+              ) : (
+                <>
+                  <Plus size={16} />
+                  Kirim Permohonan Perjalanan
+                </>
+              )}
             </button>
           </form>
         </Card>
