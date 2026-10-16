@@ -63,6 +63,22 @@ CREATE POLICY "Allow public all access on trip_passengers"
   USING (true) 
   WITH CHECK (true);
 
+-- Tabel untuk pengaturan sistem dinamis (seperti konfigurasi SMTP email)
+CREATE TABLE IF NOT EXISTS app_settings (
+    key VARCHAR(100) PRIMARY KEY,
+    value JSONB NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+ALTER TABLE IF EXISTS app_settings ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow public all access on app_settings" ON app_settings;
+
+CREATE POLICY "Allow public all access on app_settings" 
+  ON app_settings FOR ALL 
+  TO anon, authenticated 
+  USING (true) 
+  WITH CHECK (true);
+
 -- ============================================================================
 -- OPSI 2 (ALTERNATIF CEPAT): Nonaktifkan RLS sepenuhnya jika tidak diperlukan
 -- ============================================================================
@@ -72,3 +88,4 @@ CREATE POLICY "Allow public all access on trip_passengers"
 -- ALTER TABLE accounts DISABLE ROW LEVEL SECURITY;
 -- ALTER TABLE trips DISABLE ROW LEVEL SECURITY;
 -- ALTER TABLE trip_passengers DISABLE ROW LEVEL SECURITY;
+-- ALTER TABLE app_settings DISABLE ROW LEVEL SECURITY;

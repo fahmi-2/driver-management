@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { BookOpen, BusFront, CalendarDays, ChevronDown, Contact, Database, FileText, Inbox, LayoutDashboard, ListChecks, LogOut, Menu, Presentation, ShieldCheck, Sliders, Table2, Ticket, Truck, Users, UsersRound, X, type LucideIcon } from 'lucide-react'
+import { BookOpen, BusFront, CalendarDays, ChevronDown, Contact, Database, FileText, Inbox, LayoutDashboard, ListChecks, LogOut, Mail, Menu, Presentation, ShieldCheck, Sliders, Table2, Ticket, Truck, Users, UsersRound, X, type LucideIcon } from 'lucide-react'
 import { ROLE_LABEL, getSession, setSession, type Account, type Role } from '@/lib/accounts'
 import { YazakiBadge, YazakiEmblem } from '@/components/yazaki-logo'
 import { ProfileSettingsModal } from '@/components/profile-settings-modal'
@@ -15,6 +15,7 @@ import { AdminDrivers, AdminLiveData, AdminWorkload } from './views/admin'
 import { AdminSchedulingCenter } from './views/scheduling-center'
 import { AdminVehicles } from './views/vehicles'
 import { AdminAccounts } from './views/accounts'
+import { AdminSmtpSettings } from './views/admin-smtp'
 import { SecurityGate } from './views/security'
 import { CouponHistory, CouponPending } from './views/coupon'
 import { ApproverInbox } from './views/approver'
@@ -57,6 +58,7 @@ const NAV: Record<Role, NavItem[]> = {
         { id: 'vehicles', label: 'Daftar Kendaraan', icon: Truck, desc: 'Master armada & status kendaraan' },
         { id: 'drivers', label: 'Daftar Sopir', icon: Contact, desc: 'Database personil sopir & shift' },
         { id: 'accounts', label: 'Data Akun', icon: Users, desc: 'Kelola ID pengguna, peran & password' },
+        { id: 'smtp', label: 'Pengaturan SMTP', icon: Mail, desc: 'Konfigurasi host & pengirim email' },
       ],
     },
     { id: 'live', label: 'Live Data', icon: Table2 },
@@ -180,6 +182,13 @@ function Shell({ user, onLogout }: { user: Account; onLogout: () => void }) {
       view = <Dashboard user={currentUser} />
     } else {
       view = <AdminAccounts currentUser={currentUser} />
+    }
+  }
+  else if (page === 'smtp') {
+    if (currentUser?.role === 'admin') {
+      view = <AdminSmtpSettings user={currentUser} />
+    } else {
+      view = <Dashboard user={currentUser} />
     }
   }
   else if (page === 'live') view = <AdminLiveData />

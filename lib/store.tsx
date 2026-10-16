@@ -116,6 +116,27 @@ export const COUPON_LABEL: Record<CouponStatus, string> = {
   PAID: 'Created',
 }
 
+// Kirim email notifikasi approval via API route server (/api/notify). Error hanya di-log,
+// tidak menggagalkan pengajuan karena data sudah tersimpan di database.
+export async function notifyApprover(tripId: string): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = await fetch('/api/notify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tripId }),
+    })
+    const json = await res.json().catch(() => ({}))
+    if (!res.ok || json.ok === false) {
+      console.error('Notifikasi email gagal:', json.error || res.statusText)
+      return { ok: false, error: json.error || res.statusText }
+    }
+    return { ok: true }
+  } catch (err: any) {
+    console.error('Notifikasi email error:', err)
+    return { ok: false, error: err?.message }
+  }
+}
+
 // ---------- seed ----------
 function seed(): DB {
   const today = new Date()
@@ -218,6 +239,7 @@ export type TripSubmitResult = {
   id: string
   success: boolean
   error?: string
+  emailError?: string
 }
 
 type Ctx = {
@@ -380,16 +402,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const patch = useCallback((id: string, p: Partial<Trip> | ((t: Trip) => Partial<Trip>)) =>
     update((d) => {
       let updatedTrip: Trip | null = null
+      let prevStatus: string | null = null
       const nextTrips = d.trips.map((t) => {
         if (t.id === id) {
           const next = { ...t, ...(typeof p === 'function' ? p(t) : p) }
           updatedTrip = next
+          prevStatus = t.status
           return next
         }
         return t
       })
       if (updatedTrip) {
-        import('./sync').then(({ upsertTripToSupabase }) => upsertTripToSupabase(updatedTrip!))
+        const trip: Trip = updatedTrip
+        const statusChanged = prevStatus !== trip.status
+        import('./sync').then(async ({ upsertTripToSupabase }) => {
+          const res = await upsertTripToSupabase(trip)
+          if (!res.success) console.error('Sync trip gagal:', res.error)
+          else if (statusChanged) notifyApprover(trip.id)
+        })
       }
       return { ...d, trips: nextTrips }
     }), [update])
@@ -422,7 +452,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             bc.close()
           } catch {}
         }
-        return { id, success: true }
+        const mail = await notifyApprover(id)
+        return { id, success: true, emailError: mail.ok ? undefined : mail.error }
       } else {
         return { id, success: false, error: syncRes.error }
       }
@@ -485,7 +516,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             bc.close()
           } catch {}
         }
-        return { id, success: true }
+        const mail = await notifyApprover(id)
+        return { id, success: true, emailError: mail.ok ? undefined : mail.error }
       } else {
         return { id, success: false, error: syncRes.error }
       }

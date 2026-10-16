@@ -1,0 +1,168 @@
+import { NextResponse } from 'next/server'
+import nodemailer from 'nodemailer'
+import { getActiveSmtpConfig, saveSmtpConfig } from '@/lib/smtp-config'
+
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+
+export async function GET() {
+  try {
+    const config = await getActiveSmtpConfig()
+    if (!config) {
+      return NextResponse.json({
+        ok: true,
+        isConfigured: false,
+        config: {
+          host: 'smtp.gmail.com',
+          port: 587,
+          user: '',
+          pass: '',
+          from: '',
+          secure: false,
+          appUrl: process.env.NEXT_PUBLIC_APP_URL || '',
+          hasPassword: false,
+        },
+      })
+    }
+
+    return NextResponse.json({
+      ok: true,
+      isConfigured: true,
+      config: {
+        host: config.host,
+        port: config.port,
+        user: config.user,
+        pass: config.pass ? '••••••••••••••••' : '',
+        from: config.from,
+        secure: config.secure,
+        appUrl: config.appUrl || '',
+        hasPassword: !!config.pass,
+      },
+    })
+  } catch (err: any) {
+    return NextResponse.json({ ok: false, error: err?.message || 'Gagal memuat pengaturan SMTP' }, { status: 500 })
+  }
+}
+
+export async function POST(req: Request) {
+  try {
+    const body = await req.json()
+    const { action = 'save', host, port, user, pass, from, secure, appUrl, testRecipient } = body
+
+    // 1. Aksi uji coba kirim email (Test Connection)
+    if (action === 'test') {
+      if (!testRecipient) {
+        return NextResponse.json({ ok: false, error: 'Email tujuan uji coba wajib diisi' }, { status: 400 })
+      }
+
+      // Ambil pass dari input, jika berupa bullet masked ('••••') ambil dari database
+      let resolvedPass = pass
+      if (!resolvedPass || resolvedPass.includes('•••')) {
+        const existing = await getActiveSmtpConfig()
+        resolvedPass = existing?.pass
+      }
+
+      if (!host || !user || !resolvedPass) {
+        return NextResponse.json({
+          ok: false,
+          error: 'Host SMTP, Username, dan Password/App Password wajib diisi untuk melakukan tes',
+        }, { status: 400 })
+      }
+
+      const smtpPort = Number(port) || 587
+      const isSecure = smtpPort === 465 || !!secure
+
+      const transporter = nodemailer.createTransport({
+        host: String(host).trim(),
+        port: smtpPort,
+        secure: isSecure,
+        auth: {
+          user: String(user).trim(),
+          pass: resolvedPass,
+        },
+      })
+
+      // Verifikasi koneksi SMTP dulu
+      await transporter.verify()
+
+      // Kirim email uji coba
+      const testInfo = await transporter.sendMail({
+        from: from ? String(from).trim() : String(user).trim(),
+        to: String(testRecipient).trim(),
+        subject: `[Test] Uji Coba Konfigurasi SMTP - JAI-FLEET Management`,
+        html: `
+          <div style="font-family:Arial,sans-serif;max-width:540px;padding:24px;background:#f9fafb;border-radius:12px;border:1px solid #e5e7eb">
+            <h2 style="color:#0f172a;margin-top:0">Koneksi SMTP Berhasil!</h2>
+            <p style="color:#334155;font-size:14px;line-height:1.5">
+              Email ini dikirimkan secara otomatis dari Sistem Manajemen Operasional Armada &amp; Driver <b>PT. JAI</b> untuk memverifikasi bahwa pengaturan SMTP Anda telah aktif dan berjalan dengan baik.
+            </p>
+            <div style="background:#ffffff;padding:16px;border-radius:8px;border:1px solid #e2e8f0;margin:20px 0;font-size:13px">
+              <table cellpadding="4" style="color:#475569">
+                <tr><td><b>SMTP Host</b></td><td>: ${host}</td></tr>
+                <tr><td><b>Port</b></td><td>: ${smtpPort} (SSL/TLS: ${isSecure ? 'Ya' : 'STARTTLS'})</td></tr>
+                <tr><td><b>Akun Pengirim</b></td><td>: ${user}</td></tr>
+                <tr><td><b>Waktu Pengujian</b></td><td>: ${new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })} WIB</td></tr>
+              </table>
+            </div>
+            <p style="color:#64748b;font-size:12px;margin-bottom:0">
+              Notifikasi approval perjalanan otomatis kini siap dikirimkan kepada Approver SPV dan Admin.
+            </p>
+          </div>
+        `,
+      })
+
+      return NextResponse.json({
+        ok: true,
+        message: `Email uji coba berhasil dikirim ke ${testRecipient} (Message ID: ${testInfo.messageId})`,
+      })
+    }
+
+    // 2. Aksi simpan konfigurasi SMTP
+    if (action === 'save') {
+      if (!host || !user) {
+        return NextResponse.json({ ok: false, error: 'Host SMTP dan Username wajib diisi' }, { status: 400 })
+      }
+
+      let finalPass = pass
+      if (!finalPass || finalPass.includes('•••')) {
+        const existing = await getActiveSmtpConfig()
+        finalPass = existing?.pass
+      }
+
+      if (!finalPass) {
+        return NextResponse.json({ ok: false, error: 'Password / App Password SMTP wajib diisi' }, { status: 400 })
+      }
+
+      const saveResult = await saveSmtpConfig({
+        host: String(host).trim(),
+        port: Number(port) || 587,
+        user: String(user).trim(),
+        pass: finalPass,
+        from: from ? String(from).trim() : String(user).trim(),
+        secure: Number(port) === 465 || !!secure,
+        appUrl: appUrl ? String(appUrl).trim() : undefined,
+      })
+
+      if (!saveResult.ok) {
+        let msg = saveResult.error || 'Gagal menyimpan konfigurasi ke Supabase'
+        if (msg.includes('relation') || msg.includes('does not exist')) {
+          msg = `Tabel "app_settings" belum ada di Supabase. Silakan jalankan query di file supabase_rls.sql pada SQL Editor Supabase.`
+        }
+        return NextResponse.json({ ok: false, error: msg }, { status: 500 })
+      }
+
+      return NextResponse.json({
+        ok: true,
+        message: 'Konfigurasi SMTP berhasil disimpan ke database.',
+      })
+    }
+
+    return NextResponse.json({ ok: false, error: 'Aksi tidak dikenali' }, { status: 400 })
+  } catch (err: any) {
+    console.error('[api/smtp] Error:', err)
+    return NextResponse.json({
+      ok: false,
+      error: err?.message || 'Terjadi kesalahan pada server saat memproses konfigurasi SMTP',
+    }, { status: 500 })
+  }
+}

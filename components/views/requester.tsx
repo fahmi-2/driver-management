@@ -232,7 +232,9 @@ export function RequesterForm({ user }: { user: Account }) {
         return
       }
 
-      notify(
+      if (res.emailError) {
+        notify(`Pengajuan tersimpan, tetapi email notifikasi GAGAL dikirim: ${res.emailError}`, 'error', 9000)
+      } else notify(
         f.driverOnly
           ? `Terkirim (Hanya Driver - Kupon Hangus). Email e-sign dikirim ke ${f.approvedBy} (${f.approverEmail}).`
           : `Terkirim! Email notifikasi persetujuan otomatis dikirim ke ${f.approvedBy} (${f.approverEmail}) dari Section ${f.section || f.dept}.`
