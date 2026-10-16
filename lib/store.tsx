@@ -193,6 +193,7 @@ function seed(): DB {
 
 // ---------- context ----------
 type NewTrip = Pick<Trip, 'category' | 'guest' | 'destination' | 'purpose' | 'estDeparture' | 'estReturn' | 'requesterUser' | 'requesterName' | 'dept'> & {
+  date?: string
   requesterNik?: string
   section?: string
   spvName?: string
@@ -431,7 +432,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const newTrip: Trip = {
         ...t,
         id,
-        date: ymd(),
+        date: t.date || ymd(),
         status: 'WAITING_SPV',
         spvName: t.spvName || `SPV ${t.dept}`,
         coupon: t.driverOnly ? 'VOID' : 'NONE',

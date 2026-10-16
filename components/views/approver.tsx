@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { TripRouteToggle } from '../route-map'
 import {
   CheckCircle2,
   Clock,
@@ -255,6 +256,8 @@ export function ApproverInbox({ user }: { user: Account }) {
                           </div>
                         )}
                       </div>
+
+                      <TripRouteToggle trip={trip} tone="light" />
                     </div>
 
                     {/* Status Pill & Actions */}

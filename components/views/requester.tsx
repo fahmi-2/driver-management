@@ -14,6 +14,7 @@ import {
   UserCheck,
   Users,
   Loader2,
+  Calendar,
 } from 'lucide-react'
 import {
   DEPARTMENTS,
@@ -29,6 +30,7 @@ import {
   fmtDate,
   fmtDur,
   fmtTime,
+  ymd,
   useStore,
   type Category,
   type CouponStatus,
@@ -50,6 +52,7 @@ import {
   useToast,
 } from '../ui-bits'
 import { DestinationAutocomplete } from '../destination-autocomplete'
+import { TripRouteToggle } from '../route-map'
 
 // Kategori perjalanan resmi (Izin Keluar Lokasi Pabrik resmi dihilangkan)
 const CATS: Category[] = ['Dinas', 'Non-Dinas']
@@ -68,6 +71,7 @@ export function RequesterForm({ user }: { user: Account }) {
   const initialManager = getManagerBySection(initialDept, initialSection)
 
   const [f, setF] = useState({
+    date: ymd(), // Tanggal Perjalanan (default hari ini, tidak boleh hari kemarin)
     category: 'Dinas' as Category,
     requesterName: user.name || '',
     requesterNik: user.nik || '',
@@ -203,7 +207,14 @@ export function RequesterForm({ user }: { user: Account }) {
     setIsSubmitting(true)
 
     try {
+      const today = ymd()
+      if (f.date && f.date < today) {
+        notify('Tanggal perjalanan tidak boleh sebelum hari ini (hari kemarin)!', 'error')
+        return
+      }
+
       const res = await createTrip({
+        date: f.date || today,
         category: f.category,
         guest: guestLabel,
         requesterNik: f.requesterNik.trim(),
@@ -242,6 +253,7 @@ export function RequesterForm({ user }: { user: Account }) {
 
       const resetManager = getManagerBySection(initialDept, initialSection)
       setF({
+        date: ymd(),
         category: 'Dinas',
         requesterName: user.name || '',
         requesterNik: user.nik || '',
@@ -629,8 +641,23 @@ export function RequesterForm({ user }: { user: Account }) {
               />
             </label>
 
-            {/* 7. Estimasi Jam Berangkat & Estimasi Jam Kembali */}
-            <div className="grid gap-3 sm:grid-cols-2">
+            {/* 7. Tanggal Perjalanan, Estimasi Jam Berangkat & Estimasi Jam Kembali */}
+            <div className="grid gap-3 sm:grid-cols-3">
+              <label className="text-xs font-semibold text-[#8fa99b]">
+                <span className="flex items-center gap-1.5 mb-1">
+                  <Calendar size={13} className="text-[#a3e635]" />
+                  Tanggal Perjalanan <span className="text-[#a3e635]">*</span>
+                </span>
+                <input
+                  type="date"
+                  min={ymd()}
+                  value={f.date}
+                  onChange={(e) => setF({ ...f, date: e.target.value })}
+                  className={`${inputCls} font-mono`}
+                  required
+                />
+              </label>
+
               <label className="text-xs font-semibold text-[#8fa99b]">
                 Estimasi Jam Berangkat
                 <input
@@ -758,6 +785,8 @@ export function RequesterForm({ user }: { user: Account }) {
                         Driver: {db.drivers.find((d) => d.id === t.driverId)?.name} · Plat: {t.plate}
                       </p>
                     )}
+
+                    <TripRouteToggle trip={t} />
                   </div>
 
                     <div className="flex items-center gap-2">
