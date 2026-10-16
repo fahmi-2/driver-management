@@ -18,6 +18,8 @@ import {
   Check,
   RefreshCw,
   Sparkles,
+  Activity,
+  Wifi,
 } from 'lucide-react'
 import type { Account } from '@/lib/accounts'
 import { Card, PageHeader, btnGhost, btnPrimary, inputCls, useToast } from '../ui-bits'
@@ -62,9 +64,11 @@ export function AdminSmtpSettings({ user }: { user: Account }) {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [testing, setTesting] = useState(false)
+  const [pinging, setPinging] = useState(false)
   const [showPass, setShowPass] = useState(false)
   const [testRecipient, setTestRecipient] = useState(user?.email || '')
   const [testResult, setTestResult] = useState<{ success: boolean; msg: string } | null>(null)
+  const [pingResult, setPingResult] = useState<{ success: boolean; msg: string; latencyMs?: number } | null>(null)
   const [hasExistingPass, setHasExistingPass] = useState(false)
   const [copiedSql, setCopiedSql] = useState(false)
   const [showSqlGuide, setShowSqlGuide] = useState(false)
@@ -163,6 +167,56 @@ export function AdminSmtpSettings({ user }: { user: Account }) {
       }
     } finally {
       setSaving(false)
+    }
+  }
+
+  // Test koneksi server SMTP (Ping / Handshake & Auth check)
+  const handlePing = async () => {
+    if (!form.host.trim()) {
+      notify('Host SMTP wajib diisi!', 'error')
+      return
+    }
+    if (!form.user.trim()) {
+      notify('Username / Email SMTP wajib diisi!', 'error')
+      return
+    }
+    if (!form.pass.trim() && !hasExistingPass) {
+      notify('Password / App Password wajib diisi!', 'error')
+      return
+    }
+
+    setPinging(true)
+    setPingResult(null)
+
+    try {
+      const res = await fetch('/api/smtp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'ping',
+          ...form,
+        }),
+      })
+
+      const json = await res.json()
+      if (!res.ok || !json.ok) {
+        throw new Error(json.error || 'Gagal terhubung ke server SMTP')
+      }
+
+      setPingResult({
+        success: true,
+        msg: json.message,
+        latencyMs: json.latencyMs,
+      })
+      notify('Koneksi SMTP Berhasil!', 'success')
+    } catch (err: any) {
+      setPingResult({
+        success: false,
+        msg: err.message || 'Gagal terhubung ke server SMTP. Periksa host, port, atau kredensial login.',
+      })
+      notify('Koneksi SMTP gagal', 'error')
+    } finally {
+      setPinging(false)
     }
   }
 
@@ -419,28 +473,83 @@ CREATE POLICY "Allow public all access on app_settings" ON app_settings FOR ALL 
                 </div>
               </div>
 
-              {/* Tombol Simpan */}
-              <div className="pt-2 flex items-center justify-between border-t border-white/5">
-                <p className="text-[11px] text-[#708078]">
-                  Perubahan akan langsung aktif untuk pengiriman berikutnya.
-                </p>
-                <button
-                  type="submit"
-                  disabled={saving || loading}
-                  className={`${btnPrimary} !px-6`}
+              {/* Hasil Uji Koneksi Langsung (Ping / Handshake) */}
+              {pingResult && (
+                <div
+                  className={`rounded-xl border p-4 text-xs anim-fade-up ${
+                    pingResult.success
+                      ? 'border-emerald-500/30 bg-emerald-950/40 text-emerald-200'
+                      : 'border-rose-500/30 bg-rose-950/40 text-rose-200'
+                  }`}
                 >
-                  {saving ? (
-                    <>
-                      <Loader2 size={15} className="animate-spin text-black" />
-                      Menyimpan...
-                    </>
-                  ) : (
-                    <>
-                      <ShieldCheck size={15} />
-                      Simpan Konfigurasi
-                    </>
-                  )}
-                </button>
+                  <div className="flex items-start gap-2.5">
+                    {pingResult.success ? (
+                      <CheckCircle2 size={17} className="text-emerald-400 shrink-0 mt-0.5" />
+                    ) : (
+                      <AlertCircle size={17} className="text-rose-400 shrink-0 mt-0.5" />
+                    )}
+                    <div className="space-y-1 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-bold text-sm">
+                          {pingResult.success ? 'Koneksi SMTP Berhasil!' : 'Koneksi SMTP Gagal'}
+                        </p>
+                        {pingResult.latencyMs != null && (
+                          <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-mono font-bold text-emerald-300">
+                            Latency: {pingResult.latencyMs} ms
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] leading-relaxed font-mono break-words">
+                        {pingResult.msg}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Tombol Aksi */}
+              <div className="pt-3 flex flex-wrap items-center justify-between gap-3 border-t border-white/5">
+                <p className="text-[11px] text-[#708078]">
+                  Uji koneksi terlebih dahulu sebelum menyimpan konfigurasi.
+                </p>
+                <div className="flex items-center gap-2.5">
+                  <button
+                    type="button"
+                    onClick={handlePing}
+                    disabled={pinging || saving || loading}
+                    className={`${btnGhost} !py-2.5 !px-4 text-xs font-bold gap-2`}
+                  >
+                    {pinging ? (
+                      <>
+                        <Loader2 size={14} className="animate-spin text-[#a3e635]" />
+                        Menguji Koneksi...
+                      </>
+                    ) : (
+                      <>
+                        <Activity size={14} />
+                        Test Koneksi
+                      </>
+                    )}
+                  </button>
+
+                  <button
+                    type="submit"
+                    disabled={saving || loading || pinging}
+                    className={`${btnPrimary} !py-2.5 !px-6 text-xs font-bold`}
+                  >
+                    {saving ? (
+                      <>
+                        <Loader2 size={15} className="animate-spin text-black" />
+                        Menyimpan...
+                      </>
+                    ) : (
+                      <>
+                        <ShieldCheck size={15} />
+                        Simpan Konfigurasi
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
             </form>
           </Card>

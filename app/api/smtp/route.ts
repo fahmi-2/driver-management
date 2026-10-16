@@ -49,7 +49,59 @@ export async function POST(req: Request) {
     const body = await req.json()
     const { action = 'save', host, port, user, pass, from, secure, appUrl, testRecipient } = body
 
-    // 1. Aksi uji coba kirim email (Test Connection)
+    // 0. Aksi Uji Koneksi / Ping Handshake (tanpa kirim email)
+    if (action === 'ping') {
+      let resolvedPass = pass
+      if (!resolvedPass || resolvedPass.includes('•••')) {
+        const existing = await getActiveSmtpConfig()
+        resolvedPass = existing?.pass
+      }
+
+      if (!host || !user || !resolvedPass) {
+        return NextResponse.json({
+          ok: false,
+          error: 'Host SMTP, Username, dan Password/App Password wajib diisi untuk menguji koneksi.',
+        }, { status: 400 })
+      }
+
+      const smtpPort = Number(port) || 587
+      const isSecure = smtpPort === 465 || !!secure
+
+      const startTime = Date.now()
+      const transporter = nodemailer.createTransport({
+        host: String(host).trim(),
+        port: smtpPort,
+        secure: isSecure,
+        connectionTimeout: 10000,
+        greetingTimeout: 10000,
+        auth: {
+          user: String(user).trim(),
+          pass: resolvedPass,
+        },
+      })
+
+      try {
+        await transporter.verify()
+        const latencyMs = Date.now() - startTime
+        return NextResponse.json({
+          ok: true,
+          latencyMs,
+          message: `Koneksi SMTP Berhasil! Terhubung ke ${host}:${smtpPort} (Respon: ${latencyMs}ms). Autentikasi akun "${user}" valid.`,
+        })
+      } catch (verifyErr: any) {
+        let msg = verifyErr?.message || 'Gagal menghubungi server SMTP.'
+        if (msg.includes('535') || verifyErr?.code === 'EAUTH') {
+          msg = `Autentikasi Gagal (535): Username atau App Password salah. Untuk Gmail, pastikan 2FA aktif dan gunakan App Password 16-digit.`
+        } else if (verifyErr?.code === 'ETIMEDOUT') {
+          msg = `Koneksi Timeout: Server ${host} tidak merespons pada port ${smtpPort}. Coba periksa port (587 atau 465) atau koneksi internet.`
+        } else if (verifyErr?.code === 'ECONNREFUSED') {
+          msg = `Koneksi Ditolak: Host ${host} menolak koneksi pada port ${smtpPort}.`
+        }
+        return NextResponse.json({ ok: false, error: msg }, { status: 400 })
+      }
+    }
+
+    // 1. Aksi uji coba kirim email (Test Send Email)
     if (action === 'test') {
       if (!testRecipient) {
         return NextResponse.json({ ok: false, error: 'Email tujuan uji coba wajib diisi' }, { status: 400 })
@@ -76,6 +128,8 @@ export async function POST(req: Request) {
         host: String(host).trim(),
         port: smtpPort,
         secure: isSecure,
+        connectionTimeout: 10000,
+        greetingTimeout: 10000,
         auth: {
           user: String(user).trim(),
           pass: resolvedPass,
