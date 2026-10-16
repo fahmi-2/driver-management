@@ -66,20 +66,55 @@ function haversineKm(a: LatLng, b: LatLng) {
   return 2 * R * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h))
 }
 
-/** Rute berurutan melewati semua titik (mis. JAI -> tujuan... -> JAI). */
+/** Rute berurutan melewati semua titik (mis. JAI -> tujuan... -> JAI).
+ * Dihitung per leg (titik i -> titik i+1) dengan memilih opsi jarak terpendek (shortest distance)
+ * agar rute antar destinasi langsung (seperti Malang -> Pujon/Kandangan -> Nganjuk)
+ * dan tidak memutar balik ke tol dekat titik awal.
+ */
 export async function getRoute(points: LatLng[], signal?: AbortSignal): Promise<RouteResult> {
-  const coords = points.map((p) => `${p.lng},${p.lat}`).join(';')
+  if (points.length < 2) {
+    return { km: 0, minutes: 0, line: [], approximate: false }
+  }
+
   try {
-    const url = `${OSRM_URL}/route/v1/driving/${coords}?overview=full&geometries=geojson`
-    const res = await fetch(url, { signal })
-    if (!res.ok) throw new Error(`OSRM ${res.status}`)
-    const data = await res.json()
-    const r = data?.routes?.[0]
-    if (data.code !== 'Ok' || !r) throw new Error('OSRM tidak menemukan rute')
+    let totalDistance = 0
+    let totalDuration = 0
+    const fullLine: [number, number][] = []
+
+    for (let i = 0; i < points.length - 1; i++) {
+      const from = points[i]
+      const to = points[i + 1]
+      const coords = `${from.lng},${from.lat};${to.lng},${to.lat}`
+      const url = `${OSRM_URL}/route/v1/driving/${coords}?alternatives=true&overview=full&geometries=geojson`
+      
+      const res = await fetch(url, { signal })
+      if (!res.ok) throw new Error(`OSRM ${res.status}`)
+      const data = await res.json()
+      
+      const routes = data?.routes || []
+      if (data.code !== 'Ok' || routes.length === 0) throw new Error('OSRM tidak menemukan rute')
+      
+      // Pilih rute dengan jarak tempuh terpendek (shortest distance)
+      const sorted = [...routes].sort((a, b) => a.distance - b.distance)
+      const best = sorted[0]
+
+      totalDistance += best.distance
+      totalDuration += best.duration
+
+      const legCoords: [number, number][] = best.geometry.coordinates.map(
+        (c: [number, number]) => [c[1], c[0]] as [number, number]
+      )
+
+      if (i > 0 && legCoords.length > 0) {
+        legCoords.shift() // Hindari duplikasi titik sambungan antar leg
+      }
+      fullLine.push(...legCoords)
+    }
+
     return {
-      km: Math.round((r.distance / 1000) * 10) / 10,
-      minutes: Math.round(r.duration / 60),
-      line: r.geometry.coordinates.map((c: [number, number]) => [c[1], c[0]] as [number, number]),
+      km: Math.round((totalDistance / 1000) * 10) / 10,
+      minutes: Math.round(totalDuration / 60),
+      line: fullLine,
       approximate: false,
     }
   } catch (err) {

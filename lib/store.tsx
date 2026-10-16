@@ -1,6 +1,7 @@
 'use client'
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { supabase } from './supabase'
 
 export type Category = 'Dinas' | 'Non-Dinas'
 export type TripStatus = 'WAITING_SPV' | 'WAITING_ASSIGN' | 'WAITING_POOL_SPV' | 'READY' | 'ON_TRIP' | 'DONE' | 'REJECTED'
@@ -316,21 +317,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     loadFromRemote()
 
     // Realtime Supabase Channel: mendengarkan INSERT, UPDATE, DELETE di tabel trips, vehicles, drivers
-    let subscriptionChannel: any = null
-    import('./supabase').then(({ supabase }) => {
-      subscriptionChannel = supabase
-        .channel('db-live-sync-realtime')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'trips' }, () => {
-          loadFromRemote()
-        })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'vehicles' }, () => {
-          loadFromRemote()
-        })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'drivers' }, () => {
-          loadFromRemote()
-        })
-        .subscribe()
-    })
+    const channelName = `db-live-sync-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`
+    const channel = supabase
+      .channel(channelName)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'trips' }, () => {
+        loadFromRemote()
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'vehicles' }, () => {
+        loadFromRemote()
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'drivers' }, () => {
+        loadFromRemote()
+      })
+      .subscribe()
 
     // BroadcastChannel untuk sinkronisasi seketika antar-tab/window di browser yang sama
     let broadcastChannel: BroadcastChannel | null = null
@@ -378,11 +377,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (broadcastChannel) {
         broadcastChannel.close()
       }
-      if (subscriptionChannel) {
-        import('./supabase').then(({ supabase }) => {
-          supabase.removeChannel(subscriptionChannel)
-        })
-      }
+      supabase.removeChannel(channel)
     }
   }, [])
 
