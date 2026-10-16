@@ -45,13 +45,13 @@ export function AdminVehicles() {
     setIsModalOpen(true)
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     const cleanPlate = formData.plate.trim().toUpperCase()
     if (!cleanPlate || !formData.type.trim()) return
 
     if (editingPlate) {
-      updateVehicle(editingPlate, {
+      const res = await updateVehicle(editingPlate, {
         plate: cleanPlate,
         type: formData.type.trim(),
         capacity: Number(formData.capacity) || 7,
@@ -59,13 +59,17 @@ export function AdminVehicles() {
         category: formData.category,
         dedicatedUser: formData.dedicatedUser.trim() || undefined,
       })
+      if (!res.success) {
+        alert(`Gagal memperbarui kendaraan di database: ${res.error || 'Terjadi kesalahan'}`)
+        return
+      }
       notify(`Kendaraan ${cleanPlate} berhasil diperbarui!`)
     } else {
       if (db.vehicles.some((v) => v.plate.toLowerCase() === cleanPlate.toLowerCase())) {
         alert('Nomor polisi tersebut sudah terdaftar di sistem!')
         return
       }
-      addVehicle({
+      const res = await addVehicle({
         plate: cleanPlate,
         type: formData.type.trim(),
         capacity: Number(formData.capacity) || 7,
@@ -73,12 +77,16 @@ export function AdminVehicles() {
         category: formData.category,
         dedicatedUser: formData.dedicatedUser.trim() || undefined,
       })
+      if (!res.success) {
+        alert(`Gagal menambahkan kendaraan ke database: ${res.error || 'Terjadi kesalahan'}`)
+        return
+      }
       notify(`Kendaraan baru ${cleanPlate} berhasil ditambahkan!`)
     }
     setIsModalOpen(false)
   }
 
-  const handleDelete = (plate: string) => {
+  const handleDelete = async (plate: string) => {
     // Check if vehicle has any active trips
     const hasActiveTrip = db.trips.some(
       (t) => t.plate === plate && (t.status === 'READY' || t.status === 'ON_TRIP')
@@ -88,7 +96,11 @@ export function AdminVehicles() {
       return
     }
     if (confirm(`Yakin ingin menghapus armada ${plate} dari database?`)) {
-      removeVehicle(plate)
+      const res = await removeVehicle(plate)
+      if (!res.success) {
+        alert(`Gagal menghapus kendaraan dari database: ${res.error || 'Terjadi kesalahan'}`)
+        return
+      }
       notify(`Armada ${plate} berhasil dihapus.`)
     }
   }

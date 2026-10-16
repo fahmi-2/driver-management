@@ -261,9 +261,9 @@ type Ctx = {
   updateDriver: (id: string, d: Partial<Driver>) => void
   removeDriver: (id: string) => void
   toggleLeave: (driverId: string) => void
-  addVehicle: (v: Vehicle) => void
-  updateVehicle: (plate: string, v: Partial<Vehicle>) => void
-  removeVehicle: (plate: string) => void
+  addVehicle: (v: Vehicle) => Promise<{ success: boolean; error?: string }>
+  updateVehicle: (plate: string, v: Partial<Vehicle>) => Promise<{ success: boolean; error?: string }>
+  removeVehicle: (plate: string) => Promise<{ success: boolean; error?: string }>
   resetDemo: () => void
 }
 
@@ -300,8 +300,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setDb((prev) => {
           const next: DB = {
             trips: remoteTrips != null ? remoteTrips : prev.trips,
-            vehicles: remoteVehicles && remoteVehicles.length > 0 ? remoteVehicles : prev.vehicles,
-            drivers: remoteDrivers && remoteDrivers.length > 0 ? remoteDrivers : prev.drivers,
+            vehicles: remoteVehicles != null ? remoteVehicles : prev.vehicles,
+            drivers: remoteDrivers != null ? remoteDrivers : prev.drivers,
           }
           window.localStorage.setItem(KEY, JSON.stringify(next))
           return next
@@ -630,30 +630,61 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         }
         return { ...d, drivers: next }
       }),
-    addVehicle: (v) => {
+    addVehicle: async (v) => {
       const newVehicle: Vehicle = { ...v, status: v.status || 'Active' }
-      update((prev) => ({ ...prev, vehicles: [...prev.vehicles, newVehicle] }))
-      import('./sync').then(({ upsertVehicleToSupabase }) => upsertVehicleToSupabase(newVehicle))
+      const { upsertVehicleToSupabase } = await import('./sync')
+      const res = await upsertVehicleToSupabase(newVehicle)
+      if (res.success) {
+        update((prev) => ({ ...prev, vehicles: [...prev.vehicles, newVehicle] }))
+      }
+      return res
     },
-    updateVehicle: (plate, p) =>
-      update((prev) => {
-        let updated: Vehicle | null = null
-        const next = prev.vehicles.map((v) => {
-          if (v.plate === plate) {
-            const n = { ...v, ...p }
-            updated = n
-            return n
-          }
-          return v
-        })
-        if (updated) {
-          import('./sync').then(({ upsertVehicleToSupabase }) => upsertVehicleToSupabase(updated!))
+    updateVehicle: async (plate, p) => {
+      const { upsertVehicleToSupabase, deleteVehicleFromSupabase, upsertTripToSupabase } = await import('./sync')
+      const existing = db.vehicles.find((v) => v.plate === plate)
+      const newPlate = p.plate ? p.plate.trim().toUpperCase() : plate
+      const isPlateChanged = newPlate !== plate
+      const updatedVehicle: Vehicle = {
+        ...(existing || { plate, type: '', capacity: 7, status: 'Active' }),
+        ...p,
+        plate: newPlate,
+      }
+
+      // 1. Upsert updated vehicle with new plate (or existing plate)
+      const res = await upsertVehicleToSupabase(updatedVehicle)
+      if (!res.success) {
+        return res
+      }
+
+      // 2. If plate number changed, cascade update trips and delete old plate in Supabase
+      if (isPlateChanged) {
+        await deleteVehicleFromSupabase(plate)
+        // Also update any trips that referenced the old plate
+        const affectedTrips = db.trips.filter((t) => t.plate === plate)
+        for (const trip of affectedTrips) {
+          const updatedTrip = { ...trip, plate: newPlate }
+          await upsertTripToSupabase(updatedTrip)
         }
-        return { ...prev, vehicles: next }
-      }),
-    removeVehicle: (plate) => {
-      update((prev) => ({ ...prev, vehicles: prev.vehicles.filter((v) => v.plate !== plate) }))
-      import('./sync').then(({ deleteVehicleFromSupabase }) => deleteVehicleFromSupabase(plate))
+      }
+
+      // 3. Update local state
+      update((prev) => {
+        const nextVehicles = prev.vehicles.map((v) => (v.plate === plate ? updatedVehicle : v))
+        const nextTrips = isPlateChanged
+          ? prev.trips.map((t) => (t.plate === plate ? { ...t, plate: newPlate } : t))
+          : prev.trips
+        return { ...prev, vehicles: nextVehicles, trips: nextTrips }
+      })
+
+      return { success: true }
+    },
+    removeVehicle: async (plate) => {
+      const { deleteVehicleFromSupabase } = await import('./sync')
+      const res = await deleteVehicleFromSupabase(plate)
+      if (res.success) {
+        update((prev) => ({ ...prev, vehicles: prev.vehicles.filter((v) => v.plate !== plate) }))
+      }
+      return res
     },
     resetDemo: () => update(() => seed()),
   }), [ready, db, update, patch])

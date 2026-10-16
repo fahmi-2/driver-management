@@ -67,7 +67,11 @@ export async function deleteAccountFromSupabase(username: string): Promise<boole
 export async function fetchVehiclesFromSupabase(): Promise<Vehicle[] | null> {
   try {
     const { data, error } = await supabase.from('vehicles').select('*')
-    if (error || !data || data.length === 0) return null
+    if (error) {
+      console.error('Error fetching vehicles from Supabase:', error)
+      return null
+    }
+    if (!data) return null
     return data.map((v: any) => ({
       plate: v.plate,
       type: v.type,
@@ -82,7 +86,7 @@ export async function fetchVehiclesFromSupabase(): Promise<Vehicle[] | null> {
   }
 }
 
-export async function upsertVehicleToSupabase(v: Vehicle): Promise<boolean> {
+export async function upsertVehicleToSupabase(v: Vehicle): Promise<{ success: boolean; error?: string }> {
   try {
     const { error } = await supabase.from('vehicles').upsert({
       plate: v.plate,
@@ -93,20 +97,28 @@ export async function upsertVehicleToSupabase(v: Vehicle): Promise<boolean> {
       dedicated_user: v.dedicatedUser || null,
       updated_at: new Date().toISOString(),
     })
-    return !error
-  } catch (err) {
+    if (error) {
+      console.error('Failed to upsert vehicle to Supabase:', error)
+      return { success: false, error: error.message }
+    }
+    return { success: true }
+  } catch (err: any) {
     console.error('Failed to upsert vehicle to Supabase:', err)
-    return false
+    return { success: false, error: err?.message || 'Unknown error' }
   }
 }
 
-export async function deleteVehicleFromSupabase(plate: string): Promise<boolean> {
+export async function deleteVehicleFromSupabase(plate: string): Promise<{ success: boolean; error?: string }> {
   try {
     const { error } = await supabase.from('vehicles').delete().eq('plate', plate)
-    return !error
-  } catch (err) {
+    if (error) {
+      console.error('Failed to delete vehicle from Supabase:', error)
+      return { success: false, error: error.message }
+    }
+    return { success: true }
+  } catch (err: any) {
     console.error('Failed to delete vehicle from Supabase:', err)
-    return false
+    return { success: false, error: err?.message || 'Unknown error' }
   }
 }
 
