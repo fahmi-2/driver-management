@@ -10,6 +10,17 @@ export type Slide = {
   accentColor?: string
   illustrationType?: 'car' | 'shield' | 'check' | 'calendar' | 'ticket' | 'driver' | 'admin' | 'matrix'
   externalLink?: string
+  imageUrl?: string // URL screenshot halaman nyata (jika sudah ada file)
+  uiContextType?:
+    | 'requester_form'
+    | 'requester_tracking'
+    | 'approver_inbox'
+    | 'admin_timeline'
+    | 'admin_accounts'
+    | 'driver_tasks'
+    | 'security_gate'
+    | 'coupon_claims'
+    | 'default'
 }
 
 export type RoleGuidance = {
@@ -37,6 +48,7 @@ export const DEFAULT_GUIDANCES: Record<Role, RoleGuidance> = {
         badge: 'SLIDE 1 · OVERVIEW',
         accentColor: '#10b981',
         illustrationType: 'admin',
+        uiContextType: 'admin_timeline',
         content: 'Sebagai Admin Utama Pool GA, Anda memiliki kendali operasional penuh untuk memastikan mobilitas dinas seluruh departemen PT. JAI berjalan aman, efisien, dan terpantau akurat.',
         points: [
           'Memetakan penugasan armada & driver sesuai jadwal prioritas.',
@@ -51,6 +63,7 @@ export const DEFAULT_GUIDANCES: Record<Role, RoleGuidance> = {
         badge: 'SLIDE 2 · SCHEDULING',
         accentColor: '#3b82f6',
         illustrationType: 'calendar',
+        uiContextType: 'admin_timeline',
         content: 'Penjadwalan dilakukan secara interaktif dengan sistem Drag & Drop pada timeline slot jam 06:00 s.d 22:00.',
         points: [
           'Pilih tiket permohonan berstatus WAITING_ASSIGN dari kolom antrean kiri.',
@@ -66,6 +79,7 @@ export const DEFAULT_GUIDANCES: Record<Role, RoleGuidance> = {
         badge: 'SLIDE 3 · FLEET FLEXIBILITY',
         accentColor: '#8b5cf6',
         illustrationType: 'car',
+        uiContextType: 'admin_timeline',
         content: 'Jika seluruh unit armada operasional (Zenix, Reborn, Avanza) telah terisi penuh, Admin dapat menugaskan supir dengan unit alternatif.',
         points: [
           'Centang opsi "Gunakan Mobil Lain / Mobil Manajer" pada modal penjadwalan.',
@@ -80,6 +94,7 @@ export const DEFAULT_GUIDANCES: Record<Role, RoleGuidance> = {
         badge: 'SLIDE 4 · SECURITY & PRIVACY',
         accentColor: '#f59e0b',
         illustrationType: 'shield',
+        uiContextType: 'admin_accounts',
         content: 'Kelola data pengguna, peranan PIC, dan kredensial akun seluruh karyawan PT. JAI.',
         points: [
           'Hanya Admin Utama yang memiliki akses ke menu Data Akun.',
@@ -94,6 +109,7 @@ export const DEFAULT_GUIDANCES: Record<Role, RoleGuidance> = {
         badge: 'SLIDE 5 · ANALYTICS',
         accentColor: '#06b6d4',
         illustrationType: 'matrix',
+        uiContextType: 'admin_timeline',
         content: 'Menjaga kesehatan operasional dan keadilan beban tugas 8 supir resmi PT. JAI.',
         points: [
           'Pantau durasi dinas aktual dan waktu keluar/masuk pos gerbang security.',
@@ -116,6 +132,7 @@ export const DEFAULT_GUIDANCES: Record<Role, RoleGuidance> = {
         badge: 'SLIDE 1 · FRONTDESK',
         accentColor: '#0ea5e9',
         illustrationType: 'admin',
+        uiContextType: 'admin_timeline',
         content: 'Admin Lobby bertindak sebagai perpanjangan tangan operasional di frontdesk untuk membantu koordinasi tamu, keberangkatan dinas, dan penjadwalan kendaraan harian.',
         points: [
           'Dapat memetakan jadwal dan memilih supir di menu Waiting List & Jadwal.',
@@ -130,6 +147,7 @@ export const DEFAULT_GUIDANCES: Record<Role, RoleGuidance> = {
         badge: 'SLIDE 2 · GUEST SERVICE',
         accentColor: '#10b981',
         illustrationType: 'car',
+        uiContextType: 'admin_timeline',
         content: 'Pastikan kesiapan armada dan driver saat menerima kedatangan tamu eksternal maupun penjemputan bandara/stasiun.',
         points: [
           'Cek tiket berstatus READY pada Dashboard untuk memastikan supir sudah bersiap.',
@@ -144,6 +162,7 @@ export const DEFAULT_GUIDANCES: Record<Role, RoleGuidance> = {
         badge: 'SLIDE 3 · GATE SYNC',
         accentColor: '#f59e0b',
         illustrationType: 'check',
+        uiContextType: 'security_gate',
         content: 'Melihat status keberangkatan mobil dari pos gerbang keluar secara live.',
         points: [
           'Status ON_TRIP menandakan mobil telah melalui Gate Out pos security.',
@@ -165,6 +184,7 @@ export const DEFAULT_GUIDANCES: Record<Role, RoleGuidance> = {
         badge: 'SLIDE 1 · SUBMIT REQUEST',
         accentColor: '#10b981',
         illustrationType: 'car',
+        uiContextType: 'requester_form',
         content: 'Isi formulir pada menu "Ajukan Kendaraan" dengan data yang lengkap dan akurat sebelum jadwal keberangkatan.',
         points: [
           'Tentukan tanggal dan jam keberangkatan serta estimasi jam kembali.',
@@ -179,6 +199,7 @@ export const DEFAULT_GUIDANCES: Record<Role, RoleGuidance> = {
         badge: 'SLIDE 2 · PASSENGERS',
         accentColor: '#3b82f6',
         illustrationType: 'matrix',
+        uiContextType: 'requester_form',
         content: 'Sistem mendukung input banyak penumpang dan rekomendasi otomatis nama tempat tujuan di Jawa Timur.',
         points: [
           'Tambahkan NIK dan nama rekan satu perjalanan.',
@@ -192,6 +213,7 @@ export const DEFAULT_GUIDANCES: Record<Role, RoleGuidance> = {
         badge: 'SLIDE 3 · TRACKING',
         accentColor: '#8b5cf6',
         illustrationType: 'check',
+        uiContextType: 'requester_tracking',
         content: 'Pantau tiket Anda pada menu "Notifikasi & Riwayat".',
         points: [
           'Tahap 1: Menunggu persetujuan SPV/Manager departemen Anda (WAITING_SPV).',
@@ -207,6 +229,7 @@ export const DEFAULT_GUIDANCES: Record<Role, RoleGuidance> = {
         badge: 'SLIDE 4 · COUPON CLAIM',
         accentColor: '#f59e0b',
         illustrationType: 'ticket',
+        uiContextType: 'coupon_claims',
         content: 'Jika perjalanan dinas melebihi ketentuan jam makan/transport, pemohon dapat mengajukan klaim kupon.',
         points: [
           'Masuk ke menu "Panel Kupon" dan pilih tiket perjalanan yang memenuhi syarat.',
@@ -228,6 +251,7 @@ export const DEFAULT_GUIDANCES: Record<Role, RoleGuidance> = {
         badge: 'SLIDE 1 · APPROVAL INBOX',
         accentColor: '#f59e0b',
         illustrationType: 'shield',
+        uiContextType: 'approver_inbox',
         content: 'Sebagai atasan departemen, Anda memegang tanggung jawab memvalidasi urgensi perjalanan dinas staf Anda.',
         points: [
           'Periksa detail keperluan, rute tujuan, jam dinas, dan daftar anggota tim.',
@@ -242,6 +266,7 @@ export const DEFAULT_GUIDANCES: Record<Role, RoleGuidance> = {
         badge: 'SLIDE 2 · REJECTION',
         accentColor: '#ef4444',
         illustrationType: 'check',
+        uiContextType: 'approver_inbox',
         content: 'Jika jadwal berbenturan atau tugas dapat diselesaikan secara online, Anda dapat menolak tiket dengan catatan jelas.',
         points: [
           'Klik tombol "Tolak (Reject)" pada tiket.',
@@ -255,6 +280,7 @@ export const DEFAULT_GUIDANCES: Record<Role, RoleGuidance> = {
         badge: 'SLIDE 3 · MONITORING',
         accentColor: '#10b981',
         illustrationType: 'car',
+        uiContextType: 'admin_timeline',
         content: 'Approver dapat memantau ketersediaan armada seluruh pabrik melalui tab Dashboard Armada.',
         points: [
           'Melihat unit yang sedang beroperasi di luar pabrik.',
@@ -276,6 +302,7 @@ export const DEFAULT_GUIDANCES: Record<Role, RoleGuidance> = {
         badge: 'SLIDE 1 · FINAL APPROVAL',
         accentColor: '#f97316',
         illustrationType: 'shield',
+        uiContextType: 'approver_inbox',
         content: 'SPV Kendaraan bertindak sebagai gerbang otorisasi teknis dan keselamatan armada PT. JAI.',
         points: [
           'Memeriksa kesesuaian unit mobil dan driver yang telah di-assign oleh Admin GA.',
@@ -290,6 +317,7 @@ export const DEFAULT_GUIDANCES: Record<Role, RoleGuidance> = {
         badge: 'SLIDE 2 · E-PASS READY',
         accentColor: '#10b981',
         illustrationType: 'check',
+        uiContextType: 'approver_inbox',
         content: 'Setelah disetujui:',
         points: [
           'Jadwal otomatis masuk ke aplikasi supir yang bersangkutan.',
@@ -311,6 +339,7 @@ export const DEFAULT_GUIDANCES: Record<Role, RoleGuidance> = {
         badge: 'SLIDE 1 · DRIVER TASK',
         accentColor: '#3b82f6',
         illustrationType: 'driver',
+        uiContextType: 'driver_tasks',
         content: 'Buka sistem JAI-FLEET langsung dari smartphone Anda untuk melihat rincian tugas setiap hari.',
         points: [
           'Nomor polisi dan jenis mobil yang harus disiapkan.',
@@ -325,6 +354,7 @@ export const DEFAULT_GUIDANCES: Record<Role, RoleGuidance> = {
         badge: 'SLIDE 2 · GATE SOP',
         accentColor: '#10b981',
         illustrationType: 'check',
+        uiContextType: 'security_gate',
         content: 'Lakukan pengecekan rutin kendaraan (BBM, kebersihan, kartu tol) sebelum berangkat.',
         points: [
           'Hampiri pos security gerbang saat hendak berangkat untuk proses Gate Out.',
@@ -346,6 +376,7 @@ export const DEFAULT_GUIDANCES: Record<Role, RoleGuidance> = {
         badge: 'SLIDE 1 · GATE OUT',
         accentColor: '#10b981',
         illustrationType: 'shield',
+        uiContextType: 'security_gate',
         content: 'Saat armada dinas hendak keluar gerbang:',
         points: [
           'Buka tab "Gate Out" pada menu Gate Clearance.',
@@ -361,6 +392,7 @@ export const DEFAULT_GUIDANCES: Record<Role, RoleGuidance> = {
         badge: 'SLIDE 2 · GATE IN',
         accentColor: '#3b82f6',
         illustrationType: 'check',
+        uiContextType: 'security_gate',
         content: 'Saat mobil dinas kembali ke pabrik:',
         points: [
           'Buka tab "Gate In".',
@@ -383,6 +415,7 @@ export const DEFAULT_GUIDANCES: Record<Role, RoleGuidance> = {
         badge: 'SLIDE 1 · PENDING CLAIMS',
         accentColor: '#a855f7',
         illustrationType: 'ticket',
+        uiContextType: 'coupon_claims',
         content: 'Memeriksa tiket perjalanan dinas yang diajukan oleh pemohon untuk kompensasi kupon makan/lembur.',
         points: [
           'Pastikan jam keberangkatan dan durasi dinas memenuhi kriteria tunjangan perusahaan.',
@@ -396,6 +429,7 @@ export const DEFAULT_GUIDANCES: Record<Role, RoleGuidance> = {
         badge: 'SLIDE 2 · PAYMENT & HISTORY',
         accentColor: '#10b981',
         illustrationType: 'check',
+        uiContextType: 'coupon_claims',
         content: 'Setelah dana dicairkan, konfirmasi status klaim menjadi PAID.',
         points: [
           'Klaim yang selesai otomatis berpindah ke tab Riwayat (History).',
@@ -415,8 +449,27 @@ export function getAllGuidances(): Record<Role, RoleGuidance> {
       return DEFAULT_GUIDANCES
     }
     const parsed = JSON.parse(raw) as Record<Role, RoleGuidance>
-    // Ensure all roles exist
-    const merged = { ...DEFAULT_GUIDANCES, ...parsed }
+    // Ensure all roles and new slide metadata (like uiContextType) exist
+    const merged: Record<Role, RoleGuidance> = { ...DEFAULT_GUIDANCES }
+    for (const r of Object.keys(DEFAULT_GUIDANCES) as Role[]) {
+      if (parsed[r]) {
+        merged[r] = {
+          ...DEFAULT_GUIDANCES[r],
+          ...parsed[r],
+          slides: DEFAULT_GUIDANCES[r].slides.map((defaultSlide, idx) => {
+            const savedSlide = parsed[r].slides?.[idx]
+            return savedSlide
+              ? {
+                  ...defaultSlide,
+                  ...savedSlide,
+                  uiContextType: savedSlide.uiContextType || defaultSlide.uiContextType,
+                  imageUrl: savedSlide.imageUrl || defaultSlide.imageUrl,
+                }
+              : defaultSlide
+          }),
+        }
+      }
+    }
     return merged
   } catch {
     return DEFAULT_GUIDANCES

@@ -958,6 +958,18 @@ export function saveUserProfile(username: string, updates: Partial<Account>) {
     window.localStorage.setItem(PROFILES_KEY, JSON.stringify(current))
     // Trigger custom event so any listener updates state
     window.dispatchEvent(new Event('profile_updated'))
+
+    // Sinkronkan ke database Supabase (kolom avatar_url & name)
+    const all = getAllAccounts()
+    const target = all.find((a) => a.username.toLowerCase() === username.toLowerCase())
+    if (target) {
+      const mergedAccount: Account = { ...target, ...updates }
+      import('./sync').then(({ upsertAccountToSupabase }) => {
+        upsertAccountToSupabase(mergedAccount).catch((e) =>
+          console.warn('Sync profile to Supabase warning:', e)
+        )
+      })
+    }
   } catch (err) {
     console.error('Failed to save profile', err)
   }

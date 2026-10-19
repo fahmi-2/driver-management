@@ -23,6 +23,7 @@ import {
 import { type Role, ROLE_LABEL, type Account } from '@/lib/accounts'
 import { getAllGuidances, type RoleGuidance, type Slide } from '@/lib/guidance'
 import { Card, PageHeader, Pill } from '../ui-bits'
+import { GuidanceUiMockup } from './guidance-mockup'
 
 function SlideIcon({ type }: { type?: Slide['illustrationType'] }) {
   const size = 32
@@ -260,33 +261,71 @@ export function GuidancePlayerView({
                 </div>
               </div>
 
-              {/* Slide Content Explanation */}
-              <div className="mt-6 rounded-2xl bg-black/25 border border-white/10 p-5 sm:p-6 backdrop-blur-md">
-                <p className="text-sm leading-relaxed text-[#d7e6dc] font-medium">
-                  {currentSlide.content}
-                </p>
+              {/* Slide Content & Visual Preview (Kombinasi Gambar / UI Mockup) */}
+              <div className="mt-6 grid gap-6 lg:grid-cols-12 items-start">
+                {/* Kolom Kiri: Penjelasan & Poin Kunci (7 Kolom) */}
+                <div className="lg:col-span-7 rounded-2xl bg-black/25 border border-white/10 p-5 sm:p-6 backdrop-blur-md space-y-4">
+                  <p className="text-sm leading-relaxed text-[#d7e6dc] font-medium">
+                    {currentSlide.content}
+                  </p>
 
-                {/* Key Points / Bullet Checklist */}
-                {currentSlide.points && currentSlide.points.length > 0 && (
-                  <div className="mt-5 space-y-2.5 border-t border-white/10 pt-4">
-                    <p className="text-[11px] font-bold uppercase tracking-wider text-[#9aa7a0]">
-                      Poin Kunci & Tindakan:
-                    </p>
-                    <div className="grid gap-2 sm:grid-cols-2">
-                      {currentSlide.points.map((pt, i) => (
-                        <div
-                          key={i}
-                          className="flex items-start gap-2.5 rounded-xl bg-white/5 p-3 text-xs text-white border border-white/5 shadow-2xs hover:bg-white/10 transition"
-                        >
-                          <div className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full bg-[#a3e635] text-[#052e16] font-bold text-[9px]">
-                            {i + 1}
+                  {/* Key Points / Bullet Checklist */}
+                  {currentSlide.points && currentSlide.points.length > 0 && (
+                    <div className="space-y-2.5 border-t border-white/10 pt-4">
+                      <p className="text-[11px] font-bold uppercase tracking-wider text-[#9aa7a0]">
+                        Poin Kunci & Tindakan:
+                      </p>
+                      <div className="grid gap-2">
+                        {currentSlide.points.map((pt, i) => (
+                          <div
+                            key={i}
+                            className="flex items-start gap-2.5 rounded-xl bg-white/5 p-3 text-xs text-white border border-white/5 shadow-2xs hover:bg-white/10 transition"
+                          >
+                            <div className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full bg-[#a3e635] text-[#052e16] font-bold text-[9px]">
+                              {i + 1}
+                            </div>
+                            <span className="leading-snug">{pt}</span>
                           </div>
-                          <span className="leading-snug">{pt}</span>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
                     </div>
+                  )}
+                </div>
+
+                {/* Kolom Kanan: Preview Gambar / Mockup Visual Halaman Web (5 Kolom) */}
+                <div className="lg:col-span-5 flex flex-col gap-2">
+                  <div className="flex items-center justify-between px-1">
+                    <span className="text-[11px] font-bold text-[#8fa99b] uppercase tracking-wider flex items-center gap-1.5">
+                      <Sparkles size={12} className="text-[#a3e635]" /> Visual Panduan Halaman
+                    </span>
+                    <span className="text-[10px] text-white/50 bg-white/10 px-2 py-0.5 rounded-full font-mono">
+                      {currentSlide.imageUrl ? 'Screenshot File' : 'Interactive UI Preview'}
+                    </span>
                   </div>
-                )}
+
+                  {currentSlide.imageUrl ? (
+                    <div className="overflow-hidden rounded-2xl border border-white/15 bg-black/50 shadow-2xl group relative">
+                      <img
+                        src={currentSlide.imageUrl}
+                        alt={currentSlide.title}
+                        className="w-full h-auto max-h-[360px] object-cover transition-transform duration-300 group-hover:scale-105"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-3">
+                        <span className="text-[11px] text-white font-medium">{currentSlide.title}</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <GuidanceUiMockup
+                      contextType={currentSlide.uiContextType}
+                      title={currentSlide.title}
+                      subtitle={currentSlide.subtitle}
+                    />
+                  )}
+
+                  <p className="text-[10px] text-center text-[#6e8578] italic mt-0.5">
+                    *Gambar petunjuk disesuaikan dengan modul halaman sistem yang sedang dibahas.
+                  </p>
+                </div>
               </div>
             </div>
 

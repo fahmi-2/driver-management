@@ -16,6 +16,10 @@ import {
   Sparkles,
   Check,
   X,
+  Image as ImageIcon,
+  Upload,
+  Link as LinkIcon,
+  Eye,
 } from 'lucide-react'
 import { type Role, ROLE_LABEL } from '@/lib/accounts'
 import {
@@ -50,6 +54,8 @@ export function AdminManageGuidanceView() {
     points: string
     badge: string
     illustrationType: Slide['illustrationType']
+    imageUrl: string
+    uiContextType: Slide['uiContextType']
   }>({
     id: '',
     title: '',
@@ -58,6 +64,8 @@ export function AdminManageGuidanceView() {
     points: '',
     badge: '',
     illustrationType: 'admin',
+    imageUrl: '',
+    uiContextType: 'default',
   })
 
   // Load selected role data into state
@@ -106,6 +114,8 @@ export function AdminManageGuidanceView() {
       points: '',
       badge: `SLIDE ${slides.length + 1}`,
       illustrationType: 'admin',
+      imageUrl: '',
+      uiContextType: 'default',
     })
     setSlideModalOpen(true)
   }
@@ -121,6 +131,8 @@ export function AdminManageGuidanceView() {
       points: (s.points || []).join('\n'),
       badge: s.badge || '',
       illustrationType: s.illustrationType || 'admin',
+      imageUrl: s.imageUrl || '',
+      uiContextType: s.uiContextType || 'default',
     })
     setSlideModalOpen(true)
   }
@@ -145,6 +157,8 @@ export function AdminManageGuidanceView() {
       points: pointsArr.length > 0 ? pointsArr : undefined,
       badge: slideFormData.badge.trim() || undefined,
       illustrationType: slideFormData.illustrationType,
+      imageUrl: slideFormData.imageUrl.trim() || undefined,
+      uiContextType: slideFormData.uiContextType || 'default',
     }
 
     let nextSlides: Slide[]
@@ -358,6 +372,15 @@ export function AdminManageGuidanceView() {
                       <span className="rounded-md bg-[#dff4e8] px-2 py-0.5 text-[9px] font-bold text-[#087348]">
                         {s.badge || `SLIDE ${idx + 1}`}
                       </span>
+                      {s.imageUrl ? (
+                        <span className="rounded-md bg-emerald-500/20 px-1.5 py-0.5 text-[9px] font-bold text-emerald-800 border border-emerald-500/30 flex items-center gap-1">
+                          <ImageIcon size={10} /> Ada Foto
+                        </span>
+                      ) : (
+                        <span className="rounded-md bg-sky-500/15 px-1.5 py-0.5 text-[9px] font-medium text-sky-800 border border-sky-500/20">
+                          UI Mockup: {s.uiContextType || 'Default'}
+                        </span>
+                      )}
                       <h4 className="text-xs font-bold text-[#10251c]">{s.title}</h4>
                     </div>
                     {s.subtitle && (
@@ -523,6 +546,121 @@ export function AdminManageGuidanceView() {
                   onChange={(e) => setSlideFormData({ ...slideFormData, content: e.target.value })}
                   className="w-full rounded-xl border border-[#dce7df] bg-[#fafcfb] p-3 text-xs text-[#10251c] focus:border-[#075b3d] focus:outline-none"
                 />
+              </div>
+
+              {/* Input Screenshot Gambar / Mockup Visual */}
+              <div className="rounded-2xl border border-[#dce7df] bg-[#f8faf9] p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] font-bold text-[#10251c] flex items-center gap-1.5">
+                    <ImageIcon size={14} className="text-[#075b3d]" /> Gambar Petunjuk / Screenshot Halaman Web
+                  </label>
+                  {slideFormData.imageUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setSlideFormData({ ...slideFormData, imageUrl: '' })}
+                      className="text-[10px] text-red-600 hover:underline font-semibold"
+                    >
+                      Hapus Foto
+                    </button>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* Option 1: URL atau Public Path */}
+                  <div>
+                    <label className="block text-[10px] text-[#62736b] mb-1 font-medium">
+                      Path File / URL Gambar Screenshot:
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="misal: /guidance/form-requester.png atau https://..."
+                        value={slideFormData.imageUrl}
+                        onChange={(e) => setSlideFormData({ ...slideFormData, imageUrl: e.target.value })}
+                        className="h-9 w-full rounded-xl border border-[#dce7df] bg-white pl-8 pr-3 text-xs text-[#10251c] focus:border-[#075b3d] focus:outline-none"
+                      />
+                      <LinkIcon size={13} className="absolute left-2.5 top-2.5 text-[#8b9b92]" />
+                    </div>
+                  </div>
+
+                  {/* Option 2: Upload File Langsung dari Komputer (Base64) */}
+                  <div>
+                    <label className="block text-[10px] text-[#62736b] mb-1 font-medium">
+                      Atau Upload File Gambar dari Laptop/PC:
+                    </label>
+                    <label className="flex h-9 w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-dashed border-[#075b3d]/40 bg-[#075b3d]/5 px-3 text-xs font-semibold text-[#075b3d] hover:bg-[#075b3d]/10 transition">
+                      <Upload size={13} />
+                      <span>Pilih Foto Screenshot</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0]
+                          if (file) {
+                            if (file.size > 3 * 1024 * 1024) {
+                              alert('Ukuran file foto maksimal 3MB!')
+                              return
+                            }
+                            const reader = new FileReader()
+                            reader.onload = (ev) => {
+                              if (ev.target?.result) {
+                                setSlideFormData({
+                                  ...slideFormData,
+                                  imageUrl: ev.target.result as string,
+                                })
+                              }
+                            }
+                            reader.readAsDataURL(file)
+                          }
+                        }}
+                      />
+                    </label>
+                  </div>
+                </div>
+
+                {/* Preview Mini Gambar jika terisi */}
+                {slideFormData.imageUrl && (
+                  <div className="relative overflow-hidden rounded-xl border border-[#dce7df] bg-white p-2">
+                    <p className="text-[10px] text-[#62736b] mb-1.5 font-bold flex items-center gap-1">
+                      <Eye size={12} className="text-[#075b3d]" /> Preview Foto Screenshot yang akan Tampil:
+                    </p>
+                    <div className="relative max-h-40 overflow-hidden rounded-lg bg-black/5 flex items-center justify-center">
+                      <img
+                        src={slideFormData.imageUrl}
+                        alt="Preview Screenshot"
+                        className="max-h-40 w-auto object-contain rounded-md"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Tipe Mockup Default (Jika tidak ada file screenshot) */}
+                <div className="pt-2 border-t border-[#dce7df]/60">
+                  <label className="block text-[10px] text-[#62736b] mb-1 font-medium">
+                    Tampilan Miniatur Halaman Alternatif (Jika belum ada foto):
+                  </label>
+                  <select
+                    value={slideFormData.uiContextType || 'default'}
+                    onChange={(e) =>
+                      setSlideFormData({
+                        ...slideFormData,
+                        uiContextType: e.target.value as Slide['uiContextType'],
+                      })
+                    }
+                    className="h-8 w-full rounded-xl border border-[#dce7df] bg-white px-3 text-xs text-[#10251c] focus:border-[#075b3d] focus:outline-none"
+                  >
+                    <option value="requester_form">Formulir Pengajuan Requester (Input Dinas & Penumpang)</option>
+                    <option value="requester_tracking">Tracking Tiket & Notifikasi E-Pass</option>
+                    <option value="approver_inbox">Inbox Persetujuan E-Sign Manager</option>
+                    <option value="admin_timeline">Timeline Penjadwalan Drag-to-Book (Slot Jam & Armada)</option>
+                    <option value="admin_accounts">Kelola Akun & Hak Akses Pengguna</option>
+                    <option value="driver_tasks">Jadwal Tugas Harian Driver (Mobile View)</option>
+                    <option value="security_gate">Pos Gerbang Security (Gate Out & Gate In)</option>
+                    <option value="coupon_claims">Panel Kupon & Verifikasi Klaim Keuangan</option>
+                    <option value="default">Visual Standar</option>
+                  </select>
+                </div>
               </div>
 
               <div>

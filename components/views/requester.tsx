@@ -73,8 +73,8 @@ export function RequesterForm({ user }: { user: Account }) {
   const [f, setF] = useState({
     date: ymd(), // Tanggal Perjalanan (default hari ini, tidak boleh hari kemarin)
     category: 'Dinas' as Category,
-    requesterName: user.name || '',
-    requesterNik: user.nik || '',
+    requesterName: '',
+    requesterNik: '',
     dept: initialDept,
     section: initialSection,
     approvedBy: initialManager.name,
@@ -255,8 +255,8 @@ export function RequesterForm({ user }: { user: Account }) {
       setF({
         date: ymd(),
         category: 'Dinas',
-        requesterName: user.name || '',
-        requesterNik: user.nik || '',
+        requesterName: '',
+        requesterNik: '',
         dept: initialDept,
         section: initialSection,
         approvedBy: resetManager.name,
@@ -369,7 +369,7 @@ export function RequesterForm({ user }: { user: Account }) {
                 <div className="flex items-center gap-2">
                   <span className="flex items-center gap-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-300">
                     <User size={11} className="text-[#a3e635]" />
-                    Pemohon: <strong className="text-white">{user.name}</strong> ({user.email || 'Email belum terdaftar'})
+                    Akun Pengaju: <strong className="text-white">{user.name}</strong> ({user.email || 'Email belum terdaftar'})
                   </span>
                   <span className="rounded-full bg-[#a3e635]/15 border border-[#a3e635]/30 px-2.5 py-0.5 text-[10px] font-bold text-[#bef264]">
                     {totalUserCount} / {maxVehicleCapacity} Orang (Termasuk Pemohon)
