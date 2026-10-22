@@ -254,6 +254,7 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
       notify(`Akun baru "${cleanUsername}" berhasil ditambahkan!`)
     }
 
+    setEditingAccount(null)
     setFormModalOpen(false)
     refreshAccounts()
   }
@@ -727,15 +728,18 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-[#10251c]">
-                    {editingAccount ? `Edit Akun: ${editingAccount.username}` : 'Tambah Akun Pengguna Baru'}
+                    {editingAccount ? `Edit Akun: ${editingAccount.name} (@${editingAccount.username})` : 'Tambah Akun Pengguna Baru'}
                   </h3>
                   <p className="text-[10px] text-[#62736b]">
-                    {editingAccount ? 'Perbarui ID, nama, password, atau jabatan' : 'Daftarkan akun baru ke sistem JAI-Fleet'}
+                    {editingAccount ? 'Perbarui nama, ID login, password, atau jabatan akun ini' : 'Daftarkan akun baru ke sistem JAI-Fleet'}
                   </p>
                 </div>
               </div>
               <button
-                onClick={() => setFormModalOpen(false)}
+                onClick={() => {
+                  setFormModalOpen(false)
+                  setEditingAccount(null)
+                }}
                 className="rounded-lg p-1.5 text-[#8b9b92] hover:bg-[#eef3f0] hover:text-[#10251c]"
               >
                 <X size={16} />
@@ -743,16 +747,52 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
             </div>
 
             <form onSubmit={handleFormSubmit} className="p-6 space-y-4 overflow-y-auto flex-1">
+              {/* Row 1: Nama Lengkap Pengguna & Email */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {/* Username / ID */}
+                <div>
+                  <label className="block text-[11px] font-bold text-[#10251c] mb-1">
+                    Nama Lengkap Pengguna <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="misal: Budi Santoso, Rina Kartika"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    className="h-10 w-full rounded-xl border border-[#dce7df] bg-[#fafcfb] px-3 text-xs text-[#10251c] focus:border-[#075b3d] focus:outline-none"
+                  />
+                  <p className="mt-1 text-[10px] text-[#718279]">
+                    Nama resmi karyawan yang tampil di pengajuan & persetujuan.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-[#10251c] mb-1">
+                    Email Pengguna (Notifikasi)
+                  </label>
+                  <input
+                    type="email"
+                    placeholder="misal: budi.s@jai.co.id"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    className="h-10 w-full rounded-xl border border-[#dce7df] bg-[#fafcfb] px-3 font-mono text-xs text-[#10251c] focus:border-[#075b3d] focus:outline-none"
+                  />
+                  <p className="mt-1 text-[10px] text-[#718279]">
+                    Email penerima notifikasi persetujuan / pengajuan.
+                  </p>
+                </div>
+              </div>
+
+              {/* Row 2: Username / ID Login & Password */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <div className="flex items-center justify-between mb-1">
                     <label className="block text-[11px] font-bold text-[#10251c]">
-                      Username / ID Akun <span className="text-red-500">*</span>
+                      Username / ID Akun (Login) <span className="text-red-500">*</span>
                     </label>
                     {editingAccount && (
                       <span className="text-[10px] font-medium text-[#075b3d] bg-[#eef8f3] px-1.5 py-0.5 rounded">
-                        Dapat Diubah
+                        ID Akun
                       </span>
                     )}
                   </div>
@@ -766,12 +806,11 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
                   />
                   {editingAccount && (
                     <p className="mt-1 text-[10px] text-[#718279]">
-                      Admin dapat mengubah username ini. Pastikan username baru unik.
+                      ID akun untuk login ke sistem. Mengubah ini akan mengganti ID akun yang ada.
                     </p>
                   )}
                 </div>
 
-                {/* Password */}
                 <div>
                   <label className="block text-[11px] font-bold text-[#10251c] mb-1">
                     Password <span className="text-red-500">*</span>
@@ -793,36 +832,6 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
                       {formShowPassword ? <EyeOff size={14} /> : <Eye size={14} />}
                     </button>
                   </div>
-                </div>
-              </div>
-
-              {/* Full Name & Email */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-[11px] font-bold text-[#10251c] mb-1">
-                    Nama Lengkap Pengguna <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="misal: Budi Santoso, Rina Kartika"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="h-10 w-full rounded-xl border border-[#dce7df] bg-[#fafcfb] px-3 text-xs text-[#10251c] focus:border-[#075b3d] focus:outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-bold text-[#10251c] mb-1">
-                    Email Pengguna (Notifikasi)
-                  </label>
-                  <input
-                    type="email"
-                    placeholder="misal: budi.s@jai.co.id"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    className="h-10 w-full rounded-xl border border-[#dce7df] bg-[#fafcfb] px-3 font-mono text-xs text-[#10251c] focus:border-[#075b3d] focus:outline-none"
-                  />
                 </div>
               </div>
 
@@ -944,7 +953,10 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
               <div className="flex items-center justify-end gap-2 pt-4 border-t border-[#edf1ee]">
                 <button
                   type="button"
-                  onClick={() => setFormModalOpen(false)}
+                  onClick={() => {
+                    setFormModalOpen(false)
+                    setEditingAccount(null)
+                  }}
                   className="rounded-xl border border-[#dce7df] px-4 py-2.5 text-xs font-semibold text-[#62736b] hover:bg-[#f4f7f5]"
                 >
                   Batal

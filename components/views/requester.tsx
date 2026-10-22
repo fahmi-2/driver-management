@@ -9,6 +9,7 @@ import {
   MapPin,
   Plus,
   Send,
+  Settings,
   Trash2,
   User,
   UserCheck,
@@ -16,6 +17,7 @@ import {
   Loader2,
   Calendar,
 } from 'lucide-react'
+import { SmtpSettingsModal } from '../smtp-settings-modal'
 import {
   DEPARTMENTS,
   DEPARTMENT_APPROVERS,
@@ -113,6 +115,42 @@ export function RequesterForm({ user }: { user: Account }) {
       window.removeEventListener('profile_updated', handleAccountsChanged)
     }
   }, [f.dept, f.section])
+
+  // State untuk modal & deteksi akun SMTP pengirim (Hierarki: Akun -> Dept -> Pool GA)
+  const [smtpModalOpen, setSmtpModalOpen] = useState(false)
+  const [activeSenderSmtp, setActiveSenderSmtp] = useState<{
+    isConfigured: boolean
+    scope: string
+    fromEmail: string
+  } | null>(null)
+
+  const loadSenderSmtp = async () => {
+    try {
+      const res = await fetch(
+        `/api/smtp?username=${encodeURIComponent(user.username)}&dept=${encodeURIComponent(f.dept || user.dept || '')}`
+      )
+      const data = await res.json()
+      if (data.ok && data.isConfigured) {
+        setActiveSenderSmtp({
+          isConfigured: true,
+          scope: data.scope,
+          fromEmail: data.config?.from || data.config?.user || '',
+        })
+      } else {
+        setActiveSenderSmtp({
+          isConfigured: false,
+          scope: 'none',
+          fromEmail: '',
+        })
+      }
+    } catch {
+      // Abaikan error fetch background
+    }
+  }
+
+  useEffect(() => {
+    loadSenderSmtp()
+  }, [user.username, f.dept])
 
   // Total user dalam perjalanan: jika driverOnly = 0 penumpang, jika tidak = 1 + additionalUsers
   const totalUserCount = f.driverOnly ? 0 : 1 + f.additionalUsers.length
@@ -460,6 +498,48 @@ export function RequesterForm({ user }: { user: Account }) {
                 <span className="inline-block rounded-md bg-[#052e16] px-2.5 py-0.5 text-[10px] font-extrabold text-[#bef264] border border-[#a3e635]/40 shrink-0">
                   Manajer Approver (Otomatis)
                 </span>
+              </div>
+
+              {/* Banner Info Pengirim Email (SMTP Departemen / Akun) */}
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 rounded-xl border border-sky-500/30 bg-sky-950/20 px-3.5 py-2.5 text-xs">
+                <div className="flex items-start gap-2.5 text-sky-200">
+                  <Send size={15} className="text-sky-400 shrink-0 mt-0.5" />
+                  <div className="space-y-0.5">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-bold text-white">Email Pengirim Notifikasi:</span>
+                      {activeSenderSmtp?.isConfigured ? (
+                        <span className="font-mono text-sky-300 font-semibold bg-sky-900/40 px-2 py-0.5 rounded border border-sky-400/20">
+                          {activeSenderSmtp.fromEmail}
+                        </span>
+                      ) : (
+                        <span className="text-amber-300 italic text-[11px]">
+                          Belum disetel khusus (menggunakan fallback Pool GA)
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-sky-300/75">
+                      Sumber:{' '}
+                      <strong className="text-white">
+                        {activeSenderSmtp?.scope === 'account'
+                          ? `Akun Pribadi (${user.name})`
+                          : activeSenderSmtp?.scope === 'dept'
+                          ? `Departemen ${f.dept}`
+                          : activeSenderSmtp?.scope === 'global'
+                          ? 'Pool GA Pusat (Global)'
+                          : 'Default Server'}
+                      </strong>
+                      {' — '}Email persetujuan akan dikirim atas nama departemen Anda ke Manager terkait.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSmtpModalOpen(true)}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-sky-400/40 bg-sky-500/20 hover:bg-sky-500/30 px-3 py-1.5 text-[11px] font-bold text-sky-200 transition shrink-0 shadow-xs"
+                >
+                  <Settings size={13} className="text-sky-300" />
+                  Atur SMTP Departemen / Akun
+                </button>
               </div>
 
               {/* Opsi "Hanya Driver" (Kirim Barang / Dokumen tanpa penumpang) */}
@@ -1033,6 +1113,17 @@ export function RequesterCoupons({ user }: { user: Account }) {
           </div>
         </div>
       )}
+
+      {/* Modal Pengaturan SMTP Departemen / Akun */}
+      <SmtpSettingsModal
+        isOpen={smtpModalOpen}
+        onClose={() => {
+          setSmtpModalOpen(false)
+          loadSenderSmtp()
+        }}
+        user={user}
+        onSaved={loadSenderSmtp}
+      />
     </>
   )
 }

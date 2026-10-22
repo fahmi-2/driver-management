@@ -1,8 +1,9 @@
 'use client'
 
 import React, { useRef, useState } from 'react'
-import { Camera, Check, Settings, Trash2, User, X } from 'lucide-react'
+import { Camera, Check, Mail, Settings, Trash2, User, X } from 'lucide-react'
 import { saveUserProfile, type Account } from '@/lib/accounts'
+import { SmtpSettingsModal } from './smtp-settings-modal'
 import { useToast } from './ui-bits'
 
 interface ProfileSettingsModalProps {
@@ -17,6 +18,7 @@ export function ProfileSettingsModal({ user, isOpen, onClose, onUpdate }: Profil
   const [name, setName] = useState(user.name)
   const [avatar, setAvatar] = useState<string | undefined>(user.avatar)
   const [saving, setSaving] = useState(false)
+  const [smtpModalOpen, setSmtpModalOpen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   if (!isOpen) return null
@@ -167,6 +169,26 @@ export function ProfileSettingsModal({ user, isOpen, onClose, onUpdate }: Profil
               </span>
             </div>
           </div>
+
+          {/* Pengaturan Email SMTP Pengirim */}
+          <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-3.5 space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-white">
+                <Mail size={16} className="text-[#a3e635]" />
+                <span className="text-xs font-bold">Email SMTP Pengirim</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSmtpModalOpen(true)}
+                className="flex items-center gap-1.5 rounded-lg bg-[#075b3d] px-3 py-1.5 text-xs font-bold text-white shadow hover:bg-[#064d33] transition"
+              >
+                Atur SMTP &rarr;
+              </button>
+            </div>
+            <p className="text-[11px] text-[#8fa99b] leading-relaxed">
+              Atur akun email &amp; App Password untuk departemen <strong>{user.dept || 'Anda'}</strong> atau akun pribadi agar notifikasi approval perjalanan dikirim atas nama Anda ke manajer.
+            </p>
+          </div>
         </div>
 
         {/* Action Buttons */}
@@ -189,6 +211,12 @@ export function ProfileSettingsModal({ user, isOpen, onClose, onUpdate }: Profil
           </button>
         </div>
       </div>
+
+      <SmtpSettingsModal
+        isOpen={smtpModalOpen}
+        onClose={() => setSmtpModalOpen(false)}
+        user={user}
+      />
     </div>
   )
 }

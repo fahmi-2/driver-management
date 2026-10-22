@@ -20,8 +20,12 @@ import {
   Sparkles,
   Activity,
   Wifi,
+  Building,
+  User as UserIcon,
+  Trash2,
 } from 'lucide-react'
-import type { Account } from '@/lib/accounts'
+import { DEPARTMENTS, getAllAccounts, type Account } from '@/lib/accounts'
+import type { SmtpScope } from '@/lib/smtp-config'
 import { Card, PageHeader, btnGhost, btnPrimary, inputCls, useToast } from '../ui-bits'
 
 type SmtpForm = {
@@ -61,17 +65,26 @@ const PRESETS = [
 export function AdminSmtpSettings({ user }: { user: Account }) {
   const notify = useToast()
 
+  // Target scope: 'global' (Pusat Pool GA) | 'dept' (Per Departemen) | 'account' (Per Akun Requester)
+  const [targetScope, setTargetScope] = useState<SmtpScope>('global')
+  const [selectedDept, setSelectedDept] = useState<string>('PGA')
+  const [selectedUsername, setSelectedUsername] = useState<string>('')
+
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [testing, setTesting] = useState(false)
   const [pinging, setPinging] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const [showPass, setShowPass] = useState(false)
   const [testRecipient, setTestRecipient] = useState(user?.email || '')
   const [testResult, setTestResult] = useState<{ success: boolean; msg: string } | null>(null)
   const [pingResult, setPingResult] = useState<{ success: boolean; msg: string; latencyMs?: number } | null>(null)
   const [hasExistingPass, setHasExistingPass] = useState(false)
+  const [hasCustomConfig, setHasCustomConfig] = useState(false)
   const [copiedSql, setCopiedSql] = useState(false)
   const [showSqlGuide, setShowSqlGuide] = useState(false)
+
+  const allAccounts = getAllAccounts()
 
   const [form, setForm] = useState<SmtpForm>({
     host: 'smtp.gmail.com',
@@ -83,13 +96,32 @@ export function AdminSmtpSettings({ user }: { user: Account }) {
     appUrl: typeof window !== 'undefined' ? window.location.origin : 'https://gaspoll.cloud',
   })
 
-  // Ambil konfigurasi tersimpan saat pertama kali dibuka
-  const loadConfig = async () => {
+  const currentScopeId =
+    targetScope === 'dept' ? selectedDept : targetScope === 'account' ? selectedUsername : undefined
+
+  // Ambil konfigurasi tersimpan berdasarkan target scope
+  const loadConfig = async (overrideScope?: SmtpScope, overrideId?: string) => {
+    const sc = overrideScope ?? targetScope
+    const id = overrideId ?? (sc === 'dept' ? selectedDept : sc === 'account' ? selectedUsername : undefined)
+
+    if (sc === 'account' && !id) {
+      setLoading(false)
+      return
+    }
+
     setLoading(true)
+    setTestResult(null)
+    setPingResult(null)
     try {
-      const res = await fetch('/api/smtp')
+      const q = new URLSearchParams()
+      q.set('scope', sc)
+      if (id) q.set('id', id)
+      q.set('exact', 'true')
+
+      const res = await fetch(`/api/smtp?${q.toString()}`)
       const data = await res.json()
       if (data.ok && data.config) {
+        setHasCustomConfig(!!data.isConfigured)
         setForm({
           host: data.config.host || 'smtp.gmail.com',
           port: Number(data.config.port) || 587,
@@ -110,8 +142,8 @@ export function AdminSmtpSettings({ user }: { user: Account }) {
   }
 
   useEffect(() => {
-    loadConfig()
-  }, [])
+    loadConfig(targetScope, currentScopeId)
+  }, [targetScope, selectedDept, selectedUsername])
 
   const applyPreset = (preset: (typeof PRESETS)[0]) => {
     setForm((prev) => ({
@@ -139,6 +171,10 @@ export function AdminSmtpSettings({ user }: { user: Account }) {
       notify('Password / App Password wajib diisi!', 'error')
       return
     }
+    if (targetScope === 'account' && !selectedUsername) {
+      notify('Pilih akun requester target terlebih dahulu!', 'error')
+      return
+    }
 
     setSaving(true)
     setTestResult(null)
@@ -149,6 +185,8 @@ export function AdminSmtpSettings({ user }: { user: Account }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'save',
+          scope: targetScope,
+          scopeId: currentScopeId,
           ...form,
         }),
       })
@@ -158,8 +196,14 @@ export function AdminSmtpSettings({ user }: { user: Account }) {
         throw new Error(json.error || 'Gagal menyimpan konfigurasi')
       }
 
-      notify('Konfigurasi SMTP berhasil disimpan ke database!', 'success')
+      notify(
+        targetScope === 'global'
+          ? 'Konfigurasi SMTP Global berhasil disimpan!'
+          : `Konfigurasi SMTP untuk ${targetScope === 'dept' ? `Departemen ${selectedDept}` : `Akun ${selectedUsername}`} berhasil disimpan!`,
+        'success'
+      )
       setHasExistingPass(true)
+      setHasCustomConfig(true)
     } catch (err: any) {
       notify(err.message, 'error')
       if (err.message.includes('app_settings')) {
@@ -167,6 +211,36 @@ export function AdminSmtpSettings({ user }: { user: Account }) {
       }
     } finally {
       setSaving(false)
+    }
+  }
+
+  // Hapus konfigurasi kustom (revert ke fallback global)
+  const handleDeleteCustom = async () => {
+    if (targetScope === 'global') return
+    const targetLabel = targetScope === 'dept' ? `Departemen ${selectedDept}` : `Akun ${selectedUsername}`
+    if (!confirm(`Hapus setting SMTP khusus untuk ${targetLabel} dan gunakan fallback SMTP Global Pool GA?`)) return
+
+    setDeleting(true)
+    try {
+      const res = await fetch('/api/smtp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'delete',
+          scope: targetScope,
+          scopeId: currentScopeId,
+        }),
+      })
+
+      const json = await res.json()
+      if (!res.ok || !json.ok) throw new Error(json.error || 'Gagal menghapus konfigurasi')
+
+      notify(`Konfigurasi SMTP ${targetLabel} dihapus. Sistem akan menggunakan fallback global.`, 'success')
+      loadConfig(targetScope, currentScopeId)
+    } catch (err: any) {
+      notify(err.message, 'error')
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -194,6 +268,8 @@ export function AdminSmtpSettings({ user }: { user: Account }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'ping',
+          scope: targetScope,
+          scopeId: currentScopeId,
           ...form,
         }),
       })
@@ -236,6 +312,8 @@ export function AdminSmtpSettings({ user }: { user: Account }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'test',
+          scope: targetScope,
+          scopeId: currentScopeId,
           ...form,
           testRecipient: testRecipient.trim(),
         }),
@@ -282,11 +360,11 @@ CREATE POLICY "Allow public all access on app_settings" ON app_settings FOR ALL 
     <div className="space-y-6">
       <PageHeader
         title="Pengaturan SMTP Email"
-        desc="Atur server SMTP dan akun pengirim agar notifikasi approval otomatis dapat terkirim tanpa hardcode file konfigurasi."
+        desc="Atur server SMTP dan akun pengirim agar notifikasi approval otomatis dapat terkirim dari email departemen masing-masing."
         action={
           <button
             type="button"
-            onClick={loadConfig}
+            onClick={() => loadConfig(targetScope, currentScopeId)}
             disabled={loading}
             className={`${btnGhost} !py-1.5 !px-3 text-xs`}
           >
@@ -296,12 +374,142 @@ CREATE POLICY "Allow public all access on app_settings" ON app_settings FOR ALL 
         }
       />
 
+      {/* Target Scope Switcher (Global vs Departemen vs Akun) */}
+      <div className="rounded-2xl border border-white/10 bg-[#0d1712]/90 p-4 backdrop-blur-md space-y-3.5 shadow-lg">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-bold text-white flex items-center gap-2">
+              <Sparkles size={14} className="text-[#a3e635]" /> Lingkup Konfigurasi Pengirim (Hierarki SMTP)
+            </p>
+            <p className="text-[11px] text-[#8fa99b] mt-0.5">
+              Email approval otomatis memprioritaskan akun pengaju &rarr; departemen pengaju &rarr; fallback Global Pool GA.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-1.5 rounded-xl bg-black/40 border border-white/10 p-1">
+            <button
+              type="button"
+              onClick={() => setTargetScope('global')}
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition ${
+                targetScope === 'global'
+                  ? 'bg-[#a3e635] text-[#052e16] shadow-xs'
+                  : 'text-[#8fa99b] hover:text-white'
+              }`}
+            >
+              <Globe size={13} /> Global (Pool GA)
+            </button>
+            <button
+              type="button"
+              onClick={() => setTargetScope('dept')}
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition ${
+                targetScope === 'dept'
+                  ? 'bg-[#a3e635] text-[#052e16] shadow-xs'
+                  : 'text-[#8fa99b] hover:text-white'
+              }`}
+            >
+              <Building size={13} /> Per Departemen
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setTargetScope('account')
+                if (!selectedUsername && allAccounts.length > 0) {
+                  const req = allAccounts.find((a) => a.role === 'requester') || allAccounts[0]
+                  if (req) setSelectedUsername(req.username)
+                }
+              }}
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition ${
+                targetScope === 'account'
+                  ? 'bg-[#a3e635] text-[#052e16] shadow-xs'
+                  : 'text-[#8fa99b] hover:text-white'
+              }`}
+            >
+              <UserIcon size={13} /> Per Akun
+            </button>
+          </div>
+        </div>
+
+        {/* Sub-selector jika memilih Scope Departemen atau Akun */}
+        {targetScope !== 'global' && (
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 pt-2 border-t border-white/5">
+            {targetScope === 'dept' && (
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <span className="text-xs font-semibold text-[#8fa99b] shrink-0">Pilih Departemen:</span>
+                <select
+                  value={selectedDept}
+                  onChange={(e) => setSelectedDept(e.target.value)}
+                  className={`${inputCls} !mt-0 !py-1.5 !px-3 bg-black/50 text-xs text-white font-bold w-full sm:w-48`}
+                >
+                  {DEPARTMENTS.map((d) => (
+                    <option key={d} value={d} className="bg-[#0f1f17] text-white">
+                      Departemen {d}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {targetScope === 'account' && (
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <span className="text-xs font-semibold text-[#8fa99b] shrink-0">Pilih Akun:</span>
+                <select
+                  value={selectedUsername}
+                  onChange={(e) => setSelectedUsername(e.target.value)}
+                  className={`${inputCls} !mt-0 !py-1.5 !px-3 bg-black/50 text-xs text-white font-bold w-full sm:w-64 truncate`}
+                >
+                  {allAccounts.map((a) => (
+                    <option key={a.username} value={a.username} className="bg-[#0f1f17] text-white">
+                      {a.name} ({a.username}) · {a.dept || 'Umum'}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            <div className="flex items-center gap-2">
+              {hasCustomConfig ? (
+                <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 text-[11px] font-bold text-emerald-300">
+                  <CheckCircle2 size={12} /> Konfigurasi Khusus Tersimpan
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 text-[11px] font-semibold text-amber-300">
+                  <AlertCircle size={12} /> Belum ada konfigurasi khusus (Mewarisi Fallback Global)
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Kolom Kiri: Formulir Pengaturan SMTP */}
         <div className="lg:col-span-2 space-y-6">
           <Card
-            title="Konfigurasi Server Email"
-            subtitle="Pilih penyedia email atau masukkan host SMTP internal perusahaan"
+            title={
+              targetScope === 'global'
+                ? 'Konfigurasi SMTP Global (Pool GA)'
+                : targetScope === 'dept'
+                ? `Konfigurasi SMTP Khusus Departemen: ${selectedDept}`
+                : `Konfigurasi SMTP Khusus Akun: ${selectedUsername}`
+            }
+            subtitle={
+              targetScope === 'global'
+                ? 'Server default yang digunakan jika requester/departemen belum mengatur SMTP mandiri'
+                : 'Pengajuan dari requester ini akan dikirimkan otomatis menggunakan kredensial email ini ke Manajer'
+            }
+            action={
+              targetScope !== 'global' && hasCustomConfig ? (
+                <button
+                  type="button"
+                  onClick={handleDeleteCustom}
+                  disabled={deleting}
+                  className="inline-flex items-center gap-1 text-xs text-red-400 hover:text-red-300 transition py-1 px-2 rounded-lg hover:bg-red-950/30"
+                >
+                  <Trash2 size={13} />
+                  {deleting ? 'Menghapus...' : 'Hapus Khusus (Revert ke Global)'}
+                </button>
+              ) : undefined
+            }
           >
             <form onSubmit={handleSave} className="p-5 sm:p-6 space-y-5">
               {/* Presets Button */}
@@ -358,35 +566,35 @@ CREATE POLICY "Allow public all access on app_settings" ON app_settings FOR ALL 
                     type="number"
                     value={form.port}
                     onChange={(e) => {
-                      const port = Number(e.target.value)
-                      setForm({
-                        ...form,
-                        port,
-                        secure: port === 465,
-                      })
+                      const p = Number(e.target.value) || 587
+                      setForm({ ...form, port: p, secure: p === 465 })
                     }}
-                    placeholder="587 / 465"
+                    placeholder="587"
                     className={`${inputCls} font-mono`}
                     required
                   />
+                  <div className="mt-1 flex items-center gap-1 text-[10px] text-[#708078]">
+                    <span>Biasanya:</span>
+                    <button
+                      type="button"
+                      onClick={() => setForm({ ...form, port: 587, secure: false })}
+                      className="text-[#a3e635] hover:underline"
+                    >
+                      587 (TLS)
+                    </button>
+                    <span>atau</span>
+                    <button
+                      type="button"
+                      onClick={() => setForm({ ...form, port: 465, secure: true })}
+                      className="text-[#a3e635] hover:underline"
+                    >
+                      465 (SSL)
+                    </button>
+                  </div>
                 </div>
               </div>
 
-              {/* SSL/TLS Checkbox */}
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="secure-toggle"
-                  checked={form.secure}
-                  onChange={(e) => setForm({ ...form, secure: e.target.checked })}
-                  className="size-4 rounded border-white/20 bg-black/40 text-[#a3e635] focus:ring-0"
-                />
-                <label htmlFor="secure-toggle" className="text-xs font-medium text-[#c4d4cc] cursor-pointer">
-                  Gunakan Enkripsi Langsung SSL/TLS (Wajib dicentang untuk Port 465, biarkan kosong untuk Port 587 STARTTLS)
-                </label>
-              </div>
-
-              {/* Username & Password */}
+              {/* User & Password */}
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <label className="block text-xs font-semibold text-[#8fa99b]">
@@ -395,67 +603,75 @@ CREATE POLICY "Allow public all access on app_settings" ON app_settings FOR ALL 
                   <div className="relative mt-1.5">
                     <Mail size={15} className="absolute left-3 top-3 text-[#708078]" />
                     <input
-                      type="text"
+                      type="email"
                       value={form.user}
                       onChange={(e) => setForm({ ...form, user: e.target.value })}
-                      placeholder="poolga.jai@gmail.com"
-                      className={`${inputCls} !mt-0 pl-9 font-mono`}
+                      placeholder="departemen@jai.yazaki.com"
+                      className={`${inputCls} !mt-0 pl-9`}
                       required
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-[#8fa99b]">
-                    Password / App Password <span className="text-[#a3e635]">*</span>
-                  </label>
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-semibold text-[#8fa99b]">
+                      Password / App Password <span className="text-[#a3e635]">*</span>
+                    </label>
+                    {hasExistingPass && (
+                      <span className="text-[10px] text-emerald-400 font-medium">
+                        (Tersimpan di Supabase)
+                      </span>
+                    )}
+                  </div>
                   <div className="relative mt-1.5">
                     <Key size={15} className="absolute left-3 top-3 text-[#708078]" />
                     <input
                       type={showPass ? 'text' : 'password'}
                       value={form.pass}
                       onChange={(e) => setForm({ ...form, pass: e.target.value })}
-                      placeholder={hasExistingPass ? '•••••••••••••••• (Tersimpan)' : '16-digit App Password'}
-                      className={`${inputCls} !mt-0 pl-9 pr-10 font-mono`}
-                      required={!hasExistingPass}
+                      placeholder={hasExistingPass ? '•••••••••••••••• (tidak diubah)' : 'App Password 16 karakter'}
+                      className={`${inputCls} !mt-0 pl-9 pr-9 font-mono`}
                     />
                     <button
                       type="button"
                       onClick={() => setShowPass(!showPass)}
-                      className="absolute right-3 top-2.5 text-[#708078] hover:text-white transition"
+                      className="absolute right-3 top-3 text-[#708078] hover:text-white"
                     >
                       {showPass ? <EyeOff size={15} /> : <Eye size={15} />}
                     </button>
                   </div>
-                  {hasExistingPass && (
-                    <p className="mt-1 text-[10px] text-[#8fa99b]">
-                      * Kosongkan jika tidak ingin mengubah password yang tersimpan sebelumnya.
-                    </p>
-                  )}
+                  <p className="mt-1 text-[10px] text-[#708078]">
+                    Untuk Gmail gunakan 16 digit Sandi Aplikasi (bukan kata sandi akun Google).
+                  </p>
                 </div>
               </div>
 
-              {/* Sender Name & Base URL */}
+              {/* Sender Name / From Header & App URL */}
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <label className="block text-xs font-semibold text-[#8fa99b]">
-                    Label / Nama Pengirim (From Header)
+                    Format Pengirim (From Header)
                   </label>
                   <input
                     type="text"
                     value={form.from}
                     onChange={(e) => setForm({ ...form, from: e.target.value })}
-                    placeholder={`Pool GA PT. JAI <${form.user || 'poolga@gmail.com'}>`}
+                    placeholder={
+                      targetScope === 'dept'
+                        ? `Admin ${selectedDept} <${form.user || 'departemen@jai.yazaki.com'}>`
+                        : `Pool GA PT JAI <${form.user || 'gaspoll@jai.yazaki.com'}>`
+                    }
                     className={inputCls}
                   />
                   <p className="mt-1 text-[10px] text-[#708078]">
-                    Teks yang tampil di kolom pengirim email penerima.
+                    Nama tampilan yang dilihat penerima di inbox email.
                   </p>
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-[#8fa99b]">
-                    URL Aplikasi Web (Untuk Link Approval)
+                    App URL (Base URL Sistem)
                   </label>
                   <div className="relative mt-1.5">
                     <Globe size={15} className="absolute left-3 top-3 text-[#708078]" />
@@ -464,7 +680,7 @@ CREATE POLICY "Allow public all access on app_settings" ON app_settings FOR ALL 
                       value={form.appUrl}
                       onChange={(e) => setForm({ ...form, appUrl: e.target.value })}
                       placeholder="https://gaspoll.cloud"
-                      className={`${inputCls} !mt-0 pl-9 font-mono`}
+                      className={`${inputCls} !mt-0 pl-9 font-mono text-xs`}
                     />
                   </div>
                   <p className="mt-1 text-[10px] text-[#708078]">

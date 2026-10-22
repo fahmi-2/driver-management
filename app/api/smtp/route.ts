@@ -1,17 +1,32 @@
 import { NextResponse } from 'next/server'
 import nodemailer from 'nodemailer'
-import { getActiveSmtpConfig, saveSmtpConfig } from '@/lib/smtp-config'
+import { getActiveSmtpConfig, saveSmtpConfig, deleteSmtpConfig, type SmtpScope } from '@/lib/smtp-config'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
-    const config = await getActiveSmtpConfig()
+    const { searchParams } = new URL(req.url)
+    const scope = (searchParams.get('scope') as SmtpScope) || 'global'
+    const id = searchParams.get('id') || undefined
+    const exact = searchParams.get('exact') === 'true'
+
+    const config = await getActiveSmtpConfig(
+      exact
+        ? { exactScope: scope, exactId: id }
+        : {
+            username: scope === 'account' ? id : searchParams.get('username') || undefined,
+            dept: scope === 'dept' ? id : searchParams.get('dept') || undefined,
+          }
+    )
+
     if (!config) {
       return NextResponse.json({
         ok: true,
         isConfigured: false,
+        scope,
+        scopeId: id,
         config: {
           host: 'smtp.gmail.com',
           port: 587,
@@ -28,6 +43,8 @@ export async function GET() {
     return NextResponse.json({
       ok: true,
       isConfigured: true,
+      scope: config.scope || scope,
+      scopeId: config.scopeId || id,
       config: {
         host: config.host,
         port: config.port,
@@ -47,13 +64,25 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const body = await req.json()
-    const { action = 'save', host, port, user, pass, from, secure, appUrl, testRecipient } = body
+    const {
+      action = 'save',
+      scope = 'global',
+      scopeId,
+      host,
+      port,
+      user,
+      pass,
+      from,
+      secure,
+      appUrl,
+      testRecipient,
+    } = body
 
     // 0. Aksi Uji Koneksi / Ping Handshake (tanpa kirim email)
     if (action === 'ping') {
       let resolvedPass = pass
       if (!resolvedPass || resolvedPass.includes('•••')) {
-        const existing = await getActiveSmtpConfig()
+        const existing = await getActiveSmtpConfig({ exactScope: scope, exactId: scopeId }) || await getActiveSmtpConfig()
         resolvedPass = existing?.pass
       }
 
@@ -107,10 +136,9 @@ export async function POST(req: Request) {
         return NextResponse.json({ ok: false, error: 'Email tujuan uji coba wajib diisi' }, { status: 400 })
       }
 
-      // Ambil pass dari input, jika berupa bullet masked ('••••') ambil dari database
       let resolvedPass = pass
       if (!resolvedPass || resolvedPass.includes('•••')) {
-        const existing = await getActiveSmtpConfig()
+        const existing = await getActiveSmtpConfig({ exactScope: scope, exactId: scopeId }) || await getActiveSmtpConfig()
         resolvedPass = existing?.pass
       }
 
@@ -139,19 +167,26 @@ export async function POST(req: Request) {
       // Verifikasi koneksi SMTP dulu
       await transporter.verify()
 
+      const targetLabel = scope === 'account'
+        ? `Akun Requester (${scopeId})`
+        : scope === 'dept'
+        ? `Departemen (${scopeId})`
+        : 'Global (Pool GA)'
+
       // Kirim email uji coba
       const testInfo = await transporter.sendMail({
         from: from ? String(from).trim() : String(user).trim(),
         to: String(testRecipient).trim(),
-        subject: `[Test] Uji Coba Konfigurasi SMTP - JAI-FLEET Management`,
+        subject: `[Test SMTP ${targetLabel}] Uji Coba Konfigurasi Email - JAI-FLEET`,
         html: `
           <div style="font-family:Arial,sans-serif;max-width:540px;padding:24px;background:#f9fafb;border-radius:12px;border:1px solid #e5e7eb">
-            <h2 style="color:#0f172a;margin-top:0">Koneksi SMTP Berhasil!</h2>
+            <h2 style="color:#075b3d;margin-top:0">Koneksi SMTP Berhasil!</h2>
             <p style="color:#334155;font-size:14px;line-height:1.5">
-              Email ini dikirimkan secara otomatis dari Sistem Manajemen Operasional Armada &amp; Driver <b>PT. JAI</b> untuk memverifikasi bahwa pengaturan SMTP Anda telah aktif dan berjalan dengan baik.
+              Email ini dikirimkan untuk memverifikasi pengaturan SMTP <b>${targetLabel}</b> pada Sistem JAI-FLEET Management PT. JAI.
             </p>
             <div style="background:#ffffff;padding:16px;border-radius:8px;border:1px solid #e2e8f0;margin:20px 0;font-size:13px">
               <table cellpadding="4" style="color:#475569">
+                <tr><td><b>Lingkup Pengirim</b></td><td>: ${targetLabel}</td></tr>
                 <tr><td><b>SMTP Host</b></td><td>: ${host}</td></tr>
                 <tr><td><b>Port</b></td><td>: ${smtpPort} (SSL/TLS: ${isSecure ? 'Ya' : 'STARTTLS'})</td></tr>
                 <tr><td><b>Akun Pengirim</b></td><td>: ${user}</td></tr>
@@ -159,7 +194,7 @@ export async function POST(req: Request) {
               </table>
             </div>
             <p style="color:#64748b;font-size:12px;margin-bottom:0">
-              Notifikasi approval perjalanan otomatis kini siap dikirimkan kepada Approver SPV dan Admin.
+              Pengajuan perjalanan dari departemen ini akan dikirimkan otomatis menggunakan akun email pengirim ini.
             </p>
           </div>
         `,
@@ -179,7 +214,7 @@ export async function POST(req: Request) {
 
       let finalPass = pass
       if (!finalPass || finalPass.includes('•••')) {
-        const existing = await getActiveSmtpConfig()
+        const existing = await getActiveSmtpConfig({ exactScope: scope, exactId: scopeId })
         finalPass = existing?.pass
       }
 
@@ -187,15 +222,19 @@ export async function POST(req: Request) {
         return NextResponse.json({ ok: false, error: 'Password / App Password SMTP wajib diisi' }, { status: 400 })
       }
 
-      const saveResult = await saveSmtpConfig({
-        host: String(host).trim(),
-        port: Number(port) || 587,
-        user: String(user).trim(),
-        pass: finalPass,
-        from: from ? String(from).trim() : String(user).trim(),
-        secure: Number(port) === 465 || !!secure,
-        appUrl: appUrl ? String(appUrl).trim() : undefined,
-      })
+      const saveResult = await saveSmtpConfig(
+        {
+          host: String(host).trim(),
+          port: Number(port) || 587,
+          user: String(user).trim(),
+          pass: finalPass,
+          from: from ? String(from).trim() : String(user).trim(),
+          secure: Number(port) === 465 || !!secure,
+          appUrl: appUrl ? String(appUrl).trim() : undefined,
+        },
+        scope as SmtpScope,
+        scopeId
+      )
 
       if (!saveResult.ok) {
         let msg = saveResult.error || 'Gagal menyimpan konfigurasi ke Supabase'
@@ -207,7 +246,24 @@ export async function POST(req: Request) {
 
       return NextResponse.json({
         ok: true,
-        message: 'Konfigurasi SMTP berhasil disimpan ke database.',
+        message: `Konfigurasi SMTP ${scope === 'account' ? `akun "${scopeId}"` : scope === 'dept' ? `departemen "${scopeId}"` : 'global'} berhasil disimpan.`,
+      })
+    }
+
+    // 3. Aksi hapus konfigurasi SMTP kustom (revert ke default global)
+    if (action === 'delete') {
+      if (scope === 'global') {
+        return NextResponse.json({ ok: false, error: 'Konfigurasi SMTP global tidak dapat dihapus, gunakan simpan untuk mengubahnya.' }, { status: 400 })
+      }
+
+      const delRes = await deleteSmtpConfig(scope as SmtpScope, scopeId)
+      if (!delRes.ok) {
+        return NextResponse.json({ ok: false, error: delRes.error || 'Gagal menghapus konfigurasi' }, { status: 500 })
+      }
+
+      return NextResponse.json({
+        ok: true,
+        message: `Konfigurasi SMTP kustom berhasil dihapus. Sistem akan otomatis menggunakan email pengirim default global.`,
       })
     }
 

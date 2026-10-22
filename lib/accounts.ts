@@ -976,9 +976,46 @@ export function saveUserProfile(username: string, updates: Partial<Account>) {
 }
 
 const ACCOUNTS_STORAGE_KEY = 'ff_all_accounts_v2'
+const DELETED_ACCOUNTS_KEY = 'ff_deleted_accounts_v1'
+
+export function getDeletedUsernames(): string[] {
+  if (typeof window === 'undefined') return []
+  try {
+    const raw = window.localStorage.getItem(DELETED_ACCOUNTS_KEY)
+    return raw ? (JSON.parse(raw) as string[]) : []
+  } catch {
+    return []
+  }
+}
+
+export function markAccountAsDeleted(username: string) {
+  if (typeof window === 'undefined') return
+  try {
+    const clean = username.trim().toLowerCase()
+    const deleted = getDeletedUsernames()
+    if (!deleted.includes(clean)) {
+      deleted.push(clean)
+      window.localStorage.setItem(DELETED_ACCOUNTS_KEY, JSON.stringify(deleted))
+    }
+  } catch (err) {
+    console.error('Failed to mark account as deleted', err)
+  }
+}
+
+export function unmarkAccountAsDeleted(username: string) {
+  if (typeof window === 'undefined') return
+  try {
+    const clean = username.trim().toLowerCase()
+    const deleted = getDeletedUsernames().filter((u) => u !== clean)
+    window.localStorage.setItem(DELETED_ACCOUNTS_KEY, JSON.stringify(deleted))
+  } catch (err) {
+    console.error('Failed to unmark account as deleted', err)
+  }
+}
 
 export function resetToDefaultAccounts(): Account[] {
   if (typeof window !== 'undefined') {
+    window.localStorage.removeItem(DELETED_ACCOUNTS_KEY)
     window.localStorage.setItem(ACCOUNTS_STORAGE_KEY, JSON.stringify(ACCOUNTS))
     window.dispatchEvent(new Event('accounts_updated'))
   }
@@ -989,23 +1026,37 @@ export function getAllAccounts(): Account[] {
   if (typeof window === 'undefined') return ACCOUNTS
   try {
     const raw = window.localStorage.getItem(ACCOUNTS_STORAGE_KEY)
+    const deletedUsernames = getDeletedUsernames()
+
     if (!raw) {
       // Inisialisasi awal dengan ACCOUNTS bawaan matriks resmi
-      window.localStorage.setItem(ACCOUNTS_STORAGE_KEY, JSON.stringify(ACCOUNTS))
-      return ACCOUNTS
+      const initial = ACCOUNTS.filter((a) => !deletedUsernames.includes(a.username.toLowerCase()))
+      window.localStorage.setItem(ACCOUNTS_STORAGE_KEY, JSON.stringify(initial))
+      return initial
     }
+
     let parsed = JSON.parse(raw) as Account[]
-    // Pastikan jika ada akun bawaan baru (misal admin_lobby) otomatis terinjeksi jika belum ada di storage
+
+    // Filter keluar akun yang sudah dihapus/direname
+    parsed = parsed.filter((a) => !deletedUsernames.includes(a.username.toLowerCase()))
+
+    // Hanya injeksi akun admin sistem wajib jika belum ada dan tidak sengaja dihapus
+    const essentialAdmins = ACCOUNTS.filter((a) => a.role === 'admin' || a.role === 'admin_lobby')
     let needsUpdate = false
-    for (const defAcc of ACCOUNTS) {
-      if (!parsed.some((p) => p.username.toLowerCase() === defAcc.username.toLowerCase())) {
-        parsed.push(defAcc)
+    for (const defAcc of essentialAdmins) {
+      if (
+        !deletedUsernames.includes(defAcc.username.toLowerCase()) &&
+        !parsed.some((p) => p.username.toLowerCase() === defAcc.username.toLowerCase())
+      ) {
+        parsed.unshift(defAcc)
         needsUpdate = true
       }
     }
+
     if (needsUpdate) {
       window.localStorage.setItem(ACCOUNTS_STORAGE_KEY, JSON.stringify(parsed))
     }
+
     // Gabungkan dengan custom profiles jika ada
     const customs = getCustomProfiles()
     return parsed.map((acc) => {
@@ -1022,16 +1073,23 @@ export async function syncAccountsWithSupabase(): Promise<Account[]> {
   try {
     const { fetchAccountsFromSupabase } = await import('./sync')
     const remote = await fetchAccountsFromSupabase()
+    const deletedUsernames = getDeletedUsernames()
+
     if (remote && remote.length > 0) {
-      // Pastikan akun default penting (seperti admin1, admin_lobby) tidak hilang jika remote belum lengkap
-      let merged = [...remote]
-      let hasNew = false
-      for (const defAcc of ACCOUNTS) {
-        if (!merged.some((m) => m.username.toLowerCase() === defAcc.username.toLowerCase())) {
-          merged.push(defAcc)
-          hasNew = true
+      // Saring akun remote yang sudah tercatat dihapus/direname di client
+      let merged = remote.filter((r) => !deletedUsernames.includes(r.username.toLowerCase()))
+
+      // Pastikan akun admin utama tetap ada jika remote belum lengkap
+      const essentialAdmins = ACCOUNTS.filter((a) => a.role === 'admin' || a.role === 'admin_lobby')
+      for (const defAcc of essentialAdmins) {
+        if (
+          !deletedUsernames.includes(defAcc.username.toLowerCase()) &&
+          !merged.some((m) => m.username.toLowerCase() === defAcc.username.toLowerCase())
+        ) {
+          merged.unshift(defAcc)
         }
       }
+
       window.localStorage.setItem(ACCOUNTS_STORAGE_KEY, JSON.stringify(merged))
       window.dispatchEvent(new Event('accounts_updated'))
       return merged
@@ -1053,8 +1111,9 @@ export function saveAllAccounts(accounts: Account[]) {
 }
 
 export function addAccount(newAcc: Account): { success: boolean; message?: string } {
-  const current = getAllAccounts()
   const cleanUsername = newAcc.username.trim().toLowerCase()
+  unmarkAccountAsDeleted(cleanUsername)
+  const current = getAllAccounts()
   if (current.some((a) => a.username.toLowerCase() === cleanUsername)) {
     return { success: false, message: 'Username sudah digunakan!' }
   }
@@ -1066,7 +1125,10 @@ export function addAccount(newAcc: Account): { success: boolean; message?: strin
   return { success: true }
 }
 
-export function updateAccount(originalUsername: string, updates: Partial<Account>): { success: boolean; message?: string } {
+export function updateAccount(
+  originalUsername: string,
+  updates: Partial<Account>
+): { success: boolean; message?: string } {
   const current = getAllAccounts()
   const origClean = originalUsername.trim().toLowerCase()
   const targetIdx = current.findIndex((a) => a.username.toLowerCase() === origClean)
@@ -1074,26 +1136,53 @@ export function updateAccount(originalUsername: string, updates: Partial<Account
     return { success: false, message: 'Akun tidak ditemukan!' }
   }
 
-  // Jika username diubah, cek apakah username baru sudah terpakai
-  if (updates.username && updates.username.trim().toLowerCase() !== origClean) {
-    const newClean = updates.username.trim().toLowerCase()
+  const isRenaming = updates.username && updates.username.trim().toLowerCase() !== origClean
+  let newClean = origClean
+
+  // Jika username diubah, validasi dan hapus ID lama di Supabase agar tidak menjadi akun ganda!
+  if (isRenaming) {
+    newClean = updates.username!.trim().toLowerCase()
     if (current.some((a, idx) => idx !== targetIdx && a.username.toLowerCase() === newClean)) {
       return { success: false, message: 'Username baru sudah digunakan oleh akun lain!' }
     }
     updates.username = newClean
+    unmarkAccountAsDeleted(newClean)
 
     // Update juga session jika akun yang sedang login diubah usernamenya
     const curSession = getSession()
     if (curSession && curSession.username.toLowerCase() === origClean) {
       setSession(newClean)
     }
+
+    // Tandai username lama agar tidak dibangkitkan lagi dari default
+    markAccountAsDeleted(origClean)
+
+    // Hapus row username lama di Supabase secara fisik
+    import('./sync').then(({ deleteAccountFromSupabase }) => {
+      deleteAccountFromSupabase(origClean).catch((err) =>
+        console.warn('Gagal menghapus username lama di Supabase:', err)
+      )
+    })
   }
 
-  const updatedAcc = { ...current[targetIdx], ...updates }
+  const updatedAcc = { ...current[targetIdx], ...updates, username: newClean }
   const updatedList = [...current]
   updatedList[targetIdx] = updatedAcc
   saveAllAccounts(updatedList)
-  // Async sync ke Supabase
+
+  // Update custom profile storage jika ada
+  const customs = getCustomProfiles()
+  if (customs[origClean]) {
+    const customData = { ...customs[origClean], ...updates, username: newClean }
+    delete customs[origClean]
+    customs[newClean] = customData
+    window.localStorage.setItem(PROFILES_KEY, JSON.stringify(customs))
+  } else if (updates.name) {
+    customs[newClean] = { ...customs[newClean], name: updates.name }
+    window.localStorage.setItem(PROFILES_KEY, JSON.stringify(customs))
+  }
+
+  // Async sync akun yang sudah diupdate ke Supabase
   import('./sync').then(({ upsertAccountToSupabase }) => upsertAccountToSupabase(updatedAcc))
   return { success: true }
 }
@@ -1110,9 +1199,20 @@ export function deleteAccount(username: string): { success: boolean; message?: s
     return { success: false, message: 'Tidak dapat menghapus akun yang sedang Anda gunakan saat ini!' }
   }
 
+  // Tandai sebagai terhapus agar getAllAccounts dan syncAccountsWithSupabase tidak membangkitkan kembali
+  markAccountAsDeleted(cleanUsername)
+
   const current = getAllAccounts()
   const filtered = current.filter((a) => a.username.toLowerCase() !== cleanUsername)
   saveAllAccounts(filtered)
+
+  // Bersihkan custom profiles jika ada
+  const customs = getCustomProfiles()
+  if (customs[cleanUsername]) {
+    delete customs[cleanUsername]
+    window.localStorage.setItem(PROFILES_KEY, JSON.stringify(customs))
+  }
+
   // Async delete dari Supabase
   import('./sync').then(({ deleteAccountFromSupabase }) => deleteAccountFromSupabase(cleanUsername))
   return { success: true }
