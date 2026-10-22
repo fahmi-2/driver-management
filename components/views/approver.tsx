@@ -16,17 +16,18 @@ import {
   User,
   UserCheck,
   XCircle,
-  AlertCircle
+  AlertCircle,
+  Timer
 } from 'lucide-react'
 import type { Account } from '@/lib/accounts'
-import { useStore, type Trip, fmtDate, fmtTime, STATUS_LABEL } from '@/lib/store'
+import { useStore, type Trip, type OvertimeRequest, fmtDate, fmtTime, STATUS_LABEL } from '@/lib/store'
 import { Card, PageHeader, Pill, btnPrimary, btnGhost, tripTone, useToast } from '../ui-bits'
 
 export function ApproverInbox({ user }: { user: Account }) {
-  const { db, spvDecision, poolSpvDecision } = useStore()
+  const { db, spvDecision, poolSpvDecision, approveOvertime, rejectOvertime, approveOvertimeReport } = useStore()
   const notify = useToast()
 
-  const [activeTab, setActiveTab] = useState<'pending' | 'history'>('pending')
+  const [activeTab, setActiveTab] = useState<'pending' | 'history' | 'overtime'>('pending')
   const [search, setSearch] = useState('')
   const [decisionModal, setDecisionModal] = useState<{
     trip: Trip
@@ -76,6 +77,11 @@ export function ApproverInbox({ user }: { user: Account }) {
     }
     return (t.dept === user.dept || isTargetedApprover) && (t.spvAt || t.status === 'DONE' || t.status === 'READY')
   })
+
+  // Overtime Requests untuk Pak Hayu (Approver Kendaraan Tahap 2)
+  const allOts = (db.overtimeRequests || []).slice().reverse()
+  const pendingOts = allOts.filter((ot) => ot.status === 'PENDING' || ot.status === 'WAITING_REPORT')
+  const historyOts = allOts.filter((ot) => ot.status === 'COMPLETED' || ot.status === 'REJECTED' || ot.status === 'APPROVED')
 
   const currentList = activeTab === 'pending' ? pendingTrips : historyTrips
 
@@ -158,6 +164,25 @@ export function ApproverInbox({ user }: { user: Account }) {
               <CheckCircle2 size={15} />
               Riwayat Putusan ({historyTrips.length})
             </button>
+            {isPoolSpv && (
+              <button
+                type="button"
+                onClick={() => setActiveTab('overtime')}
+                className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition-all ${
+                  activeTab === 'overtime'
+                    ? 'bg-purple-500 text-white shadow-md shadow-purple-500/25 scale-[1.02]'
+                    : 'text-purple-300 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                <Timer size={15} />
+                Approval Overtime
+                {pendingOts.length > 0 && (
+                  <span className="rounded-full bg-amber-400 px-2 py-0.5 text-[10px] font-black text-black">
+                    {pendingOts.length}
+                  </span>
+                )}
+              </button>
+            )}
           </div>
         }
       />
@@ -188,6 +213,128 @@ export function ApproverInbox({ user }: { user: Account }) {
         </div>
       </div>
 
+      {activeTab === 'overtime' ? (
+        <Card
+          title="Permohonan Overtime (Lembur) Driver & Laporan Penangguhan"
+          subtitle={`Daftar pengajuan lembur dari Admin dan validasi laporan jam aktual (${pendingOts.length} menunggu tindakan)`}
+        >
+          {allOts.length === 0 ? (
+            <div className="p-10 text-center text-xs text-[#9aa7a0]">
+              Belum ada data pengajuan lembur driver.
+            </div>
+          ) : (
+            <div className="divide-y divide-[#edf1ee]">
+              {allOts.map((ot) => (
+                <div key={ot.id} className="p-5 transition hover:bg-purple-500/5">
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div className="space-y-1.5 flex-1 min-w-[280px]">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-mono text-xs font-bold text-purple-700 bg-purple-100 px-2 py-0.5 rounded">
+                          {ot.id}
+                        </span>
+                        <span className="rounded bg-black/5 px-2 py-0.5 text-[10px] font-bold text-[#10251c]">
+                          Driver: {ot.driverName}
+                        </span>
+                        <span className={`rounded px-2 py-0.5 text-[10px] font-extrabold ${
+                          ot.status === 'PENDING'
+                            ? 'bg-amber-100 text-amber-800'
+                            : ot.status === 'APPROVED' || ot.status === 'ACTIVE'
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : ot.status === 'WAITING_REPORT'
+                            ? 'bg-rose-100 text-rose-800 animate-pulse'
+                            : ot.status === 'COMPLETED'
+                            ? 'bg-gray-100 text-gray-700'
+                            : 'bg-red-100 text-red-800'
+                        }`}>
+                          {ot.status === 'PENDING'
+                            ? 'Menunggu Approval Pak Hayu'
+                            : ot.status === 'APPROVED' || ot.status === 'ACTIVE'
+                            ? 'Overtime Berjalan'
+                            : ot.status === 'WAITING_REPORT'
+                            ? 'Ditangguhkan (Menunggu Validasi Laporan Driver)'
+                            : ot.status === 'COMPLETED'
+                            ? 'Selesai / Normal'
+                            : 'Ditolak'}
+                        </span>
+                      </div>
+
+                      <div className="text-xs text-[#10251c] pt-1">
+                        <p><strong>Rencana Jam Lembur:</strong> {ot.startOT} – {ot.endOT} WIB ({ot.date})</p>
+                        <p className="mt-0.5 text-[#708078]"><strong>Alasan Lembur:</strong> {ot.reason}</p>
+                        <p className="text-[10px] text-[#93a097]">Diajukan oleh: {ot.requestedByName} ({ot.requestedBy})</p>
+                      </div>
+
+                      {/* Laporan Penangguhan dari Driver jika selisih > 15 Menit */}
+                      {ot.driverReport && (
+                        <div className="mt-2 rounded-xl border border-rose-300 bg-rose-50 p-3 text-xs text-rose-950 space-y-1">
+                          <p className="font-bold flex items-center gap-1.5 text-rose-700">
+                            <AlertCircle size={14} /> Laporan Alasan Ketidaksesuaian Jam dari Driver:
+                          </p>
+                          <p className="text-[11px] font-medium text-rose-900 bg-white/80 p-2 rounded border border-rose-200">
+                            "{ot.driverReport}"
+                          </p>
+                          <p className="text-[10px] text-rose-600">
+                            *Jam aktual selesai: {ot.actualEnd ? fmtTime(ot.actualEnd) : '-'} WIB. Hitungan lembur telah terhenti otomatis. Menyetujui laporan ini akan mengembalikan status driver & mobil menjadi Normal/Tersedia.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex flex-col items-end gap-2 shrink-0">
+                      {ot.status === 'PENDING' && (
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              rejectOvertime(ot.id)
+                              notify(`Lembur ${ot.driverName} ditolak.`)
+                            }}
+                            className="flex items-center gap-1 rounded-xl border border-red-200 px-3 py-1.5 text-xs font-bold text-red-600 hover:bg-red-50 transition"
+                          >
+                            <XCircle size={13} />
+                            Tolak
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              approveOvertime(ot.id, user.name)
+                              notify(`Lembur ${ot.driverName} disetujui! Status driver aktif menjadi Overtime.`)
+                            }}
+                            className="flex items-center gap-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 px-4 py-1.5 text-xs font-bold text-white shadow-md transition"
+                          >
+                            <CheckCircle2 size={13} />
+                            ACC Lembur
+                          </button>
+                        </div>
+                      )}
+
+                      {ot.status === 'WAITING_REPORT' && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            approveOvertimeReport(ot.id)
+                            notify(`Laporan ketidaksesuaian lembur ${ot.driverName} disetujui! Status driver dan mobil kembali Normal/Tersedia.`)
+                          }}
+                          className="flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 px-4 py-1.5 text-xs font-bold text-white shadow-md transition"
+                        >
+                          <CheckCircle2 size={13} />
+                          Approve Laporan & Kembalikan Status Normal
+                        </button>
+                      )}
+
+                      {(ot.status === 'COMPLETED' || ot.status === 'APPROVED') && (
+                        <span className="text-[10px] text-[#93a097] font-medium">
+                          {ot.approvedBy ? `Disetujui oleh: ${ot.approvedBy}` : 'Terverifikasi'}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      ) : (
       <Card
         title={activeTab === 'pending' ? 'Daftar Pengajuan Menunggu ACC' : 'Riwayat Keputusan Approver'}
         subtitle={`Total ${filteredTrips.length} data ditemukan`}
@@ -224,6 +371,11 @@ export function ApproverInbox({ user }: { user: Account }) {
                         <span className="font-mono text-xs font-bold text-[#075b3d] bg-[#eef5f0] px-2 py-0.5 rounded">
                           {trip.id}
                         </span>
+                        {trip.golongan && (
+                          <span className="rounded bg-indigo-100 border border-indigo-300 px-2 py-0.5 text-[10px] font-extrabold text-indigo-900">
+                            Golongan {trip.golongan} ({trip.approverRole || (trip.golongan === 4 ? 'Manager' : 'SSPV')})
+                          </span>
+                        )}
                         <span className="rounded bg-black/5 px-2 py-0.5 text-[10px] font-bold text-[#10251c]">
                           {trip.dept}
                         </span>
@@ -318,6 +470,7 @@ export function ApproverInbox({ user }: { user: Account }) {
           </div>
         )}
       </Card>
+      )}
 
       {/* Decision Modal (E-Sign Approval / Rejection) */}
       {decisionModal && (

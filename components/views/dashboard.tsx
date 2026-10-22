@@ -21,10 +21,12 @@ export function WorkloadCard() {
   const currentMonthPrefix = today.slice(0, 7) // YYYY-MM
   const now = Date.now()
 
-  // Driver metrics
+  // Driver metrics (Pengecualian Beban Kerja Sopir: Trip selama cuti/penggantian tidak diakumulasikan ke sopir)
   const driverRows = db.drivers.map((d) => {
     const driverTrips = db.trips.filter((t) => {
       if (t.driverId !== d.id || t.status === 'READY') return false
+      // Pengecualian: perjalanan penggantian cuti tidak menambah beban kerja sopir
+      if (t.isLeaveReplacement) return false
       return period === 'day' ? t.date === today : t.date.startsWith(currentMonthPrefix)
     })
 

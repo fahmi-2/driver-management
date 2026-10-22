@@ -21,7 +21,16 @@ import {
   Users,
   AlertCircle
 } from 'lucide-react'
-import { DEPARTMENTS, DEPARTMENT_APPROVERS, getManagerBySection, getAllAccounts, type Account } from '@/lib/accounts'
+import {
+  DEPARTMENTS,
+  DEPARTMENT_APPROVERS,
+  getManagerBySection,
+  getApproverByGolongan,
+  GOLONGAN_OPTIONS,
+  getAllAccounts,
+  type Account,
+  type Golongan,
+} from '@/lib/accounts'
 import { useStore, type Trip, type Driver, type Vehicle, type Passenger, type Category, fmtDate, fmtTime, driverState, vehicleState, ymd } from '@/lib/store'
 import { Card, PageHeader, Pill, btnGhost, btnPrimary, inputCls, useToast } from '../ui-bits'
 import { VehicleTimelineScheduler, type TimelineSelection } from '../vehicle-timeline-scheduler'
@@ -59,6 +68,8 @@ export function AdminSchedulingCenter({ user }: { user: Account }) {
   const [directBookingData, setDirectBookingData] = useState<{
     selection: TimelineSelection
     category: Category
+    golongan: Golongan
+    approverRole: 'SSPV' | 'Manager'
     requesterName: string
     requesterNik: string
     dept: string
@@ -90,18 +101,18 @@ export function AdminSchedulingCenter({ user }: { user: Account }) {
       // FITUR DIRECT BOOKING VIA KALENDER (DRAG-TO-BOOK)
       // Menampilkan popup pengajuan lengkap seperti form requester
       const defaultDept = user.dept && DEPARTMENTS.includes(user.dept) ? user.dept : 'PGA'
-      const approvers = DEPARTMENT_APPROVERS[defaultDept] || []
-      const initialApprovedBy = approvers[0] || ''
-      const initialEmail = getManagerBySection(defaultDept).email
+      const initialApprover = getApproverByGolongan(defaultDept, undefined, 1)
 
       setDirectBookingData({
         selection,
         category: 'Dinas',
+        golongan: 1,
+        approverRole: initialApprover.approverRole,
         requesterName: user.name || 'Admin Utama',
         requesterNik: user.nik || 'JAI-2015003',
         dept: defaultDept,
-        approvedBy: initialApprovedBy,
-        approverEmail: initialEmail,
+        approvedBy: initialApprover.name,
+        approverEmail: initialApprover.email,
         destination: '',
         destinations: [''],
         purpose: '',
@@ -145,6 +156,10 @@ export function AdminSchedulingCenter({ user }: { user: Account }) {
       return
     }
 
+    const assignedDriver = driverId ? db.drivers.find((d) => d.id === driverId) : null
+    const isLeave = !!assignedDriver?.onLeave
+    const replacementName = isLeave ? assignedDriver?.leaveReplacementName : undefined
+
     scheduleTrip(trip.id, {
       plate: selection.selectedVehiclePlate,
       driverId: driverId || undefined,
@@ -152,6 +167,8 @@ export function AdminSchedulingCenter({ user }: { user: Account }) {
       estDeparture: selection.startTime,
       estReturn: selection.endTime,
       adminNote: adminNote.trim(),
+      isLeaveReplacement: isLeave,
+      replacementDriverName: replacementName,
     })
 
     notify(
@@ -178,6 +195,8 @@ export function AdminSchedulingCenter({ user }: { user: Account }) {
     const {
       selection,
       category,
+      golongan,
+      approverRole,
       requesterName,
       requesterNik,
       dept,
@@ -225,6 +244,8 @@ export function AdminSchedulingCenter({ user }: { user: Account }) {
       guest: guestLabel,
       category,
       dept,
+      golongan,
+      approverRole,
       requesterName: requesterName.trim(),
       requesterNik: requesterNik.trim(),
       approvedBy,
@@ -287,7 +308,7 @@ export function AdminSchedulingCenter({ user }: { user: Account }) {
                   const defaultDriver = db.drivers.find((d) => d.defaultPlate === defaultVehicle)
                   const fallbackDriver = defaultDriver?.id || db.drivers[0]?.id || ''
                   const defaultDept = user.dept && DEPARTMENTS.includes(user.dept) ? user.dept : 'HR & GA'
-                  const approvers = DEPARTMENT_APPROVERS[defaultDept] || []
+                  const appr = getApproverByGolongan(defaultDept, undefined, 1)
 
                   setDirectBookingData({
                     selection: {
@@ -297,10 +318,13 @@ export function AdminSchedulingCenter({ user }: { user: Account }) {
                       endTime: '12:00',
                     },
                     category: 'Dinas',
+                    golongan: 1,
+                    approverRole: appr.approverRole,
                     requesterName: user.name || 'Admin Utama',
                     requesterNik: user.nik || 'JAI-2015003',
                     dept: defaultDept,
-                    approvedBy: approvers[0] || '',
+                    approvedBy: appr.name,
+                    approverEmail: appr.email,
                     destination: '',
                     destinations: [''],
                     purpose: '',
@@ -670,9 +694,11 @@ export function AdminSchedulingCenter({ user }: { user: Account }) {
                     <option value="">Pilih Driver (Opsional/Nanti)...</option>
                     {db.drivers.map((d) => {
                       const s = driverState(db, d.id)
+                      const isLeave = d.onLeave
+                      const replacementInfo = isLeave && d.leaveReplacementName ? ` [Pengganti Sementara: ${d.leaveReplacementName}]` : ''
                       return (
                         <option key={d.id} value={d.id}>
-                          {d.name} ({s})
+                          {d.name} ({s}){replacementInfo}
                         </option>
                       )
                     })}
@@ -846,7 +872,7 @@ export function AdminSchedulingCenter({ user }: { user: Account }) {
                   <span className="text-[10px] text-[#8fa99b]">Wajib Dilengkapi</span>
                 </div>
 
-                <div className="grid gap-3 sm:grid-cols-2">
+                <div className="grid gap-3 sm:grid-cols-3">
                   <div>
                     <label className="block text-[11px] font-semibold text-[#8fa99b] mb-1">
                       Nama Pemohon <span className="text-[#a3e635]">*</span>
@@ -874,6 +900,34 @@ export function AdminSchedulingCenter({ user }: { user: Account }) {
                       required
                     />
                   </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-[#8fa99b] mb-1">
+                      Golongan <span className="text-[#a3e635]">*Wajib</span>
+                    </label>
+                    <select
+                      value={directBookingData.golongan}
+                      onChange={(e) => {
+                        const newGol = Number(e.target.value) as Golongan
+                        const appr = getApproverByGolongan(directBookingData.dept, undefined, newGol)
+                        setDirectBookingData({
+                          ...directBookingData,
+                          golongan: newGol,
+                          approverRole: appr.approverRole,
+                          approvedBy: appr.name,
+                          approverEmail: appr.email,
+                        })
+                      }}
+                      className={`${inputCls} bg-black/40 font-bold text-[#bef264]`}
+                      required
+                    >
+                      {GOLONGAN_OPTIONS.map((g) => (
+                        <option key={g} value={g} className="bg-[#081f14] text-white">
+                          Golongan {g} {g === 4 ? '(→ Manager)' : '(→ SSPV)'}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
 
                 <div className="grid gap-3 sm:grid-cols-2">
@@ -885,14 +939,13 @@ export function AdminSchedulingCenter({ user }: { user: Account }) {
                       value={directBookingData.dept}
                       onChange={(e) => {
                         const newDept = e.target.value
-                        const approvers = DEPARTMENT_APPROVERS[newDept] || []
-                        const newApprovedBy = approvers[0] || ''
-                        const newEmail = getManagerBySection(newDept).email
+                        const appr = getApproverByGolongan(newDept, undefined, directBookingData.golongan)
                         setDirectBookingData({
                           ...directBookingData,
                           dept: newDept,
-                          approvedBy: newApprovedBy,
-                          approverEmail: newEmail,
+                          approvedBy: appr.name,
+                          approverEmail: appr.email,
+                          approverRole: appr.approverRole,
                         })
                       }}
                       className={`${inputCls} bg-black/40`}
@@ -908,30 +961,12 @@ export function AdminSchedulingCenter({ user }: { user: Account }) {
 
                   <div>
                     <label className="block text-[11px] font-semibold text-[#8fa99b] mb-1">
-                      Approved By (Manajer/SSPV Dept) <span className="text-[#a3e635]">*</span>
+                      Approved By ({directBookingData.approverRole} Tahap 1) <span className="text-[#a3e635]">*Otomatis</span>
                     </label>
-                    <select
-                      value={directBookingData.approvedBy}
-                      onChange={(e) => {
-                        const newApprovedBy = e.target.value
-                        const cleanName = newApprovedBy.replace(/\(.*\)/, '').trim().toUpperCase()
-                        const matched = getAllAccounts().find((a) => a.name.toUpperCase().includes(cleanName) || cleanName.includes(a.name.toUpperCase()))
-                        const newEmail = matched?.email || getManagerBySection(directBookingData.dept).email
-                        setDirectBookingData({
-                          ...directBookingData,
-                          approvedBy: newApprovedBy,
-                          approverEmail: newEmail,
-                        })
-                      }}
-                      className={`${inputCls} bg-black/40 font-semibold text-[#bef264]`}
-                      required
-                    >
-                      {(DEPARTMENT_APPROVERS[directBookingData.dept] || []).map((appr) => (
-                        <option key={appr} value={appr} className="bg-[#081f14] text-white">
-                          {appr}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="rounded-xl border border-[#a3e635]/30 bg-black/40 p-2.5 text-xs">
+                      <p className="font-bold text-[#bef264]">{directBookingData.approvedBy}</p>
+                      <p className="text-[10px] text-[#8fa99b] font-mono">{directBookingData.approverEmail || 'Email terdaftar'}</p>
+                    </div>
                   </div>
                 </div>
               </div>

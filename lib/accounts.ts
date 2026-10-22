@@ -1,5 +1,9 @@
 export type Role = 'requester' | 'approver' | 'approver_pool' | 'admin' | 'admin_lobby' | 'driver' | 'security' | 'coupon'
 
+// Golongan karyawan (1, 2, 3 → SSPV Section, 4 → Manager Departemen)
+export type Golongan = 1 | 2 | 3 | 4
+export const GOLONGAN_OPTIONS: Golongan[] = [1, 2, 3, 4]
+
 export type OrgMatrixItem = {
   dept: string
   managerName: string
@@ -357,6 +361,72 @@ export function getApproversBySection(dept: string, section?: string): { name: s
   })
 
   return approvers
+}
+
+// Mendapatkan SSPV berdasarkan Section & Dept (Prioritas: akun database → fallback matriks)
+export function getSspvBySection(dept: string, section?: string): { name: string; email: string } {
+  const allAcc = getAllAccounts()
+  const matching = ORG_MATRIX.filter((m) => m.dept === dept && (!section || m.section === section))
+
+  for (const m of matching) {
+    if (m.sspvName) {
+      const sspvUpper = m.sspvName.toUpperCase()
+      const liveSspvAcc = allAcc.find(
+        (a) =>
+          (a.role === 'approver' || a.role === 'approver_pool') &&
+          (a.name.toUpperCase().includes(sspvUpper) || sspvUpper.includes(a.name.toUpperCase()))
+      )
+      return {
+        name: `${m.sspvName} (SSPV)`,
+        email: liveSspvAcc?.email || m.sspvEmail,
+      }
+    }
+  }
+
+  // Fallback: cari akun approver dengan title SSPV di departemen ini
+  const fallbackSspv = allAcc.find(
+    (a) => a.dept === dept && a.role === 'approver' && a.title && a.title.toLowerCase().includes('sspv')
+  )
+  if (fallbackSspv) {
+    return {
+      name: `${fallbackSspv.name} (SSPV)`,
+      email: fallbackSspv.email || '',
+    }
+  }
+
+  return {
+    name: `SSPV ${dept}`,
+    email: '',
+  }
+}
+
+/**
+ * Routing Dinamis Approval Tahap 1 berdasarkan Golongan Karyawan.
+ * - Golongan 1, 2, 3: Diarahkan ke SSPV (Section) dari departemen pemohon.
+ * - Golongan 4: Langsung diarahkan ke Manager (Departemen), melewati SSPV.
+ */
+export function getApproverByGolongan(
+  dept: string,
+  section?: string,
+  golongan?: Golongan | number
+): { name: string; email: string; approverRole: 'SSPV' | 'Manager' } {
+  if (golongan === 4) {
+    // Golongan 4 → langsung ke Manager Departemen
+    const manager = getManagerBySection(dept, section)
+    return {
+      name: manager.name,
+      email: manager.email,
+      approverRole: 'Manager',
+    }
+  }
+
+  // Golongan 1, 2, 3 → diarahkan ke SSPV Section
+  const sspv = getSspvBySection(dept, section)
+  return {
+    name: sspv.name,
+    email: sspv.email,
+    approverRole: 'SSPV',
+  }
 }
 
 // Fallback DEPARTMENT_APPROVERS compatibility
@@ -929,7 +999,7 @@ export const ACCOUNTS: Account[] = [
 
 export const ROLE_LABEL: Record<Role, string> = {
   requester: 'Requester (Pemohon)',
-  approver: 'Approver SPV Departemen (Tahap 1)',
+  approver: 'Approver SSPV / Manager (Tahap 1)',
   approver_pool: 'Approver SPV Kendaraan (Tahap 2)',
   admin: 'Super Admin (Pool GA)',
   admin_lobby: 'Admin Lobby Frontdesk',

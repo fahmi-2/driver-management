@@ -46,7 +46,9 @@ export function DriverDashboard({ user }: DriverDashboardProps) {
     clockOutDriver, 
     startDriverTrip, 
     endDriverTrip, 
-    submitDelayReason 
+    submitDelayReason,
+    endOvertime,
+    submitOvertimeReport
   } = useStore()
   const notify = useToast()
 
@@ -94,6 +96,105 @@ export function DriverDashboard({ user }: DriverDashboardProps) {
   const liveAttendance = useMemo(() => {
     return calculateDriverLiveAttendance(myAttendance, today)
   }, [myAttendance, today, wibNow])
+
+  // Overtime Request aktif untuk driver ini
+  const activeOvertime = useMemo(() => {
+    return (db.overtimeRequests || []).find(
+      (ot) =>
+        ot.driverId === matchedDriver?.id &&
+        (ot.status === 'APPROVED' || ot.status === 'ACTIVE' || ot.status === 'SUSPENDED')
+    )
+  }, [db.overtimeRequests, matchedDriver])
+
+  // State Laporan Alasan Ketidaksesuaian Jam (Penangguhan Toleransi 15 Menit)
+  const [showOtReportModal, setShowOtReportModal] = useState(false)
+  const [otReportText, setOtReportText] = useState('')
+  const [hasNotified15Min, setHasNotified15Min] = useState(false)
+
+  // Hitung mundur sisa waktu lembur (Timer)
+  const otCountdown = useMemo(() => {
+    if (!activeOvertime) return null
+    const [endH, endM] = activeOvertime.endOT.split(':').map(Number)
+    const endTarget = new Date()
+    endTarget.setHours(endH || 0, endM || 0, 0, 0)
+    const diffMs = endTarget.getTime() - Date.now()
+    const diffSeconds = Math.round(diffMs / 1000)
+    const isPast = diffSeconds < 0
+    const absSeconds = Math.abs(diffSeconds)
+    const h = Math.floor(absSeconds / 3600)
+    const m = Math.floor((absSeconds % 3600) / 60)
+    const s = absSeconds % 60
+    return {
+      totalSeconds: diffSeconds,
+      isPast,
+      formatted: `${isPast ? '-' : ''}${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`,
+      minutesLeft: Math.round(diffSeconds / 60),
+    }
+  }, [activeOvertime, wibNow])
+
+  // Web Push Notification pengingat tepat 15 menit sebelum End OT
+  useEffect(() => {
+    if (!activeOvertime || !otCountdown || hasNotified15Min) return
+    // Jika waktu tersisa antara 14 dan 15 menit
+    if (otCountdown.minutesLeft <= 15 && otCountdown.minutesLeft >= 13) {
+      if ('Notification' in window) {
+        if (Notification.permission === 'granted') {
+          new Notification('Pengingat Lembur Driver (15 Menit)', {
+            body: `Halo ${matchedDriver?.name}, waktu Overtime Anda akan berakhir pada ${activeOvertime.endOT} WIB (15 menit lagi). Harap segera bersiap mengakhiri tugas.`,
+            icon: '/favicon.ico',
+          })
+          setHasNotified15Min(true)
+        } else if (Notification.permission !== 'denied') {
+          Notification.requestPermission().then((perm) => {
+            if (perm === 'granted') {
+              new Notification('Pengingat Lembur Driver (15 Menit)', {
+                body: `Halo ${matchedDriver?.name}, waktu Overtime Anda akan berakhir pada ${activeOvertime.endOT} WIB (15 menit lagi).`,
+                icon: '/favicon.ico',
+              })
+              setHasNotified15Min(true)
+            }
+          })
+        }
+      }
+      notify(`⏰ Peringatan: Waktu Overtime Anda tersisa 15 menit lagi (Selesai: ${activeOvertime.endOT} WIB).`, 'error')
+    }
+  }, [activeOvertime, otCountdown, hasNotified15Min, matchedDriver])
+
+  // Handler Driver tekan tombol "End Overtime"
+  const handleEndOvertimeClick = () => {
+    if (!activeOvertime) return
+    const nowIso = new Date().toISOString()
+    const now = new Date()
+    const [endH, endM] = activeOvertime.endOT.split(':').map(Number)
+    const planEnd = new Date()
+    planEnd.setHours(endH || 0, endM || 0, 0, 0)
+    const diffMinutes = Math.abs(Math.round((now.getTime() - planEnd.getTime()) / 60000))
+
+    if (diffMinutes > 15) {
+      // Melebihi toleransi 15 menit -> status dinyatakan Ditangguhkan dan wajib mengisi laporan alasan
+      endOvertime(activeOvertime.id, nowIso)
+      setShowOtReportModal(true)
+      notify('Waktu penutupan lembur melebihi toleransi 15 menit! Status perjalanan DITANGGUHKAN. Mohon isi alasan ketidaksesuaian.', 'error', 8000)
+    } else {
+      endOvertime(activeOvertime.id, nowIso)
+      notify('Overtime berhasil diselesaikan tepat waktu sesuai toleransi plan.')
+    }
+  }
+
+  // Handler kirim alasan penangguhan ke Pak Hayu
+  const handleSubmitDiscrepancyReport = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!activeOvertime) return
+    if (!otReportText.trim()) {
+      notify('Alasan ketidaksesuaian wajib diisi!', 'error')
+      return
+    }
+
+    submitOvertimeReport(activeOvertime.id, otReportText.trim())
+    notify('Laporan alasan telah terkirim ke Pak Hayu (SPV Kendaraan). Hitungan waktu lembur telah terhenti otomatis. Menunggu persetujuan.', undefined, 8000)
+    setShowOtReportModal(false)
+    setOtReportText('')
+  }
 
   // Delay Justification Modal State
   const [delayModalTripId, setDelayModalTripId] = useState<string | null>(null)
@@ -172,6 +273,59 @@ export function DriverDashboard({ user }: DriverDashboardProps) {
         title="Jadwal Tugas & Absensi Driver" 
         desc={`Portal resmi penugasan armada & absensi dinas · ${user.name}`} 
       />
+
+      {/* OVERTIME (LEMBUR) BANNER & COUNTDOWN TIMER - UNGU KHUSUS */}
+      {activeOvertime && (
+        <div className="relative overflow-hidden rounded-2xl border border-purple-500/40 bg-gradient-to-r from-[#2a0e4a] via-[#1c0b33] to-[#0d041a] p-6 text-white shadow-2xl animate-in fade-in">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="rounded-full bg-purple-500/30 border border-purple-400/50 px-3 py-1 text-xs font-extrabold text-purple-200 flex items-center gap-1.5 shadow-sm">
+                  <Timer size={14} className="text-purple-300 animate-spin" />
+                  STATUS: OVERTIME AKTIF
+                </span>
+                <span className="rounded bg-black/40 px-2.5 py-1 text-xs font-mono text-purple-200 border border-purple-500/20">
+                  Target: {activeOvertime.startOT} – {activeOvertime.endOT} WIB
+                </span>
+              </div>
+              <h3 className="text-xl font-black text-white">
+                Penugasan Lembur Berjalan
+              </h3>
+              <p className="text-xs text-purple-200/80 max-w-xl">
+                Alasan: <strong>{activeOvertime.reason}</strong> · Disetujui oleh Pak Hayu (SPV Kendaraan).
+              </p>
+            </div>
+
+            {/* Timer Countdown Card */}
+            <div className="shrink-0 rounded-2xl bg-black/60 border border-purple-500/30 p-4 text-center min-w-[240px]">
+              <p className="text-[11px] font-semibold text-purple-300 mb-1">
+                {otCountdown?.isPast ? 'Waktu Lembur Terlewati' : 'Hitung Mundur Sisa Waktu'}
+              </p>
+              <div className={`font-mono text-3xl font-black tracking-wider ${
+                otCountdown?.isPast
+                  ? 'text-rose-400 animate-pulse'
+                  : (otCountdown?.minutesLeft || 0) <= 15
+                  ? 'text-amber-300 animate-pulse'
+                  : 'text-purple-200'
+              }`}>
+                {otCountdown?.formatted || '00:00:00'}
+              </div>
+              <p className="text-[10px] text-purple-300/60 mt-1">
+                Toleransi penyelesaian: ±15 Menit dari {activeOvertime.endOT} WIB
+              </p>
+
+              <button
+                type="button"
+                onClick={handleEndOvertimeClick}
+                className="mt-3 w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs shadow-lg shadow-purple-900/50 transition active:scale-[.98]"
+              >
+                <Square size={14} />
+                Akhiri Lembur (End OT)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* TOP SECTION: KARTU ABSENSI & OVERTIME REAL-TIME */}
       <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-[#0c2619] via-[#06180f] to-black p-6 text-white shadow-2xl">
@@ -625,6 +779,55 @@ export function DriverDashboard({ user }: DriverDashboardProps) {
                 Simpan & Selesaikan Perjalanan
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* POPUP MODAL: LAPORAN PENANGGUHAN LEMBUR (TOLERANSI 15 MENIT) */}
+      {showOtReportModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-lg rounded-2xl border border-rose-500/50 bg-[#160b14] p-6 text-white shadow-2xl space-y-4">
+            <div className="flex items-center gap-2.5 text-rose-400">
+              <AlertTriangle className="h-6 w-6 shrink-0" />
+              <div>
+                <h3 className="text-lg font-bold text-white">Status Perjalanan Ditangguhkan</h3>
+                <p className="text-xs text-rose-300/80">
+                  Waktu selesai aktual melebihi batas toleransi 15 menit dari Plan Overtime.
+                </p>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-rose-500/30 bg-rose-950/40 p-3 text-xs text-rose-200 space-y-1">
+              <p className="font-semibold text-rose-300">Pemberitahuan Sistem:</p>
+              <p className="text-[11px] text-rose-200/80 leading-relaxed">
+                Waktu lembur Anda telah <strong>otomatis terhenti</strong>. Untuk menormalkan kembali status Anda dan kendaraan, Anda wajib mengisi laporan penjelasan alasan ketidaksesuaian jam aktual untuk dikirimkan dan diverifikasi oleh <strong>Pak Hayu</strong>.
+              </p>
+            </div>
+
+            <form onSubmit={handleSubmitDiscrepancyReport} className="space-y-4 pt-1">
+              <div>
+                <label className="block text-xs font-semibold text-rose-200 mb-1">
+                  Alasan Ketidaksesuaian Jam Aktual vs Plan OT <span className="text-rose-400">*Wajib</span>
+                </label>
+                <textarea
+                  rows={4}
+                  value={otReportText}
+                  onChange={(e) => setOtReportText(e.target.value)}
+                  placeholder="Jelaskan kendala di lapangan (misal: antrean pengisian bahan bakar, menunggu barang/dokumen tambahan dari pemohon, kondisi jalanan macet total)..."
+                  className="w-full rounded-xl border border-rose-500/40 bg-black/60 p-3 text-xs text-white placeholder-rose-300/40 outline-none focus:border-rose-400 focus:ring-1 focus:ring-rose-400"
+                  required
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2 border-t border-white/10">
+                <button
+                  type="submit"
+                  className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-gradient-to-r from-rose-600 to-rose-500 hover:from-rose-500 hover:to-rose-400 text-white font-bold text-xs shadow-lg shadow-rose-950/50 transition"
+                >
+                  Kirim Laporan ke Pak Hayu
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Clock3, Download, Edit3, Phone, Plus, Shield, Trash2, Truck, UserCheck, UserPlus, UserRound, X, ChevronLeft, ChevronRight } from 'lucide-react'
-import { COUPON_LABEL, STATUS_LABEL, driverState, fmtDate, fmtDur, fmtTime, useStore, vehicleState, type Driver, type ShiftType, type Trip } from '@/lib/store'
+import { Clock3, Download, Edit3, Phone, Plus, Shield, Trash2, Truck, UserCheck, UserPlus, UserRound, X, ChevronLeft, ChevronRight, Timer, AlertCircle, Calendar } from 'lucide-react'
+import type { Account } from '@/lib/accounts'
+import { COUPON_LABEL, STATUS_LABEL, driverState, fmtDate, fmtDur, fmtTime, useStore, vehicleState, ymd, type Driver, type ShiftType, type Trip } from '@/lib/store'
 import { Card, Empty, PageHeader, Pill, btnGhost, btnPrimary, couponTone, inputCls, tdCls, thCls, tripTone, useToast } from '../ui-bits'
 import { WorkloadCard } from './dashboard'
 
@@ -143,8 +144,8 @@ const SHIFT_OPTIONS: ShiftType[] = [
   'General (08:00 - 17:00)',
 ]
 
-export function AdminDrivers() {
-  const { db, addDriver, updateDriver, removeDriver, toggleLeave } = useStore()
+export function AdminDrivers({ user }: { user?: Account }) {
+  const { db, addDriver, updateDriver, removeDriver, toggleLeave, createOvertime } = useStore()
   const notify = useToast()
   const [showModal, setShowModal] = useState(false)
   const [editingDriver, setEditingDriver] = useState<Driver | null>(null)
@@ -153,6 +154,18 @@ export function AdminDrivers() {
   const [currentPage, setCurrentPage] = useState(1)
   const pageSize = 10
 
+  // Modal Overtime (Lembur) - Form Ungu Wajib Start OT, End OT, Alasan
+  const [overtimeDriver, setOvertimeDriver] = useState<Driver | null>(null)
+  const [otForm, setOtForm] = useState({
+    startOT: '17:00',
+    endOT: '20:00',
+    reason: '',
+  })
+
+  // Modal Cuti & Penggantian Nama Sementara
+  const [leaveModalDriver, setLeaveModalDriver] = useState<Driver | null>(null)
+  const [leaveReplacementName, setLeaveReplacementName] = useState('')
+
   // Form State (Tanpa Jam Shift: Penugasan fleksibel mengikuti admin)
   const [formData, setFormData] = useState({
     name: '',
@@ -160,6 +173,7 @@ export function AdminDrivers() {
     defaultPlate: '',
     simType: 'SIM A',
     onLeave: false,
+    leaveReplacementName: '',
   })
 
   const openAddModal = () => {
@@ -170,6 +184,7 @@ export function AdminDrivers() {
       defaultPlate: '',
       simType: 'SIM A',
       onLeave: false,
+      leaveReplacementName: '',
     })
     setShowModal(true)
   }
@@ -182,8 +197,60 @@ export function AdminDrivers() {
       defaultPlate: driver.defaultPlate || '',
       simType: driver.simType || 'SIM A',
       onLeave: !!driver.onLeave,
+      leaveReplacementName: driver.leaveReplacementName || '',
     })
     setShowModal(true)
+  }
+
+  const handleOpenOvertime = (driver: Driver) => {
+    setOvertimeDriver(driver)
+    setOtForm({
+      startOT: '17:00',
+      endOT: '20:00',
+      reason: '',
+    })
+  }
+
+  const handleOvertimeSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!overtimeDriver) return
+    if (!otForm.reason.trim()) {
+      notify('Alasan lembur wajib diisi!', 'error')
+      return
+    }
+
+    createOvertime({
+      driverId: overtimeDriver.id,
+      driverName: overtimeDriver.name,
+      requestedBy: user?.username || 'admin',
+      requestedByName: user?.name || 'Admin Pool GA',
+      date: ymd(),
+      startOT: otForm.startOT,
+      endOT: otForm.endOT,
+      reason: otForm.reason.trim(),
+    })
+
+    notify(
+      `Pengajuan lembur sopir ${overtimeDriver.name} berhasil diajukan! Notifikasi dikirim ke Pak Hayu (Approver Kendaraan Tahap 2).`
+    )
+    setOvertimeDriver(null)
+  }
+
+  const handleOpenLeaveModal = (driver: Driver) => {
+    setLeaveModalDriver(driver)
+    setLeaveReplacementName(driver.leaveReplacementName || '')
+  }
+
+  const handleConfirmLeave = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!leaveModalDriver) return
+    toggleLeave(leaveModalDriver.id, leaveReplacementName.trim())
+    notify(
+      !leaveModalDriver.onLeave
+        ? `Status ${leaveModalDriver.name} diubah menjadi CUTI.${leaveReplacementName.trim() ? ` Nama sopir sementara: ${leaveReplacementName.trim()}` : ''}`
+        : `Status ${leaveModalDriver.name} kembali AKTIF.`
+    )
+    setLeaveModalDriver(null)
   }
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -391,9 +458,16 @@ export function AdminDrivers() {
                             </p>
                           </div>
                         ) : d.onLeave ? (
-                          <span className="text-[10px] text-[#a5700b] bg-[#fff1d6] px-2 py-0.5 rounded font-medium">
-                            Izin / Cuti
-                          </span>
+                          <div className="space-y-0.5">
+                            <span className="text-[10px] text-[#a5700b] bg-[#fff1d6] px-2 py-0.5 rounded font-medium inline-block">
+                              Izin / Cuti
+                            </span>
+                            {d.leaveReplacementName && (
+                              <p className="text-[10px] text-[#708078]">
+                                Pengganti: <strong className="text-white">{d.leaveReplacementName}</strong>
+                              </p>
+                            )}
+                          </div>
                         ) : (
                           <span className="text-[11px] text-[#93a097]">Siap ditugaskan</span>
                         )}
@@ -415,12 +489,37 @@ export function AdminDrivers() {
                         </div>
                       </td>
                       <td className={`${tdCls} text-right`}>
-                        <div className="flex items-center justify-end">
+                        <div className="flex items-center justify-end gap-1.5">
+                          {/* Tombol Ajukan Lembur Khusus Admin */}
+                          <button
+                            type="button"
+                            onClick={() => handleOpenOvertime(d)}
+                            className="inline-flex items-center gap-1 rounded-lg border border-purple-500/40 bg-purple-500/20 px-2.5 py-1 text-[11px] font-bold text-purple-200 shadow-xs hover:bg-purple-500/30 transition"
+                            title="Ajukan Lembur (Overtime)"
+                          >
+                            <Timer size={12} className="text-purple-300" />
+                            Lembur
+                          </button>
+
+                          {/* Tombol Cuti & Pengganti */}
+                          <button
+                            type="button"
+                            onClick={() => handleOpenLeaveModal(d)}
+                            className={`inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-[11px] font-bold transition shadow-xs ${
+                              d.onLeave
+                                ? 'border-amber-400/40 bg-amber-500/20 text-amber-200 hover:bg-amber-500/30'
+                                : 'border-white/10 bg-white/5 text-[#8fa99b] hover:text-white hover:bg-white/10'
+                            }`}
+                            title="Atur Cuti & Sopir Pengganti"
+                          >
+                            {d.onLeave ? 'Cuti' : 'Izin'}
+                          </button>
+
                           <button
                             onClick={() => openEditModal(d)}
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-[#dce7df] bg-white px-3 py-1.5 text-xs font-semibold text-[#10251c] shadow-xs hover:border-[#075b3d] hover:bg-[#f2f8f4] hover:text-[#075b3d] transition"
+                            className="inline-flex items-center gap-1 rounded-lg border border-[#dce7df] bg-white px-2.5 py-1 text-[11px] font-semibold text-[#10251c] shadow-xs hover:border-[#075b3d] hover:bg-[#f2f8f4] hover:text-[#075b3d] transition"
                           >
-                            <Edit3 size={13} className="text-[#075b3d]" />
+                            <Edit3 size={12} className="text-[#075b3d]" />
                             Edit
                           </button>
                         </div>
@@ -656,7 +755,189 @@ export function AdminDrivers() {
           </div>
         </div>
       )}
+
+      {/* POP-UP REQUEST OVERTIME (LEMBUR) - FORM UI UNGU */}
+      {overtimeDriver && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="w-full max-w-md rounded-2xl bg-[#1e1333] text-white shadow-2xl border border-purple-500/30 overflow-hidden">
+            {/* Header Form Ungu */}
+            <div className="flex items-center justify-between border-b border-purple-500/20 bg-gradient-to-r from-purple-900 to-indigo-900 px-6 py-4">
+              <div className="flex items-center gap-2.5">
+                <div className="flex size-9 items-center justify-center rounded-xl bg-purple-500/30 text-purple-200 border border-purple-400/40">
+                  <Timer size={18} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white">Pengajuan Overtime (Lembur)</h3>
+                  <p className="text-[11px] text-purple-200">Sopir: <strong className="text-white underline">{overtimeDriver.name}</strong> ({overtimeDriver.id})</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setOvertimeDriver(null)}
+                className="p-1 rounded-lg text-purple-300 hover:bg-purple-800 hover:text-white transition"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <form onSubmit={handleOvertimeSubmit} className="p-6 space-y-4">
+              <div className="rounded-xl border border-purple-500/20 bg-purple-950/40 p-3 text-xs space-y-1.5 text-purple-200">
+                <p className="flex items-center gap-1.5 font-semibold text-purple-300">
+                  <AlertCircle size={14} className="text-purple-400 shrink-0" />
+                  Alur Persetujuan Lembur:
+                </p>
+                <p className="text-[11px] text-purple-200/80 leading-relaxed">
+                  Permohonan lembur ini langsung dikirimkan ke akun <strong>Pak Hayu</strong> (Approver Kendaraan Tahap 2). Setelah di-ACC, driver akan otomatis berstatus <strong>Overtime</strong> disertai timer countdown di HP.
+                </p>
+              </div>
+
+              {/* Start OT & End OT Input */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-semibold text-purple-200 mb-1">
+                    Start OT <span className="text-purple-400">*Wajib</span>
+                  </label>
+                  <input
+                    type="time"
+                    value={otForm.startOT}
+                    onChange={(e) => setOtForm({ ...otForm, startOT: e.target.value })}
+                    className="w-full rounded-xl border border-purple-500/30 bg-black/40 px-3 py-2 text-xs font-mono font-bold text-white outline-none focus:border-purple-400 focus:ring-1 focus:ring-purple-400"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-purple-200 mb-1">
+                    End OT <span className="text-purple-400">*Wajib</span>
+                  </label>
+                  <input
+                    type="time"
+                    value={otForm.endOT}
+                    onChange={(e) => setOtForm({ ...otForm, endOT: e.target.value })}
+                    className="w-full rounded-xl border border-purple-500/30 bg-black/40 px-3 py-2 text-xs font-mono font-bold text-white outline-none focus:border-purple-400 focus:ring-1 focus:ring-purple-400"
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Alasan Wajib */}
+              <div>
+                <label className="block text-[11px] font-semibold text-purple-200 mb-1">
+                  Alasan Lembur <span className="text-purple-400">*Wajib Diisi</span>
+                </label>
+                <textarea
+                  rows={3}
+                  value={otForm.reason}
+                  onChange={(e) => setOtForm({ ...otForm, reason: e.target.value })}
+                  placeholder="Contoh: Mengantar tamu manajemen meeting malam / operasional mendesak logistik..."
+                  className="w-full rounded-xl border border-purple-500/30 bg-black/40 p-3 text-xs text-white placeholder-purple-300/40 outline-none focus:border-purple-400 focus:ring-1 focus:ring-purple-400"
+                  required
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-purple-500/20">
+                <button
+                  type="button"
+                  onClick={() => setOvertimeDriver(null)}
+                  className="rounded-xl px-4 py-2 text-xs font-bold text-purple-300 hover:bg-purple-900/40 transition"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className="flex items-center gap-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 px-5 py-2 text-xs font-bold text-white shadow-lg shadow-purple-600/30 transition"
+                >
+                  <Timer size={14} />
+                  Kirim ke Pak Hayu
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* POP-UP STATUS CUTI & PENGGANTIAN NAMA SEMENTARA */}
+      {leaveModalDriver && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl border border-[#dce7df] overflow-hidden">
+            <div className="flex items-center justify-between border-b border-[#edf1ee] bg-[#f7faf8] px-6 py-4">
+              <div className="flex items-center gap-2.5">
+                <div className="flex size-9 items-center justify-center rounded-xl bg-amber-500/20 text-amber-700">
+                  <Calendar size={18} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-[#10251c]">
+                    {leaveModalDriver.onLeave ? 'Akhiri Status Cuti' : 'Pengaturan Cuti & Sopir Pengganti'}
+                  </h3>
+                  <p className="text-[11px] text-[#708078]">Sopir: {leaveModalDriver.name}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setLeaveModalDriver(null)}
+                className="p-1 rounded-lg text-[#708078] hover:bg-[#edf2ef]"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <form onSubmit={handleConfirmLeave} className="p-6 space-y-4">
+              {!leaveModalDriver.onLeave ? (
+                <>
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 space-y-1.5">
+                    <p className="font-bold flex items-center gap-1.5">
+                      <AlertCircle size={14} className="text-amber-600 shrink-0" />
+                      Aturan Cuti & Beban Kerja:
+                    </p>
+                    <ul className="list-disc pl-4 space-y-1 text-[11px] text-amber-800">
+                      <li>Perjalanan dengan sopir pengganti <strong>tidak diakumulasikan</strong> ke data beban kerja sopir utama maupun pengganti.</li>
+                      <li>Perhitungan KM dan durasi fisik mobil <strong>tetap berjalan normal</strong> ke beban kerja kendaraan.</li>
+                    </ul>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-[#10251c] mb-1">
+                      Nama Sopir Pengganti Sementara (Label Nama Saja)
+                    </label>
+                    <input
+                      type="text"
+                      value={leaveReplacementName}
+                      onChange={(e) => setLeaveReplacementName(e.target.value)}
+                      placeholder="Contoh: Pak Joko (Cadangan) / Pak Rudi"
+                      className={inputCls}
+                    />
+                    <p className="mt-1 text-[10px] text-[#708078]">
+                      *Sifatnya hanya mengganti label nama pada jadwal & kendaraan selama cuti.
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <p className="text-xs text-[#10251c]">
+                  Apakah Anda ingin mengembalikan status sopir <strong>{leaveModalDriver.name}</strong> menjadi <strong>Aktif Bekerja</strong> dan menghapus penugasan sopir pengganti sementara?
+                </p>
+              )}
+
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-[#edf1ee]">
+                <button
+                  type="button"
+                  onClick={() => setLeaveModalDriver(null)}
+                  className={btnGhost}
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className={leaveModalDriver.onLeave ? btnPrimary : 'rounded-full bg-amber-600 px-5 py-2 text-xs font-bold text-white shadow-md hover:bg-amber-700 transition'}
+                >
+                  {leaveModalDriver.onLeave ? 'Aktifkan Kembali' : 'Konfirmasi Cuti & Pengganti'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </>
   )
 }
+
 

@@ -14,6 +14,7 @@ export type Driver = {
   id: string
   name: string
   onLeave: boolean
+  leaveReplacementName?: string // Nama pengganti sementara saat cuti
   shift?: string
   phone?: string
   defaultPlate?: string
@@ -44,6 +45,8 @@ export type Trip = {
   requesterNik?: string
   dept: string
   section?: string
+  golongan?: number // Golongan karyawan pemohon utama (1, 2, 3, 4)
+  approverRole?: 'SSPV' | 'Manager' // Ditentukan otomatis berdasarkan golongan
   approverEmail?: string // Email penerima notifikasi persetujuan (Manager/SSPV)
   category: Category
   guest: string
@@ -57,6 +60,8 @@ export type Trip = {
   otherVehicleName?: string // Nama mobil manajer / mobil luar
   blockedDefaultPlate?: string // Plat mobil default driver yang terblokir
   blockedReason?: string // Keterangan blokir (misal: "Driver sedang [Catatan]")
+  isLeaveReplacement?: boolean // Trip dibuat selama penggantian cuti (tidak akumulasi beban sopir)
+  replacementDriverName?: string // Nama sementara pengganti sopir cuti
   purpose: string
   estDeparture: string // HH:mm
   estReturn?: string // HH:mm
@@ -100,11 +105,35 @@ export type DriverAttendance = {
   overtimeMinutes?: number
 }
 
+// --- Overtime Request (Lembur Driver) ---
+export type OvertimeStatus = 'PENDING' | 'APPROVED' | 'ACTIVE' | 'SUSPENDED' | 'WAITING_REPORT' | 'COMPLETED' | 'REJECTED'
+
+export type OvertimeRequest = {
+  id: string
+  driverId: string
+  driverName: string
+  requestedBy: string // Username admin yang mengajukan
+  requestedByName: string
+  date: string // YYYY-MM-DD
+  startOT: string // HH:mm
+  endOT: string // HH:mm
+  reason: string
+  status: OvertimeStatus
+  approvedBy?: string
+  approvedAt?: string
+  actualEnd?: string // ISO timestamp ketika driver menekan "End"
+  isSuspended?: boolean // Jika melebihi toleransi 15 menit
+  driverReport?: string // Alasan ketidaksesuaian dari driver
+  reportApprovedAt?: string
+  createdAt: string // ISO timestamp
+}
+
 type DB = {
   drivers: Driver[]
   vehicles: Vehicle[]
   trips: Trip[]
   attendances?: DriverAttendance[]
+  overtimeRequests?: OvertimeRequest[]
 }
 
 export const NOON_HOUR = 12
@@ -294,6 +323,8 @@ type NewTrip = Pick<Trip, 'category' | 'guest' | 'destination' | 'purpose' | 'es
   date?: string
   requesterNik?: string
   section?: string
+  golongan?: number
+  approverRole?: 'SSPV' | 'Manager'
   spvName?: string
   spvEmail?: string
   approverEmail?: string
@@ -309,6 +340,8 @@ type NewTrip = Pick<Trip, 'category' | 'guest' | 'destination' | 'purpose' | 'es
   blockedReason?: string
   distance_km?: number
   estimated_duration_minutes?: number
+  isLeaveReplacement?: boolean
+  replacementDriverName?: string
 }
 
 type DirectBookingParams = {
@@ -326,6 +359,8 @@ type DirectBookingParams = {
   guest: string
   dept: string
   section?: string
+  golongan?: number
+  approverRole?: 'SSPV' | 'Manager'
   adminNote: string
   category?: Category
   requesterName?: string
@@ -338,6 +373,8 @@ type DirectBookingParams = {
   otherVehicleName?: string
   distance_km?: number
   estimated_duration_minutes?: number
+  isLeaveReplacement?: boolean
+  replacementDriverName?: string
 }
 
 export type TripSubmitResult = {
@@ -355,7 +392,7 @@ type Ctx = {
   spvDecision: (id: string, approve: boolean, note?: string) => void
   poolSpvDecision: (id: string, approve: boolean, note?: string, approverName?: string) => void
   assignTrip: (id: string, driverId: string, plate: string) => void
-  scheduleTrip: (id: string, params: { plate: string; driverId?: string; date: string; estDeparture: string; estReturn?: string; adminNote?: string; isOtherVehicle?: boolean; otherVehicleName?: string; origin?: string; destination?: string; returnToOrigin?: boolean }) => void
+  scheduleTrip: (id: string, params: { plate: string; driverId?: string; date: string; estDeparture: string; estReturn?: string; adminNote?: string; isOtherVehicle?: boolean; otherVehicleName?: string; origin?: string; destination?: string; returnToOrigin?: boolean; isLeaveReplacement?: boolean; replacementDriverName?: string }) => void
   rejectTrip: (id: string, reason: string) => void
   gateGo: (id: string, security: string) => void
   gateBack: (id: string, security: string, delayReason?: string) => void
@@ -370,10 +407,17 @@ type Ctx = {
   addDriver: (d: Omit<Driver, 'id' | 'onLeave'>) => void
   updateDriver: (id: string, d: Partial<Driver>) => void
   removeDriver: (id: string) => void
-  toggleLeave: (driverId: string) => void
+  toggleLeave: (driverId: string, replacementName?: string) => void
   addVehicle: (v: Vehicle) => Promise<{ success: boolean; error?: string }>
   updateVehicle: (plate: string, v: Partial<Vehicle>) => Promise<{ success: boolean; error?: string }>
   removeVehicle: (plate: string) => Promise<{ success: boolean; error?: string }>
+  // Overtime
+  createOvertime: (ot: Omit<OvertimeRequest, 'id' | 'status' | 'createdAt'>) => void
+  approveOvertime: (id: string, approverName: string) => void
+  rejectOvertime: (id: string) => void
+  endOvertime: (id: string, actualEnd?: string) => void
+  submitOvertimeReport: (id: string, report: string) => void
+  approveOvertimeReport: (id: string) => void
   resetDemo: () => void
 }
 
@@ -397,6 +441,7 @@ function sanitizeDB(rawDb: any): DB {
     vehicles,
     trips,
     attendances: Array.isArray(rawDb.attendances) ? rawDb.attendances : [],
+    overtimeRequests: Array.isArray(rawDb.overtimeRequests) ? rawDb.overtimeRequests : [],
   }
 }
 
@@ -862,12 +907,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       update((prev) => ({ ...prev, drivers: prev.drivers.filter((x) => x.id !== id) }))
       import('./sync').then(({ deleteDriverFromSupabase }) => deleteDriverFromSupabase(id))
     },
-    toggleLeave: (driverId) =>
+    toggleLeave: (driverId, replacementName) =>
       update((d) => {
         let updated: Driver | null = null
         const next = d.drivers.map((x) => {
           if (x.id === driverId) {
-            const n = { ...x, onLeave: !x.onLeave }
+            const willLeave = !x.onLeave
+            const n: Driver = {
+              ...x,
+              onLeave: willLeave,
+              leaveReplacementName: willLeave ? (replacementName || undefined) : undefined,
+            }
             updated = n
             return n
           }
@@ -877,6 +927,97 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           import('./sync').then(({ upsertDriverToSupabase }) => upsertDriverToSupabase(updated!))
         }
         return { ...d, drivers: next }
+      }),
+    createOvertime: (ot) =>
+      update((d) => {
+        const id = `OT-${Date.now().toString().slice(-6)}`
+        const newOt: OvertimeRequest = {
+          ...ot,
+          id,
+          status: 'PENDING',
+          createdAt: new Date().toISOString(),
+        }
+        return {
+          ...d,
+          overtimeRequests: [...(d.overtimeRequests || []), newOt],
+        }
+      }),
+    approveOvertime: (id, approverName) =>
+      update((d) => {
+        const next = (d.overtimeRequests || []).map((ot) => {
+          if (ot.id === id) {
+            return {
+              ...ot,
+              status: 'APPROVED' as const,
+              approvedBy: approverName,
+              approvedAt: new Date().toISOString(),
+            }
+          }
+          return ot
+        })
+        return { ...d, overtimeRequests: next }
+      }),
+    rejectOvertime: (id) =>
+      update((d) => {
+        const next = (d.overtimeRequests || []).map((ot) => {
+          if (ot.id === id) {
+            return { ...ot, status: 'REJECTED' as const }
+          }
+          return ot
+        })
+        return { ...d, overtimeRequests: next }
+      }),
+    endOvertime: (id, actualEnd) =>
+      update((d) => {
+        const nowIso = actualEnd || new Date().toISOString()
+        const now = new Date(nowIso)
+        const next = (d.overtimeRequests || []).map((ot) => {
+          if (ot.id === id) {
+            // Cek selisih waktu dengan plan endOT (HH:mm)
+            const [endH, endM] = ot.endOT.split(':').map(Number)
+            const planEnd = new Date(nowIso)
+            planEnd.setHours(endH || 0, endM || 0, 0, 0)
+            const diffMinutes = Math.abs(Math.round((now.getTime() - planEnd.getTime()) / 60000))
+            const isSuspended = diffMinutes > 15
+
+            return {
+              ...ot,
+              actualEnd: nowIso,
+              isSuspended,
+              status: isSuspended ? ('SUSPENDED' as const) : ('COMPLETED' as const),
+            }
+          }
+          return ot
+        })
+        return { ...d, overtimeRequests: next }
+      }),
+    submitOvertimeReport: (id, report) =>
+      update((d) => {
+        const next = (d.overtimeRequests || []).map((ot) => {
+          if (ot.id === id) {
+            return {
+              ...ot,
+              driverReport: report,
+              status: 'WAITING_REPORT' as const,
+            }
+          }
+          return ot
+        })
+        return { ...d, overtimeRequests: next }
+      }),
+    approveOvertimeReport: (id) =>
+      update((d) => {
+        const next = (d.overtimeRequests || []).map((ot) => {
+          if (ot.id === id) {
+            return {
+              ...ot,
+              status: 'COMPLETED' as const,
+              reportApprovedAt: new Date().toISOString(),
+            }
+          }
+          return ot
+        })
+        return { ...d, overtimeRequests: next }
       }),
     addVehicle: async (v) => {
       const newVehicle: Vehicle = { ...v, status: v.status || 'Active' }
@@ -947,11 +1088,19 @@ export function useStore() {
 }
 
 // ---------- derived ----------
-export function driverState(db: DB, driverId: string): 'Tersedia' | 'Sedang Bertugas' | 'Cuti' {
+export function driverState(db: DB, driverId: string): 'Tersedia' | 'Sedang Bertugas' | 'Cuti' | 'Overtime' {
   const d = db.drivers.find((x) => x.id === driverId)
   if (d?.onLeave) return 'Cuti'
+
+  // Cek apakah driver sedang dalam masa Overtime aktif (APPROVED / SUSPENDED)
+  const activeOt = (db.overtimeRequests || []).find(
+    (ot) => ot.driverId === driverId && (ot.status === 'APPROVED' || ot.status === 'ACTIVE' || ot.status === 'SUSPENDED')
+  )
+  if (activeOt) return 'Overtime'
+
   return db.trips.some((t) => t.driverId === driverId && (t.status === 'READY' || t.status === 'ON_TRIP')) ? 'Sedang Bertugas' : 'Tersedia'
 }
 export function vehicleState(db: DB, plate: string): 'Tersedia' | 'Sedang Bertugas' {
   return db.trips.some((t) => t.plate === plate && (t.status === 'READY' || t.status === 'ON_TRIP')) ? 'Sedang Bertugas' : 'Tersedia'
 }
+

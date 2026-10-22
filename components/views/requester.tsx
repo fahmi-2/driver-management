@@ -24,7 +24,10 @@ import {
   getSectionsByDept,
   getApproversBySection,
   getManagerBySection,
+  getApproverByGolongan,
+  GOLONGAN_OPTIONS,
   type Account,
+  type Golongan,
 } from '@/lib/accounts'
 import {
   COUPON_LABEL,
@@ -70,17 +73,19 @@ export function RequesterForm({ user }: { user: Account }) {
   const initialDept = user.dept && DEPARTMENTS.includes(user.dept) ? user.dept : 'PGA'
   const availableSections = getSectionsByDept(initialDept)
   const initialSection = user.section && availableSections.includes(user.section) ? user.section : availableSections[0] || ''
-  const initialManager = getManagerBySection(initialDept, initialSection)
+  const initialApprover = getApproverByGolongan(initialDept, initialSection, 1)
 
   const [f, setF] = useState({
     date: ymd(), // Tanggal Perjalanan (default hari ini, tidak boleh hari kemarin)
     category: 'Dinas' as Category,
+    golongan: 1 as Golongan, // Golongan pemohon utama (1, 2, 3, 4)
+    approverRole: initialApprover.approverRole,
     requesterName: '',
     requesterNik: '',
     dept: initialDept,
     section: initialSection,
-    approvedBy: initialManager.name,
-    approverEmail: initialManager.email,
+    approvedBy: initialApprover.name,
+    approverEmail: initialApprover.email,
     driverOnly: false, // Opsi "Hanya Driver" (tanpa penumpang / antar barang)
     additionalUsers: [] as Passenger[], // User tambahan yang bertambah saat klik "+ Tambah"
     origin: 'PT. JAI', // Titik awal dinamis
@@ -94,18 +99,18 @@ export function RequesterForm({ user }: { user: Account }) {
     estimated_duration_minutes: undefined as number | undefined,
   })
 
-  // Sync approver & email secara realtime jika ada perubahan pada akun di database
+  // Sync approver & email secara realtime jika ada perubahan pada akun di database atau golongan/dept/section
   useEffect(() => {
     const handleAccountsChanged = () => {
-      const manager = getManagerBySection(f.dept, f.section)
+      const appr = getApproverByGolongan(f.dept, f.section, f.golongan)
       setF((prev) => ({
         ...prev,
-        approvedBy: manager.name,
-        approverEmail: manager.email,
+        approvedBy: appr.name,
+        approverEmail: appr.email,
+        approverRole: appr.approverRole,
       }))
     }
 
-    // Refresh segera saat mount untuk memastikan data paling up-to-date
     handleAccountsChanged()
 
     window.addEventListener('accounts_updated', handleAccountsChanged)
@@ -114,7 +119,7 @@ export function RequesterForm({ user }: { user: Account }) {
       window.removeEventListener('accounts_updated', handleAccountsChanged)
       window.removeEventListener('profile_updated', handleAccountsChanged)
     }
-  }, [f.dept, f.section])
+  }, [f.dept, f.section, f.golongan])
 
   // State untuk modal & deteksi akun SMTP pengirim (Hierarki: Akun -> Dept -> Pool GA)
   const [smtpModalOpen, setSmtpModalOpen] = useState(false)
@@ -158,23 +163,36 @@ export function RequesterForm({ user }: { user: Account }) {
   const handleDeptChange = (newDept: string) => {
     const secList = getSectionsByDept(newDept)
     const newSec = secList[0] || ''
-    const manager = getManagerBySection(newDept, newSec)
+    const appr = getApproverByGolongan(newDept, newSec, f.golongan)
     setF((prev) => ({
       ...prev,
       dept: newDept,
       section: newSec,
-      approvedBy: manager.name,
-      approverEmail: manager.email,
+      approvedBy: appr.name,
+      approverEmail: appr.email,
+      approverRole: appr.approverRole,
     }))
   }
 
   const handleSectionChange = (newSection: string) => {
-    const manager = getManagerBySection(f.dept, newSection)
+    const appr = getApproverByGolongan(f.dept, newSection, f.golongan)
     setF((prev) => ({
       ...prev,
       section: newSection,
-      approvedBy: manager.name,
-      approverEmail: manager.email,
+      approvedBy: appr.name,
+      approverEmail: appr.email,
+      approverRole: appr.approverRole,
+    }))
+  }
+
+  const handleGolonganChange = (newGolongan: Golongan) => {
+    const appr = getApproverByGolongan(f.dept, f.section, newGolongan)
+    setF((prev) => ({
+      ...prev,
+      golongan: newGolongan,
+      approvedBy: appr.name,
+      approverEmail: appr.email,
+      approverRole: appr.approverRole,
     }))
   }
 
@@ -260,6 +278,8 @@ export function RequesterForm({ user }: { user: Account }) {
         requesterNik: f.requesterNik.trim(),
         dept: f.dept,
         section: f.section,
+        golongan: f.golongan,
+        approverRole: f.approverRole,
         spvName: f.approvedBy || `Approver (${f.dept})`,
         spvEmail: f.approverEmail,
         approverEmail: f.approverEmail,
@@ -290,19 +310,21 @@ export function RequesterForm({ user }: { user: Account }) {
       } else notify(
         f.driverOnly
           ? `Terkirim (Hanya Driver - Kupon Hangus). Email e-sign dikirim ke ${f.approvedBy} (${f.approverEmail}).`
-          : `Terkirim! Email notifikasi persetujuan otomatis dikirim ke ${f.approvedBy} (${f.approverEmail}) dari Section ${f.section || f.dept}.`
+          : `Terkirim! Permohonan Golongan ${f.golongan} otomatis diarahkan ke ${f.approverRole}: ${f.approvedBy} (${f.approverEmail}) dari Section ${f.section || f.dept}.`
       )
 
-      const resetManager = getManagerBySection(initialDept, initialSection)
+      const resetApprover = getApproverByGolongan(initialDept, initialSection, 1)
       setF({
         date: ymd(),
         category: 'Dinas',
+        golongan: 1,
+        approverRole: resetApprover.approverRole,
         requesterName: '',
         requesterNik: '',
         dept: initialDept,
         section: initialSection,
-        approvedBy: resetManager.name,
-        approverEmail: resetManager.email,
+        approvedBy: resetApprover.name,
+        approverEmail: resetApprover.email,
         driverOnly: false,
         additionalUsers: [],
         origin: 'PT. JAI',
@@ -421,8 +443,8 @@ export function RequesterForm({ user }: { user: Account }) {
                 </div>
               </div>
 
-              {/* Grid 4 Kolom: Nama Pemohon, NIK, Departemen, Section */}
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {/* Grid 5 Kolom: Nama Pemohon, NIK, Golongan (Wajib baris teratas), Departemen, Section */}
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
                 <div>
                   <label className="block text-[11px] font-semibold text-[#8fa99b] mb-1">
                     Nama Pemohon <span className="text-[#a3e635]">*</span>
@@ -447,6 +469,24 @@ export function RequesterForm({ user }: { user: Account }) {
                     className={`${inputCls} font-mono`}
                     required
                   />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-[#8fa99b] mb-1">
+                    Golongan <span className="text-[#a3e635]">*Wajib (Alur Approval)</span>
+                  </label>
+                  <select
+                    value={f.golongan}
+                    onChange={(e) => handleGolonganChange(Number(e.target.value) as Golongan)}
+                    className={`${inputCls} bg-black/40 font-bold text-[#bef264]`}
+                    required
+                  >
+                    {GOLONGAN_OPTIONS.map((g) => (
+                      <option key={g} value={g} className="bg-[#0f1f17] text-white">
+                        Golongan {g} {g === 4 ? '(→ Manager)' : '(→ SSPV)'}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>
@@ -486,18 +526,21 @@ export function RequesterForm({ user }: { user: Account }) {
                 </div>
               </div>
 
-              {/* Banner Info Approver Otomatis Sesuai Rule Section */}
+              {/* Banner Info Approver Otomatis Sesuai Rule Golongan (SSPV vs Manager) */}
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 rounded-xl border border-[#a3e635]/30 bg-[#a3e635]/10 px-3.5 py-2.5 text-xs">
                 <div className="flex items-center gap-2 text-[#e2f8d8]">
                   <Mail size={14} className="text-[#a3e635] shrink-0" />
                   <span>
-                    Approval Ditujukan ke: <strong className="text-white">{f.approvedBy || `Manager ${f.dept}`}</strong>{' '}
+                    Approval Tahap 1 ({f.approverRole}) Ditujukan ke:{' '}
+                    <strong className="text-white">{f.approvedBy || `${f.approverRole} ${f.dept}`}</strong>{' '}
                     <span className="font-mono text-[#bef264]">({f.approverEmail || 'Email terdaftar'})</span>
                   </span>
                 </div>
-                <span className="inline-block rounded-md bg-[#052e16] px-2.5 py-0.5 text-[10px] font-extrabold text-[#bef264] border border-[#a3e635]/40 shrink-0">
-                  Manajer Approver (Otomatis)
-                </span>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <span className="inline-block rounded-md bg-[#052e16] px-2.5 py-0.5 text-[10px] font-extrabold text-[#bef264] border border-[#a3e635]/40">
+                    {f.golongan === 4 ? 'Golongan 4 → Bypass ke Manager' : `Golongan ${f.golongan} → SSPV Section`}
+                  </span>
+                </div>
               </div>
 
               {/* Banner Info Pengirim Email (SMTP Departemen / Akun) */}
@@ -899,6 +942,17 @@ export function RequesterForm({ user }: { user: Account }) {
           )}
         </Card>
       )}
+
+      {/* Modal Pengaturan SMTP Departemen / Akun */}
+      <SmtpSettingsModal
+        isOpen={smtpModalOpen}
+        onClose={() => {
+          setSmtpModalOpen(false)
+          loadSenderSmtp()
+        }}
+        user={user}
+        onSaved={loadSenderSmtp}
+      />
     </>
   )
 }
@@ -1113,17 +1167,6 @@ export function RequesterCoupons({ user }: { user: Account }) {
           </div>
         </div>
       )}
-
-      {/* Modal Pengaturan SMTP Departemen / Akun */}
-      <SmtpSettingsModal
-        isOpen={smtpModalOpen}
-        onClose={() => {
-          setSmtpModalOpen(false)
-          loadSenderSmtp()
-        }}
-        user={user}
-        onSaved={loadSenderSmtp}
-      />
     </>
   )
 }

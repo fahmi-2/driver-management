@@ -176,7 +176,7 @@ function Shell({ user, onLogout }: { user: Account; onLogout: () => void }) {
   else if (page === 'coupons') view = <RequesterCoupons user={currentUser} />
   else if (page === 'scheduling' || page === 'approval') view = <AdminSchedulingCenter user={currentUser} />
   else if (page === 'vehicles') view = <AdminVehicles />
-  else if (page === 'drivers') view = <AdminDrivers />
+  else if (page === 'drivers') view = <AdminDrivers user={currentUser} />
   else if (page === 'accounts') {
     if (currentUser?.role === 'admin_lobby') {
       view = <Dashboard user={currentUser} />
