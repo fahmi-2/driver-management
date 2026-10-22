@@ -55,8 +55,14 @@ export function ApproverInbox({ user }: { user: Account }) {
       // dan juga pengajuan departemennya sendiri atau yang ditujukan kepadanya di Tahap 1 (WAITING_SPV)
       return t.status === 'WAITING_POOL_SPV' || (t.status === 'WAITING_SPV' && (t.dept === user.dept || isTargetedApprover))
     }
-    // SPV Departemen: trip departemennya ATAU trip yang ditujukan spesifik ke email/namanya di Tahap 1
-    return t.status === 'WAITING_SPV' && (t.dept === user.dept || isTargetedApprover)
+    // SPV Departemen (Tahap 1):
+    // 1. Pengajuan berstatus WAITING_SPV milik departemennya atau ditujukan spesifik kepadanya
+    // 2. Termasuk pengajuan direct-booking yang masih WAITING_POOL_SPV jika SPV Kendaraan belum ACC final
+    const isDeptPending = (
+      (t.status === 'WAITING_SPV' && (t.dept === user.dept || isTargetedApprover)) ||
+      (t.status === 'WAITING_POOL_SPV' && !t.poolSpvAt && (t.dept === user.dept || isTargetedApprover))
+    )
+    return isDeptPending
   })
 
   const historyTrips = allTrips.filter((t) => {
@@ -68,7 +74,7 @@ export function ApproverInbox({ user }: { user: Account }) {
     if (isPoolSpv) {
       return t.poolSpvAt || ((t.dept === user.dept || isTargetedApprover) && t.spvAt)
     }
-    return (t.dept === user.dept || isTargetedApprover) && t.spvAt
+    return (t.dept === user.dept || isTargetedApprover) && (t.spvAt || t.status === 'DONE' || t.status === 'READY')
   })
 
   const currentList = activeTab === 'pending' ? pendingTrips : historyTrips
@@ -206,7 +212,7 @@ export function ApproverInbox({ user }: { user: Account }) {
         ) : (
           <div className="divide-y divide-[#edf1ee]">
             {filteredTrips.map((trip) => {
-              const isStage1 = trip.status === 'WAITING_SPV'
+              const isStage1 = trip.status === 'WAITING_SPV' || (!isPoolSpv && trip.status === 'WAITING_POOL_SPV')
               const isStage2 = trip.status === 'WAITING_POOL_SPV'
               const assignedDriver = db.drivers.find((d) => d.id === trip.driverId)
 

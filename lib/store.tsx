@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { supabase } from './supabase'
+import { normalizeDestinations } from './geo'
 
 export type Category = 'Dinas' | 'Non-Dinas'
 export type TripStatus = 'WAITING_SPV' | 'WAITING_ASSIGN' | 'WAITING_POOL_SPV' | 'READY' | 'ON_TRIP' | 'DONE' | 'REJECTED'
@@ -46,8 +47,10 @@ export type Trip = {
   approverEmail?: string // Email penerima notifikasi persetujuan (Manager/SSPV)
   category: Category
   guest: string
+  origin?: string // Titik awal (default 'PT. JAI')
   destination: string
   destinations?: string[] // Multi-drop route destinations
+  returnToOrigin?: boolean // Apakah kembali ke titik awal (PP) atau sekali jalan (Drop-off)
   passengers?: Passenger[] // Multi-passenger list
   driverOnly?: boolean // Opsi hanya driver (antar/jemput dokumen/barang tanpa penumpang)
   isOtherVehicle?: boolean // Opsi "Mobil Lain" (driver bawa mobil di luar armada master)
@@ -69,6 +72,7 @@ export type Trip = {
   poolSpvNote?: string
   adminNote?: string // Optional note from Admin Utama during approval/assignment
   rejectReason?: string // Mandatory reason when rejected by Admin / SPV
+  delayReason?: string // Alasan keterlambatan jika aktual > rencana
   driverId?: string
   plate?: string
   timeGo?: string // ISO
@@ -85,7 +89,23 @@ export type Trip = {
   prCreatedBy?: string
 }
 
-type DB = { drivers: Driver[]; vehicles: Vehicle[]; trips: Trip[] }
+export type DriverAttendanceStatus = 'BELUM_HADIR' | 'HADIR' | 'OVERTIME' | 'PULANG'
+
+export type DriverAttendance = {
+  driverId: string
+  date: string // YYYY-MM-DD
+  clockIn?: string // ISO timestamp
+  clockOut?: string // ISO timestamp
+  status: DriverAttendanceStatus
+  overtimeMinutes?: number
+}
+
+type DB = {
+  drivers: Driver[]
+  vehicles: Vehicle[]
+  trips: Trip[]
+  attendances?: DriverAttendance[]
+}
 
 export const NOON_HOUR = 12
 
@@ -98,6 +118,83 @@ export const fmtDate = (s: string) =>
   new Date(s + 'T00:00:00').toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })
 export const fmtDur = (min?: number) => (min == null ? '—' : `${Math.floor(min / 60)}j ${String(min % 60).padStart(2, '0')}m`)
 export const couponFromBack = (iso: string): CouponStatus => (new Date(iso).getHours() >= NOON_HOUR ? 'CLAIMABLE' : 'VOID')
+
+/** Helper waktu WIB (Asia/Jakarta, UTC+7) untuk absensi & lembur */
+export function getWibNow(date = new Date()) {
+  const formatter = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Jakarta',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  })
+  const [hStr, mStr, sStr] = formatter.format(date).split(':')
+  const h = parseInt(hStr, 10)
+  const m = parseInt(mStr, 10)
+  const s = parseInt(sStr, 10)
+  const totalMins = h * 60 + m
+  // Jam kerja standar strictly 06:00 - 15:00 WIB.
+  // Jika lewat jam 15:00 WIB (mulai 15:01, totalMins >= 901) -> OVERTIME!
+  const isPast1500 = totalMins >= 901
+  return { h, m, s, totalMins, isPast1500, timeStr: `${hStr}:${mStr}` }
+}
+
+/** Hitung status live kehadiran dan lembur supir */
+export function calculateDriverLiveAttendance(
+  att?: DriverAttendance,
+  targetDate = ymd()
+): {
+  status: DriverAttendanceStatus
+  clockIn?: string
+  clockOut?: string
+  overtimeMinutes: number
+  isOvertime: boolean
+} {
+  if (!att || !att.clockIn) {
+    return {
+      status: 'BELUM_HADIR',
+      clockIn: undefined,
+      clockOut: undefined,
+      overtimeMinutes: 0,
+      isOvertime: false,
+    }
+  }
+
+  // Jika sudah Clock Out
+  if (att.clockOut) {
+    const outDate = new Date(att.clockOut)
+    const outWib = getWibNow(outDate)
+    const overtimeMins = outWib.totalMins > 900 ? outWib.totalMins - 900 : 0
+    return {
+      status: 'PULANG',
+      clockIn: att.clockIn,
+      clockOut: att.clockOut,
+      overtimeMinutes: overtimeMins,
+      isOvertime: overtimeMins > 0,
+    }
+  }
+
+  // Jika masih Clock In (belum Clock Out)
+  const nowWib = getWibNow()
+  if (nowWib.isPast1500) {
+    const runningOvertime = Math.max(0, nowWib.totalMins - 900)
+    return {
+      status: 'OVERTIME',
+      clockIn: att.clockIn,
+      clockOut: undefined,
+      overtimeMinutes: runningOvertime,
+      isOvertime: true,
+    }
+  }
+
+  return {
+    status: 'HADIR',
+    clockIn: att.clockIn,
+    clockOut: undefined,
+    overtimeMinutes: 0,
+    isOvertime: false,
+  }
+}
 
 export const STATUS_LABEL: Record<TripStatus, string> = {
   WAITING_SPV: 'Menunggu SPV Dept (Tahap 1)',
@@ -201,7 +298,10 @@ type NewTrip = Pick<Trip, 'category' | 'guest' | 'destination' | 'purpose' | 'es
   spvEmail?: string
   approverEmail?: string
   passengers?: Passenger[]
+  origin?: string
   destinations?: string[]
+  returnToOrigin?: boolean
+  delayReason?: string
   driverOnly?: boolean
   isOtherVehicle?: boolean
   otherVehicleName?: string
@@ -215,10 +315,13 @@ type DirectBookingParams = {
   plate: string
   driverId?: string
   date: string
+  requesterUser?: string
   estDeparture: string
   estReturn?: string
+  origin?: string
   destination: string
   destinations?: string[]
+  returnToOrigin?: boolean
   purpose: string
   guest: string
   dept: string
@@ -252,10 +355,15 @@ type Ctx = {
   spvDecision: (id: string, approve: boolean, note?: string) => void
   poolSpvDecision: (id: string, approve: boolean, note?: string, approverName?: string) => void
   assignTrip: (id: string, driverId: string, plate: string) => void
-  scheduleTrip: (id: string, params: { plate: string; driverId?: string; date: string; estDeparture: string; estReturn?: string; adminNote?: string; isOtherVehicle?: boolean; otherVehicleName?: string }) => void
+  scheduleTrip: (id: string, params: { plate: string; driverId?: string; date: string; estDeparture: string; estReturn?: string; adminNote?: string; isOtherVehicle?: boolean; otherVehicleName?: string; origin?: string; destination?: string; returnToOrigin?: boolean }) => void
   rejectTrip: (id: string, reason: string) => void
   gateGo: (id: string, security: string) => void
-  gateBack: (id: string, security: string) => void
+  gateBack: (id: string, security: string, delayReason?: string) => void
+  startDriverTrip: (id: string) => void
+  endDriverTrip: (id: string, delayReason?: string) => void
+  submitDelayReason: (id: string, delayReason: string) => void
+  clockInDriver: (driverId: string) => void
+  clockOutDriver: (driverId: string) => void
   claimCoupon: (id: string) => void
   setCouponProgress: (id: string) => void
   payCoupon: (id: string, adminName: string, prNumber?: string) => void
@@ -272,20 +380,39 @@ type Ctx = {
 const StoreCtx = createContext<Ctx | null>(null)
 const KEY = 'ff_db_v2'
 
+function sanitizeDB(rawDb: any): DB {
+  const seeded = seed()
+  if (!rawDb || typeof rawDb !== 'object') return seeded
+  const drivers = Array.isArray(rawDb.drivers) && rawDb.drivers.length > 0 ? rawDb.drivers : seeded.drivers
+  const vehicles = (Array.isArray(rawDb.vehicles) && rawDb.vehicles.length > 0 ? rawDb.vehicles : seeded.vehicles).map((v: any) => ({
+    ...v,
+    status: v.status || 'Active',
+  }))
+  const trips = (Array.isArray(rawDb.trips) ? rawDb.trips : []).map((t: any) => ({
+    ...t,
+    destinations: normalizeDestinations(t.destinations, t.destination),
+  }))
+  return {
+    drivers,
+    vehicles,
+    trips,
+    attendances: Array.isArray(rawDb.attendances) ? rawDb.attendances : [],
+  }
+}
+
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [db, setDb] = useState<DB>({ drivers: [], vehicles: [], trips: [] })
   const [ready, setReady] = useState(false)
 
   useEffect(() => {
-    const raw = window.localStorage.getItem(KEY)
-    let initial: DB = raw ? (JSON.parse(raw) as DB) : seed()
-    if (initial.vehicles && initial.vehicles.some((v) => !v.status)) {
-      initial = {
-        ...initial,
-        vehicles: initial.vehicles.map((v) => ({ ...v, status: v.status || 'Active' })),
-      }
+    let initial: DB
+    try {
+      const raw = window.localStorage.getItem(KEY)
+      initial = sanitizeDB(raw ? JSON.parse(raw) : null)
+      if (!raw) window.localStorage.setItem(KEY, JSON.stringify(initial))
+    } catch {
+      initial = seed()
     }
-    if (!raw) window.localStorage.setItem(KEY, JSON.stringify(initial))
     setDb(initial)
     setReady(true)
 
@@ -300,11 +427,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         ])
 
         setDb((prev) => {
-          const next: DB = {
+          const mergedRaw = {
             trips: remoteTrips != null ? remoteTrips : prev.trips,
             vehicles: remoteVehicles != null ? remoteVehicles : prev.vehicles,
             drivers: remoteDrivers != null ? remoteDrivers : prev.drivers,
           }
+          const next = sanitizeDB(mergedRaw)
           window.localStorage.setItem(KEY, JSON.stringify(next))
           return next
         })
@@ -361,7 +489,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
     const onStorage = (e: StorageEvent) => {
       if (e.key === KEY && e.newValue) {
-        setDb(JSON.parse(e.newValue))
+        try {
+          setDb(sanitizeDB(JSON.parse(e.newValue)))
+        } catch {}
       }
     }
 
@@ -424,10 +554,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     ready, db,
     createTrip: async (t) => {
       const id = `T-${Date.now().toString().slice(-6)}`
+      const reqUser = (!t.requesterUser || t.requesterUser === 'admin') ? 'admin1' : t.requesterUser
       const newTrip: Trip = {
         ...t,
         id,
         date: t.date || ymd(),
+        requesterUser: reqUser,
+        origin: t.origin || 'PT. JAI',
+        returnToOrigin: t.returnToOrigin !== false,
         status: 'WAITING_SPV',
         spvName: t.spvName || `SPV ${t.dept}`,
         coupon: t.driverOnly ? 'VOID' : 'NONE',
@@ -461,31 +595,44 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const assignedDriver = params.driverId ? db.drivers.find((d) => d.id === params.driverId) : null
       const isUsingOtherCar = !!params.isOtherVehicle || (!!assignedDriver?.defaultPlate && assignedDriver.defaultPlate !== params.plate)
       const blockedDefault = isUsingOtherCar && assignedDriver?.defaultPlate ? assignedDriver.defaultPlate : undefined
-      const blockedText = blockedDefault ? `Driver sedang ${params.adminNote || params.purpose}` : undefined
+      const blockedText = blockedDefault ? `Driver sedang bertugas di ${params.plate || params.otherVehicleName || 'Mobil Luar'}` : undefined
+
+      const reqUser = params.requesterUser && params.requesterUser !== 'admin' ? params.requesterUser : 'admin1'
+
+      // Cari email approver dari master accounts jika tidak disediakan
+      let approverEmail = params.approverEmail
+      if (!approverEmail && params.approvedBy) {
+        const cleanName = params.approvedBy.replace(/\(.*\)/, '').trim().toUpperCase()
+        const { getAllAccounts, getManagerBySection } = await import('./accounts')
+        const matched = getAllAccounts().find((a) => a.name.toUpperCase().includes(cleanName) || cleanName.includes(a.name.toUpperCase()))
+        approverEmail = matched?.email || getManagerBySection(params.dept || 'PGA', params.section).email
+      }
 
       const newTrip: Trip = {
         id,
         date: params.date,
-        requesterUser: 'admin',
+        requesterUser: reqUser,
         requesterName: params.requesterName || 'Admin Utama (Pool GA)',
         requesterNik: params.requesterNik,
         dept: params.dept || 'PGA',
         section: params.section,
-        approverEmail: params.approverEmail,
-        spvEmail: params.approverEmail,
+        approverEmail: approverEmail,
+        spvEmail: approverEmail,
         category: params.category || 'Dinas',
         guest: params.driverOnly ? `Hanya Driver (Operasional Logistik)` : params.guest,
+        origin: params.origin || 'PT. JAI',
         destination: params.destination,
         destinations: params.destinations,
+        returnToOrigin: params.returnToOrigin !== false,
         purpose: params.purpose,
         estDeparture: params.estDeparture,
         estReturn: params.estReturn,
         distance_km: params.distance_km,
         estimated_duration_minutes: params.estimated_duration_minutes,
         passengers: params.passengers,
-        status: 'WAITING_POOL_SPV', // Masuk tahap 2 approval SPV Kendaraan
-        spvName: params.approvedBy || 'Admin Utama (Direct Booking)',
-        spvAt: new Date().toISOString(),
+        status: 'WAITING_SPV', // Wajib masuk ke Tahap 1 persetujuan SPV/Manager Departemen!
+        spvName: params.approvedBy || ('SPV ' + (params.dept || 'PGA')),
+        spvAt: undefined, // Belum disetujui, menunggu tindakan E-Sign approver!
         adminNote: params.adminNote,
         driverId: params.driverId,
         plate: params.plate,
@@ -518,13 +665,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         return { id, success: false, error: syncRes.error }
       }
     },
-    // Tahap 1: SPV Departemen ACC -> Masuk ke antrean Admin (WAITING_ASSIGN)
+    // Tahap 1: SPV Departemen ACC -> Jika sudah dialokasikan armada & driver (direct booking), lanjut ke WAITING_POOL_SPV. Jika belum, ke WAITING_ASSIGN
     spvDecision: (id, approve, note) =>
-      patch(id, {
-        status: approve ? 'WAITING_ASSIGN' : 'REJECTED',
-        spvAt: new Date().toISOString(),
-        spvNote: note,
-        rejectReason: approve ? undefined : (note || 'Ditolak oleh SPV Departemen'),
+      patch(id, (t) => {
+        const nextStatus = !approve
+          ? 'REJECTED'
+          : (t.plate && t.driverId ? 'WAITING_POOL_SPV' : 'WAITING_ASSIGN')
+        return {
+          status: nextStatus,
+          spvAt: new Date().toISOString(),
+          spvNote: note,
+          rejectReason: approve ? undefined : (note || 'Ditolak oleh SPV Departemen'),
+        }
       }),
     // Tahap 2: SPV Kendaraan (Pool GA) Final ACC -> Status READY (Jadwal masuk ke driver)
     poolSpvDecision: (id, approve, note, approverName) =>
@@ -535,14 +687,27 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         poolSpvNote: note,
         rejectReason: approve ? undefined : (note || 'Ditolak oleh SPV Kendaraan'),
       }),
-    assignTrip: (id, driverId, plate) => patch(id, { status: 'READY', driverId, plate }),
+    assignTrip: (id, driverId, plate) =>
+      patch(id, (t) => {
+        const assignedDriver = driverId ? db.drivers.find((d) => d.id === driverId) : null
+        const isUsingOtherCar = !!assignedDriver?.defaultPlate && assignedDriver.defaultPlate !== plate
+        const blockedDefault = isUsingOtherCar && assignedDriver?.defaultPlate ? assignedDriver.defaultPlate : undefined
+        const blockedText = blockedDefault ? `Driver sedang bertugas di ${plate}` : undefined
+        return {
+          status: 'READY',
+          driverId,
+          plate,
+          blockedDefaultPlate: blockedDefault,
+          blockedReason: blockedText,
+        }
+      }),
     // Setelah Admin Utama drag ke kalender, status berubah menjadi WAITING_POOL_SPV (Pending Approval SPV Kendaraan)
     scheduleTrip: (id, params) =>
       patch(id, (t) => {
         const assignedDriver = params.driverId ? db.drivers.find((d) => d.id === params.driverId) : null
         const isUsingOtherCar = !!params.isOtherVehicle || (!!assignedDriver?.defaultPlate && assignedDriver.defaultPlate !== params.plate)
         const blockedDefault = isUsingOtherCar && assignedDriver?.defaultPlate ? assignedDriver.defaultPlate : undefined
-        const blockedText = blockedDefault ? `Driver sedang ${params.adminNote || t.purpose}` : undefined
+        const blockedText = blockedDefault ? `Driver sedang bertugas di ${params.plate || params.otherVehicleName || 'Mobil Luar'}` : undefined
 
         return {
           status: 'WAITING_POOL_SPV',
@@ -556,14 +721,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           otherVehicleName: params.otherVehicleName,
           blockedDefaultPlate: blockedDefault,
           blockedReason: blockedText,
+          origin: params.origin ?? t.origin,
+          destination: params.destination ?? t.destination,
+          returnToOrigin: params.returnToOrigin ?? t.returnToOrigin,
         }
       }),
     rejectTrip: (id, reason) => patch(id, { status: 'REJECTED', rejectReason: reason }),
     gateGo: (id, security) => patch(id, { status: 'ON_TRIP', timeGo: new Date().toISOString(), securityGo: security }),
-    gateBack: (id, security) =>
+    gateBack: (id, security, delayReason) =>
       patch(id, (t) => {
         const back = new Date().toISOString()
-        // Jika opsi driverOnly aktif, hak kupon otomatis hangus / VOID
         const finalCoupon = t.driverOnly ? 'VOID' : couponFromBack(back)
         return {
           status: 'DONE',
@@ -571,8 +738,93 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           securityBack: security,
           durationMin: Math.max(0, Math.round((+new Date(back) - +new Date(t.timeGo!)) / 60000)),
           coupon: finalCoupon,
+          delayReason: delayReason || t.delayReason,
         }
       }),
+    startDriverTrip: (id) =>
+      patch(id, {
+        status: 'ON_TRIP',
+        timeGo: new Date().toISOString(),
+        securityGo: 'driver-app',
+      }),
+    endDriverTrip: (id, delayReason) =>
+      patch(id, (t) => {
+        const back = new Date().toISOString()
+        const finalCoupon = t.driverOnly ? 'VOID' : couponFromBack(back)
+        const durationMin = t.timeGo ? Math.max(0, Math.round((+new Date(back) - +new Date(t.timeGo)) / 60000)) : (t.estimated_duration_minutes || 60)
+        return {
+          status: 'DONE',
+          timeBack: back,
+          securityBack: 'driver-app',
+          durationMin,
+          coupon: finalCoupon,
+          delayReason: delayReason || t.delayReason,
+        }
+      }),
+    submitDelayReason: (id, delayReason) => patch(id, { delayReason }),
+    clockInDriver: (driverId) => {
+      const today = ymd()
+      const now = new Date().toISOString()
+      update((d) => {
+        const currentList = d.attendances || []
+        const existingIdx = currentList.findIndex((a) => a.driverId === driverId && a.date === today)
+        let nextList: DriverAttendance[]
+        if (existingIdx >= 0) {
+          nextList = currentList.map((a, idx) =>
+            idx === existingIdx ? { ...a, clockIn: a.clockIn || now, status: 'HADIR' as const } : a
+          )
+        } else {
+          nextList = [
+            ...currentList,
+            {
+              driverId,
+              date: today,
+              clockIn: now,
+              status: 'HADIR' as const,
+              overtimeMinutes: 0,
+            },
+          ]
+        }
+        return { ...d, attendances: nextList }
+      })
+    },
+    clockOutDriver: (driverId) => {
+      const today = ymd()
+      const now = new Date()
+      const nowIso = now.toISOString()
+      const wib = getWibNow(now)
+      const overtimeMins = wib.totalMins > 900 ? wib.totalMins - 900 : 0
+      update((d) => {
+        const currentList = d.attendances || []
+        const existingIdx = currentList.findIndex((a) => a.driverId === driverId && a.date === today)
+        let nextList: DriverAttendance[]
+        if (existingIdx >= 0) {
+          nextList = currentList.map((a, idx) =>
+            idx === existingIdx
+              ? {
+                  ...a,
+                  clockOut: nowIso,
+                  status: 'PULANG' as const,
+                  overtimeMinutes: overtimeMins,
+                }
+              : a
+          )
+        } else {
+          nextList = [
+            ...currentList,
+            {
+              driverId,
+              date: today,
+              clockIn: nowIso,
+              clockOut: nowIso,
+              status: 'PULANG' as const,
+              overtimeMinutes: overtimeMins,
+            },
+          ]
+        }
+        return { ...d, attendances: nextList }
+      })
+    },
     claimCoupon: (id) => patch(id, { coupon: 'PR_PENDING', claimedAt: new Date().toISOString() }),
     setCouponProgress: (id) => patch(id, { coupon: 'PR_PROGRESS' }),
     payCoupon: (id, adminName, prNumber) =>

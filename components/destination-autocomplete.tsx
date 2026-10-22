@@ -1,67 +1,94 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { Clock, Compass, Loader2, Lock, MapPin, Navigation, Plus, RotateCcw, Trash2 } from 'lucide-react'
+import { Check, Clock, Compass, Loader2, MapPin, Navigation, Plus, RotateCcw, Trash2, ArrowRight } from 'lucide-react'
 import { inputCls } from './ui-bits'
 import { RouteMap } from './route-map'
 import {
   ORIGIN_POINT,
+  isJaiLocation,
   rememberPlace,
-  routeForDestinations,
+  routeForCustomRoute,
   searchPlaces,
   type GeoPlace,
   type RouteResult,
 } from '@/lib/geo'
 
-/** Titik awal/akhir tetap: PT. JAI Pasuruan */
+/** Titik referensi default pabrik: PT. JAI Pasuruan */
 export const FACTORY_ORIGIN = {
-  name: ORIGIN_POINT.label,
+  name: 'PT. JAI',
+  fullName: ORIGIN_POINT.label,
   address: 'Jl. Raya Wonoayu No. 26, Gempol, Pasuruan, Jawa Timur 67155',
   lat: ORIGIN_POINT.lat,
   lng: ORIGIN_POINT.lng,
 }
 
 interface DestinationAutocompleteProps {
+  origin?: string
   value: string
   destinations?: string[]
   distanceKm?: number
   durationMins?: number
+  returnToOrigin?: boolean
   onChange: (data: {
+    origin: string
     destination: string
     destinations: string[]
     distance_km?: number
     estimated_duration_minutes?: number
+    returnToOrigin?: boolean
   }) => void
 }
 
 export function DestinationAutocomplete({
+  origin: propOrigin = 'PT. JAI',
   value,
   destinations: propDestinations,
   distanceKm,
   durationMins,
+  returnToOrigin: propReturn = true,
   onChange,
 }: DestinationAutocompleteProps) {
+  const [origin, setOrigin] = useState(propOrigin || 'PT. JAI')
+  const [returnToOrigin, setReturnToOrigin] = useState(propReturn)
+
+  // Sinkronkan propOrigin jika berubah dari luar
+  useEffect(() => {
+    if (propOrigin && propOrigin !== origin) {
+      setOrigin(propOrigin)
+    }
+  }, [propOrigin])
+
   const destinations = propDestinations && propDestinations.length > 0 ? propDestinations : value ? [value] : ['']
+
+  const originRef = useRef(origin)
+  originRef.current = origin
 
   const destRef = useRef(destinations)
   destRef.current = destinations
+
+  const returnRef = useRef(returnToOrigin)
+  returnRef.current = returnToOrigin
+
   const onChangeRef = useRef(onChange)
   onChangeRef.current = onChange
 
-  const [activeIdx, setActiveIdx] = useState<number | null>(null)
+  // Active autocomplete focus: 'origin' or number index of destination
+  const [activeTarget, setActiveTarget] = useState<'origin' | number | null>(null)
   const [suggestions, setSuggestions] = useState<GeoPlace[]>([])
   const [searching, setSearching] = useState(false)
   const [searchError, setSearchError] = useState(false)
 
-  const [committed, setCommitted] = useState<string[]>([])
+  const [committedOrigin, setCommittedOrigin] = useState<string>(origin)
+  const [committedDests, setCommittedDests] = useState<string[]>(destinations)
   const [calculating, setCalculating] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
   const [mapData, setMapData] = useState<{ places: GeoPlace[]; route: RouteResult | null } | null>(null)
 
-  // ---- Autocomplete (Nominatim) dengan debounce 600ms (kebijakan ±1 req/detik) ----
+  // ---- Autocomplete (Nominatim) dengan debounce 500ms ----
   useEffect(() => {
-    if (activeIdx === null) return
-    const q = (destinations[activeIdx] || '').trim()
+    if (activeTarget === null) return
+    const q = (activeTarget === 'origin' ? origin : destinations[activeTarget] || '').trim()
     if (q.length < 3) {
       setSuggestions([])
       return
@@ -77,126 +104,226 @@ export function DestinationAutocomplete({
       } finally {
         setSearching(false)
       }
-    }, 600)
+    }, 500)
     return () => {
       clearTimeout(t)
       ctrl.abort()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeIdx, activeIdx !== null ? destinations[activeIdx] : ''])
+  }, [activeTarget, activeTarget === 'origin' ? origin : activeTarget !== null ? destinations[activeTarget] : ''])
 
-  // ---- Hitung rute (geocode + OSRM) setiap daftar tujuan "dikunci" ----
-  const committedKey = committed.map((d) => d.trim()).filter(Boolean).join('|')
+  // ---- Hitung rute (geocode + OSRM) setiap rute "dikunci" ----
+  const committedKey = `${committedOrigin}|${committedDests.map((d) => d.trim()).filter(Boolean).join('|')}|${returnToOrigin}`
   useEffect(() => {
-    const names = committed.map((d) => d.trim()).filter(Boolean)
-    if (names.length === 0) {
+    const validDests = committedDests.map((d) => d.trim()).filter(Boolean)
+    const validOrigin = committedOrigin.trim() || 'PT. JAI'
+
+    if (validDests.length === 0) {
       setMapData(null)
       setNotice(null)
       return
     }
+
     const ctrl = new AbortController()
     setCalculating(true)
-    routeForDestinations(names, ctrl.signal)
-      .then(({ places, missing, route }) => {
+
+    routeForCustomRoute(validOrigin, validDests, returnToOrigin, ctrl.signal)
+      .then(({ originPlace, places, missing, route }) => {
         if (ctrl.signal.aborted) return
-        setMapData({ places, route })
+
+        const allMapPlaces = originPlace ? [originPlace, ...places] : places
+        setMapData({ places: allMapPlaces, route })
+
         if (!route) {
-          setNotice(`Lokasi tidak ditemukan di OpenStreetMap: ${missing.join(', ')}`)
+          setNotice(`Lokasi tidak ditemukan di peta: ${missing.join(', ')}`)
           return
         }
-        const dests = destRef.current
+
+        const curDests = destRef.current
+        const destString = curDests.filter(Boolean).join(' ➔ ')
+
         onChangeRef.current({
-          destination: dests.filter(Boolean).join(' ➔ '),
-          destinations: dests,
+          origin: originRef.current,
+          destination: destString,
+          destinations: curDests,
           distance_km: route.km,
           estimated_duration_minutes: route.minutes,
+          returnToOrigin: returnRef.current,
         })
+
+        const routeSummary = returnToOrigin
+          ? `${validOrigin} ➔ ${validDests.join(' ➔ ')} ➔ ${validOrigin}`
+          : `${validOrigin} ➔ ${validDests.join(' ➔ ')} (Drop-off)`
+
         setNotice(
-          `Rute PP: PT. JAI ➔ ${names.join(' ➔ ')} ➔ PT. JAI (${route.km} KM · ~${route.minutes} mnt)` +
-            (route.approximate ? ' · perkiraan garis lurus (server rute OSRM tidak tersedia)' : '') +
+          `Rute: ${routeSummary} (${route.km} KM · ~${route.minutes} mnt)` +
+            (route.approximate ? ' · perkiraan garis lurus' : '') +
             (missing.length ? ` · tidak ditemukan: ${missing.join(', ')}` : '')
         )
       })
       .catch((e) => {
-        if (e?.name !== 'AbortError') setNotice('Gagal menghitung rute. Coba lagi.')
+        if (e?.name !== 'AbortError') setNotice('Gagal menghitung rute peta. Silakan coba kembali.')
       })
       .finally(() => {
         if (!ctrl.signal.aborted) setCalculating(false)
       })
+
     return () => ctrl.abort()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [committedKey])
 
-  const emit = (next: string[], keepCalc = true) =>
+  const emitChange = (nextOrigin: string, nextDests: string[], nextReturn: boolean, keepCalc = true) => {
     onChange({
-      destination: next.filter(Boolean).join(' ➔ '),
-      destinations: next,
+      origin: nextOrigin,
+      destination: nextDests.filter(Boolean).join(' ➔ '),
+      destinations: nextDests,
       distance_km: keepCalc ? distanceKm : undefined,
       estimated_duration_minutes: keepCalc ? durationMins : undefined,
+      returnToOrigin: nextReturn,
     })
+  }
+
+  const handleUpdateOrigin = (val: string) => {
+    setOrigin(val)
+    emitChange(val, destinations, returnToOrigin)
+  }
+
+  const handleSetJaiOrigin = () => {
+    setOrigin('PT. JAI')
+    setCommittedOrigin('PT. JAI')
+    emitChange('PT. JAI', destinations, returnToOrigin)
+    setActiveTarget(null)
+  }
 
   const handleUpdateDest = (idx: number, v: string) => {
     const next = [...destinations]
     next[idx] = v
-    emit(next)
+    emitChange(origin, next, returnToOrigin)
   }
 
-  const handleSelect = (idx: number, place: GeoPlace) => {
-    rememberPlace(place.label, place) // simpan koordinat agar tidak geocode ulang
-    const next = [...destinations]
-    next[idx] = place.label
-    emit(next)
-    setCommitted(next)
+  const handleSelectSuggestion = (place: GeoPlace) => {
+    rememberPlace(place.label, place)
+    if (activeTarget === 'origin') {
+      setOrigin(place.label)
+      setCommittedOrigin(place.label)
+      emitChange(place.label, destinations, returnToOrigin)
+    } else if (typeof activeTarget === 'number') {
+      const next = [...destinations]
+      next[activeTarget] = place.label
+      emitChange(origin, next, returnToOrigin)
+      setCommittedDests(next)
+    }
     setSuggestions([])
-    setActiveIdx(null)
+    setActiveTarget(null)
   }
 
   const handleBlur = () => {
     setTimeout(() => {
-      setActiveIdx(null)
+      setActiveTarget(null)
       setSuggestions([])
-      const cur = destRef.current
-      if (cur.filter((d) => d.trim()).join('|') !== committedKey) setCommitted(cur)
-    }, 180)
+      setCommittedOrigin(originRef.current)
+      setCommittedDests(destRef.current)
+    }, 200)
   }
 
-  const handleAdd = () => emit([...destinations, ''])
+  const handleAddDest = () => emitChange(origin, [...destinations, ''], returnToOrigin)
 
-  const handleRemove = (idx: number) => {
+  const handleRemoveDest = (idx: number) => {
     if (destinations.length <= 1) return
     const next = destinations.filter((_, i) => i !== idx)
-    emit(next)
-    setCommitted(next)
+    emitChange(origin, next, returnToOrigin)
+    setCommittedDests(next)
+  }
+
+  const handleToggleReturn = (val: boolean) => {
+    setReturnToOrigin(val)
+    emitChange(origin, destinations, val)
   }
 
   return (
     <div className="space-y-3">
-      {/* Titik Awal (terkunci) */}
-      <div className="flex items-center justify-between rounded-xl border border-[#a3e635]/30 bg-[#062417] p-2.5 text-xs text-[#dff5e9]">
-        <div className="flex min-w-0 items-center gap-2">
-          <div className="flex size-6 shrink-0 items-center justify-center rounded-lg bg-[#a3e635] text-[#052e16]">
-            <Navigation size={13} className="rotate-45" />
-          </div>
-          <div className="min-w-0">
-            <div className="flex items-center gap-1.5">
-              <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#bef264]">Titik Awal (Berangkat)</span>
-              <span className="inline-flex items-center gap-0.5 rounded bg-white/10 px-1 text-[9px] font-semibold text-[#8fa99b]">
-                <Lock size={9} /> Terkunci
-              </span>
-            </div>
-            <p className="truncate text-[12px] font-bold text-white">{FACTORY_ORIGIN.name}</p>
-          </div>
-        </div>
-        <span className="shrink-0 rounded-md bg-[#a3e635]/15 px-2 py-0.5 text-[10px] font-bold text-[#bef264]">Start Point</span>
-      </div>
-
-      {/* Daftar tujuan multi-drop */}
-      <div className="space-y-2">
+      {/* 1. Titik Awal (Origin) - Dinamis & Bebas Diisi */}
+      <div className="rounded-xl border border-[#a3e635]/30 bg-[#062417] p-3 text-xs text-[#dff5e9] space-y-2">
         <div className="flex items-center justify-between">
-          <p className="text-xs font-semibold text-[#8fa99b]">Daftar Tujuan Multi-Drop ({destinations.length} Lokasi)</p>
+          <div className="flex items-center gap-1.5">
+            <div className="flex size-6 shrink-0 items-center justify-center rounded-lg bg-[#a3e635] text-[#052e16]">
+              <Navigation size={13} className="rotate-45" />
+            </div>
+            <div>
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#bef264]">Titik Awal (Origin / Berangkat)</span>
+              <p className="text-[10px] text-[#8fa99b]">Bisa dari PT. JAI atau lokasi penjemputan lain (e.g. Bandara, Hotel)</p>
+            </div>
+          </div>
           <button
             type="button"
-            onClick={handleAdd}
+            onClick={handleSetJaiOrigin}
+            className={`rounded-md px-2 py-1 text-[10px] font-bold transition flex items-center gap-1 ${
+              isJaiLocation(origin)
+                ? 'bg-[#a3e635] text-[#052e16]'
+                : 'bg-white/10 text-[#bef264] hover:bg-white/20'
+            }`}
+          >
+            {isJaiLocation(origin) && <Check size={11} />}
+            Pakai PT. JAI
+          </button>
+        </div>
+
+        <div className="relative">
+          <input
+            type="text"
+            value={origin}
+            autoComplete="off"
+            onFocus={() => setActiveTarget('origin')}
+            onChange={(e) => {
+              setActiveTarget('origin')
+              handleUpdateOrigin(e.target.value)
+            }}
+            onBlur={handleBlur}
+            placeholder="Ketik titik awal (Contoh: PT. JAI, Bandara Juanda, Hotel Shangri-La, dll.)"
+            className={`${inputCls} pr-8 font-semibold text-white bg-black/40 border-[#a3e635]/40`}
+            required
+          />
+          <div className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#8fa99b]">
+            {searching && activeTarget === 'origin' ? (
+              <Loader2 size={14} className="animate-spin text-[#a3e635]" />
+            ) : (
+              <MapPin size={14} className="text-[#a3e635]" />
+            )}
+          </div>
+
+          {activeTarget === 'origin' && (suggestions.length > 0 || searchError) && (
+            <ul className="absolute left-0 right-0 top-full z-50 mt-1 max-h-60 overflow-auto rounded-xl border border-[#a3e635]/30 bg-[#0b2218] py-1 shadow-2xl">
+              {searchError && <li className="px-3 py-2 text-[11px] text-amber-400">Pencarian lokasi gagal. Coba lagi.</li>}
+              {suggestions.map((s, i) => (
+                <li key={`${s.lat}-${s.lng}-${i}`}>
+                  <button
+                    type="button"
+                    onMouseDown={(e) => {
+                      e.preventDefault()
+                      handleSelectSuggestion(s)
+                    }}
+                    className="flex w-full items-start gap-2 px-3 py-2 text-left text-[11px] text-[#dff5e9] hover:bg-[#a3e635]/15 transition"
+                  >
+                    <MapPin size={12} className="mt-0.5 shrink-0 text-[#a3e635]" />
+                    <span>{s.label}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+
+      {/* 2. Daftar Destinasi / Titik Tujuan (Multi-Drop) */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-semibold text-[#8fa99b] flex items-center gap-1">
+            <ArrowRight size={13} className="text-[#a3e635]" />
+            Daftar Destinasi / Tujuan ({destinations.length} Lokasi)
+          </p>
+          <button
+            type="button"
+            onClick={handleAddDest}
             className="inline-flex items-center gap-1 text-[11px] font-bold text-[#a3e635] transition hover:text-[#bef264]"
           >
             <Plus size={13} /> Tambah Destinasi
@@ -213,26 +340,26 @@ export function DestinationAutocomplete({
                 type="text"
                 value={dest}
                 autoComplete="off"
-                onFocus={() => setActiveIdx(idx)}
+                onFocus={() => setActiveTarget(idx)}
                 onChange={(e) => {
-                  setActiveIdx(idx)
+                  setActiveTarget(idx)
                   handleUpdateDest(idx, e.target.value)
                 }}
                 onBlur={handleBlur}
-                placeholder={`Destinasi ${idx + 1}: ketik nama tempat / alamat (OpenStreetMap)`}
+                placeholder={`Destinasi ${idx + 1}: ketik nama tempat / alamat (e.g. Hotel, Bandara, Kantor)`}
                 className={`${inputCls} pr-8`}
                 required={idx === 0}
               />
               <div className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#8fa99b]">
-                {(calculating && idx === 0) || (searching && activeIdx === idx) ? (
+                {(calculating && idx === 0) || (searching && activeTarget === idx) ? (
                   <Loader2 size={14} className="animate-spin text-[#a3e635]" />
                 ) : (
                   <MapPin size={14} />
                 )}
               </div>
 
-              {activeIdx === idx && (suggestions.length > 0 || searchError) && (
-                <ul className="absolute left-0 right-0 top-full z-50 mt-1 max-h-60 overflow-auto rounded-xl border border-[#a3e635]/30 bg-[#0b2218] py-1 shadow-xl">
+              {activeTarget === idx && (suggestions.length > 0 || searchError) && (
+                <ul className="absolute left-0 right-0 top-full z-50 mt-1 max-h-60 overflow-auto rounded-xl border border-[#a3e635]/30 bg-[#0b2218] py-1 shadow-2xl">
                   {searchError && <li className="px-3 py-2 text-[11px] text-amber-400">Pencarian lokasi gagal. Coba lagi.</li>}
                   {suggestions.map((s, i) => (
                     <li key={`${s.lat}-${s.lng}-${i}`}>
@@ -240,9 +367,9 @@ export function DestinationAutocomplete({
                         type="button"
                         onMouseDown={(e) => {
                           e.preventDefault()
-                          handleSelect(idx, s)
+                          handleSelectSuggestion(s)
                         }}
-                        className="flex w-full items-start gap-2 px-3 py-2 text-left text-[11px] text-[#dff5e9] hover:bg-[#a3e635]/10"
+                        className="flex w-full items-start gap-2 px-3 py-2 text-left text-[11px] text-[#dff5e9] hover:bg-[#a3e635]/15 transition"
                       >
                         <MapPin size={12} className="mt-0.5 shrink-0 text-[#a3e635]" />
                         <span>{s.label}</span>
@@ -256,7 +383,7 @@ export function DestinationAutocomplete({
             {destinations.length > 1 && (
               <button
                 type="button"
-                onClick={() => handleRemove(idx)}
+                onClick={() => handleRemoveDest(idx)}
                 title="Hapus destinasi ini"
                 className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-red-500/20 bg-red-500/10 text-red-400 transition hover:bg-red-500/20"
               >
@@ -267,31 +394,56 @@ export function DestinationAutocomplete({
         ))}
       </div>
 
-      {/* Titik Akhir (terkunci) */}
-      <div className="flex items-center justify-between rounded-xl border border-[#a3e635]/30 bg-[#062417] p-2.5 text-xs text-[#dff5e9]">
-        <div className="flex min-w-0 items-center gap-2">
-          <div className="flex size-6 shrink-0 items-center justify-center rounded-lg bg-[#a3e635] text-[#052e16]">
-            <RotateCcw size={13} />
-          </div>
-          <div className="min-w-0">
-            <div className="flex items-center gap-1.5">
-              <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#bef264]">Titik Akhir (Pulang)</span>
-              <span className="inline-flex items-center gap-0.5 rounded bg-white/10 px-1 text-[9px] font-semibold text-[#8fa99b]">
-                <Lock size={9} /> Terkunci
-              </span>
-            </div>
-            <p className="truncate text-[12px] font-bold text-white">{FACTORY_ORIGIN.name}</p>
+      {/* 3. Opsi Perjalanan: Pulang-Pergi (Return) vs Sekali Jalan (Drop-off) */}
+      <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3 text-xs space-y-2">
+        <div className="flex items-center justify-between">
+          <span className="font-semibold text-white">Alur Perjalanan Akhir:</span>
+          <div className="flex items-center gap-1 bg-black/40 p-1 rounded-lg border border-white/10">
+            <button
+              type="button"
+              onClick={() => handleToggleReturn(true)}
+              className={`px-2.5 py-1 rounded text-[11px] font-bold transition flex items-center gap-1 ${
+                returnToOrigin
+                  ? 'bg-[#a3e635] text-[#052e16] shadow-xs'
+                  : 'text-[#8fa99b] hover:text-white'
+              }`}
+            >
+              <RotateCcw size={11} />
+              Pulang-Pergi (PP)
+            </button>
+            <button
+              type="button"
+              onClick={() => handleToggleReturn(false)}
+              className={`px-2.5 py-1 rounded text-[11px] font-bold transition flex items-center gap-1 ${
+                !returnToOrigin
+                  ? 'bg-amber-500 text-black shadow-xs'
+                  : 'text-[#8fa99b] hover:text-white'
+              }`}
+            >
+              <ArrowRight size={11} />
+              Sekali Jalan (Drop-off)
+            </button>
           </div>
         </div>
-        <span className="shrink-0 rounded-md bg-[#a3e635]/15 px-2 py-0.5 text-[10px] font-bold text-[#bef264]">Return Point</span>
+
+        <div className="flex items-center gap-2 text-[11px] text-[#8fa99b] bg-white/[0.03] p-2 rounded-lg">
+          <RotateCcw size={13} className="text-[#a3e635] shrink-0" />
+          <span>
+            {returnToOrigin ? (
+              <>Mobil akan kembali ke titik awal: <strong className="text-white">{origin || 'PT. JAI'}</strong></>
+            ) : (
+              <>Perjalanan berakhir di destinasi akhir: <strong className="text-white">{destinations[destinations.length - 1] || 'Tujuan Akhir'}</strong> (Driver/tamu tidak kembali ke titik awal)</>
+            )}
+          </span>
+        </div>
       </div>
 
-      {/* Peta Rute (Leaflet + OSM + OSRM) */}
+      {/* 4. Peta Rute Visual (Leaflet + OpenStreetMap + OSRM) */}
       {mapData && mapData.places.length > 0 && (
-        <RouteMap points={[ORIGIN_POINT, ...mapData.places]} line={mapData.route?.line ?? []} height={300} />
+        <RouteMap points={mapData.places} line={mapData.route?.line ?? []} height={280} />
       )}
 
-      {/* Jarak & waktu */}
+      {/* 5. Indikator Total Jarak & Waktu Tempuh Otomatis */}
       <div className="grid grid-cols-2 gap-3 pt-1">
         <div>
           <label className="mb-1 block text-[11px] font-semibold text-[#8fa99b]">
@@ -302,7 +454,9 @@ export function DestinationAutocomplete({
               <Compass size={14} className="text-[#a3e635]" />
               {distanceKm !== undefined ? `${distanceKm} KM` : '— KM'}
             </span>
-            <span className="rounded bg-[#a3e635]/15 px-1.5 py-0.5 text-[9px] font-medium text-[#a3e635]">PP JAI</span>
+            <span className="rounded bg-[#a3e635]/15 px-1.5 py-0.5 text-[9px] font-medium text-[#a3e635]">
+              {returnToOrigin ? 'PP' : 'Drop-off'}
+            </span>
           </div>
         </div>
         <div>
@@ -314,7 +468,9 @@ export function DestinationAutocomplete({
               <Clock size={14} className="text-[#a3e635]" />
               {durationMins !== undefined ? `${durationMins} Menit` : '— Menit'}
             </span>
-            <span className="rounded bg-[#a3e635]/15 px-1.5 py-0.5 text-[9px] font-medium text-[#a3e635]">PP JAI</span>
+            <span className="rounded bg-[#a3e635]/15 px-1.5 py-0.5 text-[9px] font-medium text-[#a3e635]">
+              {returnToOrigin ? 'PP' : 'Drop-off'}
+            </span>
           </div>
         </div>
       </div>

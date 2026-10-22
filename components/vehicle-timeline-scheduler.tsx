@@ -19,7 +19,7 @@ import {
   Filter
 } from 'lucide-react'
 import type { Trip, Vehicle } from '@/lib/store'
-import { useStore, ymd, fmtDate } from '@/lib/store'
+import { useStore, ymd, fmtDate, fmtTime } from '@/lib/store'
 import type { Account } from '@/lib/accounts'
 import { Pill, btnPrimary, btnGhost, inputCls, useToast } from './ui-bits'
 
@@ -75,6 +75,7 @@ export function VehicleTimelineScheduler({
   viewMode: controlledViewMode,
   onViewModeChange,
 }: VehicleTimelineSchedulerProps) {
+  const { db } = useStore()
   const [internalViewMode, setInternalViewMode] = useState<TimelineViewMode>('daily')
   const viewMode = controlledViewMode ?? internalViewMode
   const setViewMode = (m: TimelineViewMode) => {
@@ -179,54 +180,97 @@ export function VehicleTimelineScheduler({
 
   // Map trips to vehicle plate and coordinates based on viewMode
   const vehicleBookingsMap = useMemo(() => {
-    const map = new Map<string, { trip: Trip; leftPct: number; widthPct: number; timeLabel: string }[]>()
+    const map = new Map<string, any[]>()
     vehicles.forEach((v) => map.set(v.plate, []))
 
     if (viewMode === 'daily') {
       const dayTrips = bookings.filter((t) => t.date === currentDate && t.status !== 'REJECTED')
       dayTrips.forEach((trip) => {
         if (!trip.plate) return
-        let sMin = trip.timeGo ? isoToMin(trip.timeGo) : timeToMin(trip.estDeparture)
-        let eMin = trip.timeBack
-          ? isoToMin(trip.timeBack)
-          : trip.estReturn
-          ? timeToMin(trip.estReturn)
-          : trip.durationMin && sMin
-          ? sMin + trip.durationMin
-          : sMin
-          ? sMin + 90
-          : null
 
-        if (sMin == null) return
-        if (eMin == null || eMin <= sMin) eMin = sMin + 60
+        // 1. Plan coordinates
+        const pStart = timeToMin(trip.estDeparture) ?? 480
+        const rawPEnd = trip.estReturn ? timeToMin(trip.estReturn) : pStart + (trip.estimated_duration_minutes || 120)
+        let pEnd = rawPEnd ?? pStart + 60
+        if (pEnd <= pStart) pEnd = pStart + 60
+        const planLeftPct = (pStart / 1440) * 100
+        const planWidthPct = Math.max(2.0, ((pEnd - pStart) / 1440) * 100)
+        const planTimeLabel = `${minToTime(pStart)} - ${minToTime(pEnd)}`
 
-        // In 24h timeline (0 to 1440 mins)
-        const leftPct = (sMin / 1440) * 100
-        const widthPct = Math.max(1.8, ((eMin - sMin) / 1440) * 100)
+        // 2. Actual coordinates (jika ada eksekusi lapangan: timeGo terisi)
+        let hasActual = false
+        let actualLeftPct = 0
+        let actualWidthPct = 0
+        let actualTimeLabel = ''
+        let isDelayed = false
+        let delayMins = 0
+
+        if (trip.timeGo) {
+          hasActual = true
+          const aStart = isoToMin(trip.timeGo) ?? pStart
+          const nowMin = new Date().getHours() * 60 + new Date().getMinutes()
+          const rawAEnd = trip.timeBack
+            ? isoToMin(trip.timeBack)
+            : trip.status === 'ON_TRIP'
+            ? nowMin
+            : trip.durationMin
+            ? aStart + trip.durationMin
+            : aStart + 60
+          let aEnd = rawAEnd ?? aStart + 60
+          if (aEnd <= aStart) aEnd = aStart + 30
+
+          actualLeftPct = (aStart / 1440) * 100
+          actualWidthPct = Math.max(2.2, ((aEnd - aStart) / 1440) * 100)
+          actualTimeLabel = `${fmtTime(trip.timeGo)} - ${trip.timeBack ? fmtTime(trip.timeBack) : 'Sedang Berjalan'}`
+
+          const actualDuration = aEnd - aStart
+          const planDuration = pEnd - pStart
+          if (actualDuration > planDuration) {
+            isDelayed = true
+            delayMins = actualDuration - planDuration
+          }
+        }
+
+        const assignedDriver = trip.driverId ? db.drivers.find((d) => d.id === trip.driverId) : null
 
         const list = map.get(trip.plate) || []
         list.push({
           trip,
-          leftPct,
-          widthPct,
-          timeLabel: `${minToTime(sMin)} - ${minToTime(eMin)}`,
+          planLeftPct,
+          planWidthPct,
+          planTimeLabel,
+          hasActual,
+          actualLeftPct,
+          actualWidthPct,
+          actualTimeLabel,
+          isDelayed,
+          delayMins,
+          driverName: assignedDriver?.name,
         })
         map.set(trip.plate, list)
 
-        // Jika trip ini memblokir mobil default driver (driver bawa mobil lain)
-        if (trip.blockedDefaultPlate && map.has(trip.blockedDefaultPlate)) {
-          const blockedList = map.get(trip.blockedDefaultPlate) || []
+        // 3. Mobil Lain Block Logic:
+        // Jika driver ditugaskan ke kendaraan yang BUKAN kendaraan default-nya,
+        // sistem otomatis membuat blocked schedule pada baris Mobil Default-nya.
+        const isUsingOtherCar = !!trip.isOtherVehicle || (!!assignedDriver?.defaultPlate && assignedDriver.defaultPlate !== trip.plate)
+        const defaultPlateToBlock = trip.blockedDefaultPlate || (isUsingOtherCar && assignedDriver?.defaultPlate ? assignedDriver.defaultPlate : null)
+
+        if (defaultPlateToBlock && map.has(defaultPlateToBlock)) {
+          const blockedList = map.get(defaultPlateToBlock) || []
           blockedList.push({
             trip: {
               ...trip,
-              purpose: trip.blockedReason || 'Driver sedang tugas di mobil lain',
+              purpose: trip.blockedReason || `Driver sedang bertugas di ${trip.plate || trip.otherVehicleName || 'Mobil Luar'}`,
             },
-            leftPct,
-            widthPct,
-            timeLabel: `${minToTime(sMin)} - ${minToTime(eMin)}`,
+            planLeftPct,
+            planWidthPct,
+            planTimeLabel,
+            hasActual: false,
             isBlockedDefault: true,
-          } as any)
-          map.set(trip.blockedDefaultPlate, blockedList)
+            blockedCarName: trip.isOtherVehicle ? (trip.otherVehicleName || 'Mobil Luar') : trip.plate,
+            driverName: assignedDriver?.name || 'Driver',
+          })
+          map.set(defaultPlateToBlock, blockedList)
         }
       })
     } else if (viewMode === 'weekly') {
@@ -237,39 +281,74 @@ export function VehicleTimelineScheduler({
         const colIdx = weeklyColumns.findIndex((c) => c.date === trip.date)
         if (colIdx === -1) return
 
-        const rawSMin = trip.timeGo ? isoToMin(trip.timeGo) : timeToMin(trip.estDeparture)
-        const sMin = rawSMin ?? 480
-        const rawEMin = trip.timeBack ? isoToMin(trip.timeBack) : trip.estReturn ? timeToMin(trip.estReturn) : null
-        let eMin = rawEMin ?? (sMin + 120)
-        if (eMin <= sMin) eMin = sMin + 60
+        const pStart = timeToMin(trip.estDeparture) ?? 480
+        const rawPEnd = trip.estReturn ? timeToMin(trip.estReturn) : null
+        let pEnd = rawPEnd ?? pStart + 120
+        if (pEnd <= pStart) pEnd = pStart + 60
 
-        // Placement inside the 7-day grid: each day is 100/7 %
         const dayWidthPct = 100 / 7
-        const leftPct = colIdx * dayWidthPct + (sMin / 1440) * dayWidthPct
-        const widthPct = Math.max(1.5, ((eMin - sMin) / 1440) * dayWidthPct)
+        const planLeftPct = colIdx * dayWidthPct + (pStart / 1440) * dayWidthPct
+        const planWidthPct = Math.max(1.5, ((pEnd - pStart) / 1440) * dayWidthPct)
+
+        let hasActual = false
+        let actualLeftPct = 0
+        let actualWidthPct = 0
+        let actualTimeLabel = ''
+        let isDelayed = false
+        let delayMins = 0
+
+        if (trip.timeGo) {
+          hasActual = true
+          const aStart = isoToMin(trip.timeGo) ?? pStart
+          const rawAEnd = trip.timeBack ? isoToMin(trip.timeBack) : (aStart + (trip.durationMin || 60))
+          let aEnd = rawAEnd ?? aStart + 60
+          actualLeftPct = colIdx * dayWidthPct + (aStart / 1440) * dayWidthPct
+          actualWidthPct = Math.max(1.8, ((aEnd - aStart) / 1440) * dayWidthPct)
+          actualTimeLabel = `${fmtTime(trip.timeGo)} - ${trip.timeBack ? fmtTime(trip.timeBack) : 'Aktif'}`
+
+          if (aEnd - aStart > pEnd - pStart) {
+            isDelayed = true
+            delayMins = (aEnd - aStart) - (pEnd - pStart)
+          }
+        }
+
+        const assignedDriver = trip.driverId ? db.drivers.find((d) => d.id === trip.driverId) : null
 
         const list = map.get(trip.plate) || []
         list.push({
           trip,
-          leftPct,
-          widthPct,
-          timeLabel: `${trip.date} (${minToTime(sMin)} - ${minToTime(eMin)})`,
+          planLeftPct,
+          planWidthPct,
+          planTimeLabel: `${trip.date} (${minToTime(pStart)} - ${minToTime(pEnd)})`,
+          hasActual,
+          actualLeftPct,
+          actualWidthPct,
+          actualTimeLabel,
+          isDelayed,
+          delayMins,
+          driverName: assignedDriver?.name,
         })
         map.set(trip.plate, list)
 
-        if (trip.blockedDefaultPlate && map.has(trip.blockedDefaultPlate)) {
-          const blockedList = map.get(trip.blockedDefaultPlate) || []
+        const isUsingOtherCar = !!trip.isOtherVehicle || (!!assignedDriver?.defaultPlate && assignedDriver.defaultPlate !== trip.plate)
+        const defaultPlateToBlock = trip.blockedDefaultPlate || (isUsingOtherCar && assignedDriver?.defaultPlate ? assignedDriver.defaultPlate : null)
+
+        if (defaultPlateToBlock && map.has(defaultPlateToBlock)) {
+          const blockedList = map.get(defaultPlateToBlock) || []
           blockedList.push({
             trip: {
               ...trip,
-              purpose: trip.blockedReason || 'Driver sedang tugas di mobil lain',
+              purpose: trip.blockedReason || `Driver sedang bertugas di ${trip.plate || trip.otherVehicleName || 'Mobil Luar'}`,
             },
-            leftPct,
-            widthPct,
-            timeLabel: `${trip.date} (${minToTime(sMin)} - ${minToTime(eMin)})`,
+            planLeftPct,
+            planWidthPct,
+            planTimeLabel: `${trip.date} (${minToTime(pStart)} - ${minToTime(pEnd)})`,
+            hasActual: false,
             isBlockedDefault: true,
-          } as any)
-          map.set(trip.blockedDefaultPlate, blockedList)
+            blockedCarName: trip.isOtherVehicle ? (trip.otherVehicleName || 'Mobil Luar') : trip.plate,
+            driverName: assignedDriver?.name || 'Driver',
+          })
+          map.set(defaultPlateToBlock, blockedList)
         }
       })
     } else if (viewMode === 'monthly') {
@@ -285,22 +364,26 @@ export function VehicleTimelineScheduler({
 
         const colIdx = dayNum - 1
         const dayWidthPct = 100 / daysCount
-        const leftPct = colIdx * dayWidthPct + 0.1
-        const widthPct = Math.max(1.2, dayWidthPct * 0.85)
+        const planLeftPct = colIdx * dayWidthPct + 0.1
+        const planWidthPct = Math.max(1.2, dayWidthPct * 0.85)
+
+        const assignedDriver = trip.driverId ? db.drivers.find((d) => d.id === trip.driverId) : null
 
         const list = map.get(trip.plate) || []
         list.push({
           trip,
-          leftPct,
-          widthPct,
-          timeLabel: `${trip.date} (${trip.estDeparture || 'Trip'})`,
+          planLeftPct,
+          planWidthPct,
+          planTimeLabel: `${trip.date} (${trip.estDeparture || 'Trip'})`,
+          hasActual: !!trip.timeGo,
+          driverName: assignedDriver?.name,
         })
         map.set(trip.plate, list)
       })
     }
 
     return map
-  }, [bookings, currentDate, monthlyColumns, vehicles, viewMode, weeklyColumns])
+  }, [bookings, currentDate, db.drivers, monthlyColumns, vehicles, viewMode, weeklyColumns])
 
   // --- DRAG TO SELECT LOGIC ---
   const handleUnitMouseDown = (plate: string, unitIndex: number, e: React.MouseEvent) => {
@@ -585,22 +668,26 @@ export function VehicleTimelineScheduler({
         </div>
 
         {/* Legend */}
-        <div className="flex items-center gap-3 text-[11px] font-semibold text-slate-700">
+        <div className="flex flex-wrap items-center gap-3 text-[11px] font-semibold text-slate-700">
           <span className="flex items-center gap-1.5">
-            <span className="size-2.5 rounded bg-amber-500" />
-            <span>Pending SPV Pool</span>
+            <span className="size-3 rounded bg-[#2563eb] border border-blue-700 shadow-xs" />
+            <span>Rencana (Solid Plan)</span>
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="size-2.5 rounded bg-gradient-to-r from-[#2563eb] to-[#1d4ed8]" />
-            <span>Terjadwal / On-Trip</span>
+            <span className="size-3 rounded bg-emerald-500/50 border-2 border-emerald-500 backdrop-blur-xs" />
+            <span>Realisasi (Actual Transparan)</span>
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="size-2.5 rounded bg-[#475569]" />
-            <span>Selesai</span>
+            <span className="size-3 rounded bg-amber-500/40 border-2 border-dashed border-amber-500" />
+            <span>Actual Terlambat</span>
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="size-3 rounded bg-slate-800 border-2 border-dashed border-red-500" />
+            <span>Mobil Default Terblokir (Mobil Lain)</span>
           </span>
           {isInteractive && (
             <span className="flex items-center gap-1.5">
-              <span className="size-2.5 rounded border border-blue-500 bg-blue-100" />
+              <span className="size-3 rounded border border-blue-500 bg-blue-100" />
               <span>Drag Seleksi</span>
             </span>
           )}
@@ -781,8 +868,24 @@ export function VehicleTimelineScheduler({
                           })}
                         </div>
 
-                        {/* Render Booked Blocks */}
-                        {bookingsList.map(({ trip, leftPct, widthPct, timeLabel, isBlockedDefault }: any) => {
+                        {/* Render Booked Blocks (Plan vs Actual & Mobil Lain) */}
+                        {bookingsList.map((item: any, itemIdx: number) => {
+                          const {
+                            trip,
+                            planLeftPct,
+                            planWidthPct,
+                            planTimeLabel,
+                            hasActual,
+                            actualLeftPct,
+                            actualWidthPct,
+                            actualTimeLabel,
+                            isDelayed,
+                            delayMins,
+                            isBlockedDefault,
+                            blockedCarName,
+                            driverName,
+                          } = item
+
                           const isOwnTrip = trip.requesterUser === user.username
                           const canSeeDetails = isAdmin || isOwnTrip
                           const displayTitle = isBlockedDefault
@@ -791,46 +894,110 @@ export function VehicleTimelineScheduler({
                             ? trip.purpose || trip.destination
                             : 'Booked'
                           const displaySub = isBlockedDefault
-                            ? 'Driver bertugas di mobil lain'
+                            ? `Driver ${driverName} tugas di ${blockedCarName}`
                             : canSeeDetails
                             ? `${trip.guest} · ${trip.destination}`
                             : 'Operasional Lain'
 
-                          return (
-                            <div
-                              key={`${trip.id}-${isBlockedDefault ? 'blocked' : 'normal'}`}
-                              onClick={() => onBlockClick?.(trip)}
-                              onMouseEnter={(e) => {
-                                const rect = e.currentTarget.getBoundingClientRect()
-                                setHoverPos({ x: rect.left, y: rect.bottom + 4 })
-                                setHoveredTrip(trip)
-                              }}
-                              onMouseLeave={() => setHoveredTrip(null)}
-                              style={{
-                                left: `${leftPct}%`,
-                                width: `${Math.max(widthPct, 2.5)}%`,
-                              }}
-                              className={`absolute top-2 bottom-2 z-10 flex cursor-pointer flex-col justify-center overflow-hidden rounded-lg px-2.5 shadow-sm transition-all hover:z-20 hover:shadow-md hover:ring-2 hover:ring-blue-400 active:scale-[0.99] ${
-                                isBlockedDefault
-                                  ? 'bg-gradient-to-r from-slate-700 to-gray-900 text-white border-2 border-dashed border-red-400 opacity-90'
-                                  : trip.status === 'WAITING_POOL_SPV'
-                                  ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-white ring-2 ring-amber-300 ring-dashed shadow-md animate-pulse'
-                                  : trip.status === 'ON_TRIP'
-                                  ? 'bg-gradient-to-r from-[#1d4ed8] to-[#1e40af] text-white ring-1 ring-blue-600'
-                                  : trip.status === 'DONE'
-                                  ? 'bg-gradient-to-r from-[#475569] to-[#334155] text-white opacity-85'
-                                  : 'bg-gradient-to-r from-[#2563eb] to-[#1d4ed8] text-white'
-                              }`}
-                            >
-                              <div className="flex items-center gap-1.5 truncate">
-                                <span className={`size-1.5 rounded-full ${isBlockedDefault ? 'bg-red-400' : trip.status === 'WAITING_POOL_SPV' ? 'bg-amber-200' : 'bg-white'} animate-pulse`} />
-                                <p className="truncate text-[10px] font-bold tracking-tight uppercase">
-                                  {isBlockedDefault ? `[DIBLOKIR] ${displayTitle}` : trip.status === 'WAITING_POOL_SPV' ? `[Pending SPV] ${displayTitle}` : displayTitle}
+                          // Jika ini blokir Mobil Default (karena supir bawa mobil lain)
+                          if (isBlockedDefault) {
+                            return (
+                              <div
+                                key={`${trip.id}-blocked-${itemIdx}`}
+                                onClick={() => onBlockClick?.(trip)}
+                                onMouseEnter={(e) => {
+                                  const rect = e.currentTarget.getBoundingClientRect()
+                                  setHoverPos({ x: rect.left, y: rect.bottom + 4 })
+                                  setHoveredTrip(trip)
+                                }}
+                                onMouseLeave={() => setHoveredTrip(null)}
+                                style={{
+                                  left: `${planLeftPct}%`,
+                                  width: `${Math.max(planWidthPct, 2.5)}%`,
+                                }}
+                                className="absolute top-2 bottom-2 z-10 flex cursor-pointer flex-col justify-center overflow-hidden rounded-lg px-2.5 shadow-sm transition-all hover:z-30 hover:shadow-md bg-gradient-to-r from-slate-800 via-gray-900 to-slate-950 text-white border-2 border-dashed border-red-500 opacity-95 active:scale-[0.99]"
+                              >
+                                <div className="flex items-center gap-1.5 truncate">
+                                  <span className="size-1.5 rounded-full bg-red-400 animate-pulse" />
+                                  <p className="truncate text-[10px] font-bold tracking-tight uppercase text-red-200">
+                                    [MOBIL LAIN] {displayTitle}
+                                  </p>
+                                </div>
+                                <p className="truncate text-[9px] text-red-300 font-medium">
+                                  {displaySub} ({planTimeLabel})
                                 </p>
                               </div>
-                              <p className="truncate text-[9px] opacity-85 font-medium">
-                                {displaySub} ({timeLabel})
-                              </p>
+                            )
+                          }
+
+                          // Blok Reguler: Render Rencana (Solid) dan jika ada eksekusi, render Aktual (Transparan overlapping)
+                          return (
+                            <div key={`${trip.id}-group-${itemIdx}`} className="contents">
+                              {/* 1. Solid Color Block (PLAN) */}
+                              <div
+                                onClick={() => onBlockClick?.(trip)}
+                                onMouseEnter={(e) => {
+                                  const rect = e.currentTarget.getBoundingClientRect()
+                                  setHoverPos({ x: rect.left, y: rect.bottom + 4 })
+                                  setHoveredTrip(trip)
+                                }}
+                                onMouseLeave={() => setHoveredTrip(null)}
+                                style={{
+                                  left: `${planLeftPct}%`,
+                                  width: `${Math.max(planWidthPct, 2.5)}%`,
+                                }}
+                                className={`absolute top-2.5 bottom-2.5 z-10 flex cursor-pointer flex-col justify-center overflow-hidden rounded-lg px-2 shadow-sm transition-all hover:z-25 hover:shadow-md active:scale-[0.99] ${
+                                  trip.status === 'WAITING_POOL_SPV'
+                                    ? 'bg-gradient-to-r from-amber-600 to-orange-600 text-white ring-1 ring-amber-300/60 shadow-md'
+                                    : trip.status === 'ON_TRIP'
+                                    ? 'bg-gradient-to-r from-[#1d4ed8] to-[#1e40af] text-white shadow-xs'
+                                    : trip.status === 'DONE'
+                                    ? 'bg-gradient-to-r from-[#475569] to-[#334155] text-white'
+                                    : 'bg-gradient-to-r from-[#2563eb] to-[#1d4ed8] text-white'
+                                }`}
+                              >
+                                <div className="flex items-center gap-1 truncate">
+                                  <span className="size-1.5 rounded-full bg-white/90" />
+                                  <p className="truncate text-[9px] font-extrabold uppercase tracking-tight">
+                                    [PLAN] {displayTitle}
+                                  </p>
+                                </div>
+                                <p className="truncate text-[8.5px] opacity-90 font-medium">
+                                  {planTimeLabel}
+                                </p>
+                              </div>
+
+                              {/* 2. Transparent Color Block (ACTUAL) Overlapping the Plan Block */}
+                              {hasActual && (
+                                <div
+                                  onClick={() => onBlockClick?.(trip)}
+                                  onMouseEnter={(e) => {
+                                    const rect = e.currentTarget.getBoundingClientRect()
+                                    setHoverPos({ x: rect.left, y: rect.bottom + 4 })
+                                    setHoveredTrip(trip)
+                                  }}
+                                  onMouseLeave={() => setHoveredTrip(null)}
+                                  style={{
+                                    left: `${actualLeftPct}%`,
+                                    width: `${Math.max(actualWidthPct, 2.5)}%`,
+                                  }}
+                                  className={`absolute top-1 bottom-1 z-20 flex cursor-pointer flex-col justify-center overflow-hidden rounded-lg px-2 shadow-md backdrop-blur-[2px] transition-all hover:z-30 hover:shadow-lg active:scale-[0.99] ${
+                                    isDelayed
+                                      ? 'bg-amber-500/40 border-2 border-dashed border-amber-400 text-amber-100 ring-1 ring-amber-400/50'
+                                      : 'bg-emerald-500/45 border-2 border-emerald-400 text-white ring-1 ring-emerald-300/40'
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-1 truncate">
+                                    <span className={`size-1.5 rounded-full ${isDelayed ? 'bg-amber-300 animate-pulse' : 'bg-emerald-300'}`} />
+                                    <p className="truncate text-[9.5px] font-black tracking-tight drop-shadow-xs">
+                                      {isDelayed ? `⚠️ [ACTUAL DELAY +${delayMins}m]` : '[ACTUAL LAPANGAN]'}
+                                    </p>
+                                  </div>
+                                  <p className="truncate text-[8.5px] font-bold drop-shadow-xs opacity-95">
+                                    {actualTimeLabel}
+                                  </p>
+                                </div>
+                              )}
                             </div>
                           )
                         })}
@@ -887,19 +1054,53 @@ export function VehicleTimelineScheduler({
               : 'Kendaraan Sedang Bertugas'}
           </p>
 
-          <div className="mt-2 space-y-1 text-[11px] text-[#63726a]">
+          <div className="mt-2 space-y-1.5 text-[11px] text-[#63726a]">
+            <p>
+              <span className="text-[#93a097] font-semibold">📍 Rute:</span>{' '}
+              <strong className="text-slate-800">{hoveredTrip.origin || 'PT. JAI'}</strong> ➔ <strong className="text-slate-800">{hoveredTrip.destination}</strong>
+            </p>
             {(isAdmin || hoveredTrip.requesterUser === user.username) && (
               <>
                 <p><span className="text-[#93a097]">Tamu/User:</span> {hoveredTrip.guest}</p>
-                <p><span className="text-[#93a097]">Tujuan:</span> {hoveredTrip.destination}</p>
                 <p><span className="text-[#93a097]">Departemen:</span> {hoveredTrip.dept}</p>
               </>
             )}
-            <p>
-              <span className="text-[#93a097]">Tanggal & Jam:</span> {hoveredTrip.date} ({hoveredTrip.estDeparture} {hoveredTrip.estReturn ? `– ${hoveredTrip.estReturn}` : ''} WIB)
-            </p>
+            
+            {/* Perbandingan Plan vs Actual */}
+            <div className="rounded-lg bg-slate-50 p-2 border border-slate-200 space-y-1 my-1">
+              <div className="flex items-center justify-between text-[10px]">
+                <span className="font-bold text-blue-700">📋 Rencana (Plan):</span>
+                <span className="font-semibold text-slate-800">{hoveredTrip.estDeparture} – {hoveredTrip.estReturn || '—'} WIB</span>
+              </div>
+              <div className="flex items-center justify-between text-[10px]">
+                <span className="font-bold text-emerald-700">⏱️ Realisasi (Actual):</span>
+                <span className="font-semibold text-slate-800">
+                  {hoveredTrip.timeGo ? fmtTime(hoveredTrip.timeGo) : 'Belum Berangkat'} – {hoveredTrip.timeBack ? fmtTime(hoveredTrip.timeBack) : (hoveredTrip.status === 'ON_TRIP' ? 'Sedang Berjalan' : '—')} WIB
+                </span>
+              </div>
+              {hoveredTrip.durationMin && hoveredTrip.estimated_duration_minutes && (
+                <div className="flex items-center justify-between text-[10px] pt-0.5 border-t border-slate-200">
+                  <span className="text-slate-500">Durasi:</span>
+                  <span className={`font-bold ${hoveredTrip.durationMin > hoveredTrip.estimated_duration_minutes ? 'text-amber-600' : 'text-emerald-700'}`}>
+                    {hoveredTrip.durationMin} mnt (Rencana: {hoveredTrip.estimated_duration_minutes} mnt)
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Alasan Keterlambatan jika ada */}
+            {hoveredTrip.delayReason && (
+              <div className="rounded-lg bg-amber-50 p-2 border border-amber-300 text-amber-900 text-[10px]">
+                <strong className="block text-amber-800 font-bold mb-0.5">⚠️ Alasan Keterlambatan:</strong>
+                {hoveredTrip.delayReason}
+              </div>
+            )}
+
             {hoveredTrip.plate && (
-              <p><span className="text-[#93a097]">Kendaraan:</span> {hoveredTrip.plate}</p>
+              <p><span className="text-[#93a097]">Kendaraan:</span> <span className="font-bold text-slate-800">{hoveredTrip.plate}</span></p>
+            )}
+            {hoveredTrip.driverId && (
+              <p><span className="text-[#93a097]">Supir Ditugaskan:</span> <span className="font-bold text-slate-800">{db.drivers.find(d => d.id === hoveredTrip.driverId)?.name || hoveredTrip.driverId}</span></p>
             )}
             {hoveredTrip.adminNote && (
               <p className="rounded-md bg-[#f7faf8] p-1 text-[10px] text-[#075b3d]">

@@ -1,57 +1,160 @@
 'use client'
 
-import React, { useMemo } from 'react'
-import { useStore } from '@/lib/store'
+import React, { useMemo, useState, useEffect } from 'react'
+import { 
+  useStore, 
+  ymd, 
+  getWibNow, 
+  calculateDriverLiveAttendance, 
+  fmtTime, 
+  fmtDur 
+} from '@/lib/store'
 import { Account } from '@/lib/accounts'
-import { Card, PageHeader, Pill } from '../ui-bits'
+import { Card, PageHeader, Pill, useToast } from '../ui-bits'
 import { 
   Calendar, 
   Clock, 
   MapPin, 
   Users, 
   Navigation, 
-  ShieldCheck 
+  ShieldCheck,
+  CheckCircle2,
+  AlertTriangle,
+  Play,
+  Square,
+  Sparkles,
+  Timer
 } from 'lucide-react'
+
+const DELAY_REASONS = [
+  'Kemacetan Lalu Lintas (Traffic Jam / Macet Parah)',
+  'Kondisi Cuaca Ekstrem / Hujan Deras / Banjir',
+  'Antrean Panjang / Urusan Tambahan di Lokasi Tujuan',
+  'Kendala Teknis / Masalah Mesin atau Ban Kendaraan',
+  'Perubahan Rute / Permintaan Tambahan Penumpang',
+  'Lainnya',
+]
 
 interface DriverDashboardProps {
   user: Account
 }
 
 export function DriverDashboard({ user }: DriverDashboardProps) {
-  const { db } = useStore()
+  const { 
+    db, 
+    clockInDriver, 
+    clockOutDriver, 
+    startDriverTrip, 
+    endDriverTrip, 
+    submitDelayReason 
+  } = useStore()
+  const notify = useToast()
+
+  // Live WIB Clock state that ticks every second
+  const [wibTimeStr, setWibTimeStr] = useState<string>('')
+  const [wibNow, setWibNow] = useState(() => getWibNow())
+
+  useEffect(() => {
+    const updateTime = () => {
+      const now = new Date()
+      const wib = getWibNow(now)
+      setWibNow(wib)
+      const formatter = new Intl.DateTimeFormat('id-ID', {
+        timeZone: 'Asia/Jakarta',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false,
+      })
+      setWibTimeStr(formatter.format(now).replace(/\./g, ':'))
+    }
+    updateTime()
+    const timer = setInterval(updateTime, 1000)
+    return () => clearInterval(timer)
+  }, [])
 
   // Match driver by username or name
   const matchedDriver = useMemo(() => {
-    return db.drivers.find(
-      d => d.name.toLowerCase() === user.name.toLowerCase() ||
-           d.name.toLowerCase().includes(user.name.toLowerCase()) ||
-           user.name.toLowerCase().includes(d.name.toLowerCase())
-    ) || db.drivers[0]
+    return (
+      db.drivers.find(
+        (d) =>
+          d.name.toLowerCase() === user.name.toLowerCase() ||
+          d.name.toLowerCase().includes(user.name.toLowerCase()) ||
+          user.name.toLowerCase().includes(d.name.toLowerCase())
+      ) || db.drivers[0]
+    )
   }, [db.drivers, user])
+
+  // Attendance for today
+  const today = ymd()
+  const myAttendance = useMemo(() => {
+    return db.attendances?.find((a) => a.driverId === matchedDriver?.id && a.date === today)
+  }, [db.attendances, matchedDriver, today])
+
+  const liveAttendance = useMemo(() => {
+    return calculateDriverLiveAttendance(myAttendance, today)
+  }, [myAttendance, today, wibNow])
+
+  // Delay Justification Modal State
+  const [delayModalTripId, setDelayModalTripId] = useState<string | null>(null)
+  const [selectedDelayReason, setSelectedDelayReason] = useState<string>(DELAY_REASONS[0])
+  const [customDelayReason, setCustomDelayReason] = useState<string>('')
 
   // Trips assigned to this driver that have passed SPV Kendaraan ACC (READY, ON_TRIP, DONE)
   const driverTrips = useMemo(() => {
     if (!matchedDriver) return []
-    return db.trips.filter(t => {
-      // Must match driver
+    return db.trips.filter((t) => {
       const isMyTrip = t.driverId === matchedDriver.id
-      // Must have passed ACC SPV Kendaraan (READY, ON_TRIP, or DONE). 
       const isApproved = ['READY', 'ON_TRIP', 'DONE'].includes(t.status)
       return isMyTrip && isApproved
     })
   }, [db.trips, matchedDriver])
 
   const upcomingTrips = useMemo(() => {
-    return driverTrips.filter(t => t.status === 'READY')
+    return driverTrips.filter((t) => t.status === 'READY')
   }, [driverTrips])
 
   const activeTrip = useMemo(() => {
-    return driverTrips.find(t => t.status === 'ON_TRIP')
+    return driverTrips.find((t) => t.status === 'ON_TRIP')
   }, [driverTrips])
 
   const completedTrips = useMemo(() => {
-    return driverTrips.filter(t => t.status === 'DONE')
+    return driverTrips.filter((t) => t.status === 'DONE')
   }, [driverTrips])
+
+  // Calculate actual elapsed minutes for active trip
+  const activeElapsedMinutes = useMemo(() => {
+    if (!activeTrip || !activeTrip.timeGo) return 0
+    return Math.max(0, Math.round((Date.now() - new Date(activeTrip.timeGo).getTime()) / 60000))
+  }, [activeTrip, wibNow])
+
+  const activePlanMinutes = activeTrip?.durationMin || activeTrip?.estimated_duration_minutes || 60
+  const isActiveDelayed = activeTrip ? activeElapsedMinutes > activePlanMinutes : false
+
+  // Trigger Delay Modal when ending trip or reporting delay
+  const handleOpenEndTripModal = (tripId: string) => {
+    const t = db.trips.find((x) => x.id === tripId)
+    const planMins = t?.durationMin || t?.estimated_duration_minutes || 60
+    const elapsedMins = t?.timeGo ? Math.max(0, Math.round((Date.now() - new Date(t.timeGo).getTime()) / 60000)) : 0
+    
+    // If delayed, prompt delay reason
+    if (elapsedMins > planMins || t?.delayReason) {
+      setSelectedDelayReason(t?.delayReason || DELAY_REASONS[0])
+      setDelayModalTripId(tripId)
+    } else {
+      endDriverTrip(tripId)
+      notify('Perjalanan selesai tepat waktu dan tercatat.')
+    }
+  }
+
+  const handleConfirmDelayAndFinish = () => {
+    if (!delayModalTripId) return
+    const finalReason = selectedDelayReason === 'Lainnya' ? customDelayReason.trim() || 'Alasan khusus driver' : selectedDelayReason
+    endDriverTrip(delayModalTripId, finalReason)
+    notify(`Perjalanan selesai dengan catatan keterlambatan: ${finalReason}`)
+    setDelayModalTripId(null)
+    setCustomDelayReason('')
+  }
 
   // Calculate driver personal metrics
   const totalKm = useMemo(() => {
@@ -66,41 +169,136 @@ export function DriverDashboard({ user }: DriverDashboardProps) {
   return (
     <div className="space-y-6">
       <PageHeader 
-        title="Jadwal Tugas Driver" 
-        desc={`Portal resmi penugasan armada yang telah disetujui SPV Kendaraan · ${user.name}`} 
+        title="Jadwal Tugas & Absensi Driver" 
+        desc={`Portal resmi penugasan armada & absensi dinas · ${user.name}`} 
       />
 
-      {/* Top Banner Profile Driver */}
-      <div className="relative overflow-hidden rounded-2xl border border-[#a3e635]/25 bg-gradient-to-r from-[#0a2f1d] via-[#051c11] to-[#051a10] p-6 text-white shadow-xl">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="space-y-1.5">
+      {/* TOP SECTION: KARTU ABSENSI & OVERTIME REAL-TIME */}
+      <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-[#0c2619] via-[#06180f] to-black p-6 text-white shadow-2xl">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+          <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <Pill label="Akun Resmi Driver" tone="green" />
-              <span className="font-mono text-[11px] text-[#8fa99b] bg-white/5 px-2 py-0.5 rounded border border-white/10">
-                Mobil Default: {matchedDriver?.defaultPlate || 'B 1824 KQA'}
+              <Pill label="Absensi Harian Driver" tone="green" />
+              <span className="font-mono text-xs text-[#8fa99b] bg-white/5 px-2.5 py-0.5 rounded border border-white/10">
+                WIB: <span className="font-bold text-white">{wibTimeStr || '—:—:— WIB'}</span>
               </span>
             </div>
-            <h2 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+            <h2 className="text-2xl font-black tracking-tight text-white flex items-center gap-2">
               Halo, {user.name} 👋
             </h2>
-            <p className="text-xs text-[#8fa99b]">
-              Berikut adalah daftar penugasan perjalanan dinas yang telah disetujui resmi oleh SPV Kendaraan.
+            <p className="text-xs text-[#8fa99b] max-w-xl">
+              Jam kerja reguler PT. JAI: <span className="text-emerald-300 font-semibold">06:00 - 15:00 WIB</span>. 
+              Lewat dari pukul <span className="text-amber-400 font-semibold">15:01 WIB</span>, status otomatis tercatat sebagai <span className="text-amber-300 font-bold">OVERTIME (Lembur)</span> hingga tombol Pulang ditekan.
             </p>
           </div>
 
-          <div className="grid grid-cols-3 gap-3 bg-black/40 p-3 rounded-xl border border-white/10">
-            <div className="text-center px-3">
-              <div className="text-xl font-extrabold text-[#bef264]">{upcomingTrips.length}</div>
-              <div className="text-[10px] text-[#8fa99b]">Siap Jalan</div>
+          {/* Attendance Action Box */}
+          <div className="shrink-0 rounded-2xl bg-black/60 border border-white/10 p-4 min-w-[280px]">
+            <div className="flex items-center justify-between mb-3 text-xs">
+              <span className="text-[#8fa99b]">Status Kehadiran Hari Ini:</span>
+              {liveAttendance.status === 'BELUM_HADIR' && (
+                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-gray-500/20 text-gray-300 border border-gray-500/30">
+                  ⚪ Belum Hadir
+                </span>
+              )}
+              {liveAttendance.status === 'HADIR' && (
+                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1">
+                  🟢 Hadir (Masuk {fmtTime(liveAttendance.clockIn)} WIB)
+                </span>
+              )}
+              {liveAttendance.status === 'OVERTIME' && (
+                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/50 flex items-center gap-1 animate-pulse">
+                  🚨 OVERTIME (+{liveAttendance.overtimeMinutes}m)
+                </span>
+              )}
+              {liveAttendance.status === 'PULANG' && (
+                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-500/20 text-blue-300 border border-blue-500/40">
+                  🏁 Sudah Pulang
+                </span>
+              )}
             </div>
-            <div className="text-center px-3 border-x border-white/10">
-              <div className="text-xl font-extrabold text-amber-400">{activeTrip ? 1 : 0}</div>
-              <div className="text-[10px] text-[#8fa99b]">Sedang Jalan</div>
-            </div>
-            <div className="text-center px-3">
-              <div className="text-xl font-extrabold text-sky-400">{completedTrips.length}</div>
-              <div className="text-[10px] text-[#8fa99b]">Selesai</div>
-            </div>
+
+            {/* Attendance Buttons */}
+            {liveAttendance.status === 'BELUM_HADIR' && (
+              <button
+                type="button"
+                onClick={() => {
+                  clockInDriver(matchedDriver.id)
+                  notify(`Absensi HADIR berhasil tercatat pada ${new Date().toLocaleTimeString('id-ID')} WIB`)
+                }}
+                className="w-full flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white font-bold text-sm shadow-lg shadow-emerald-900/40 transition active:scale-[.98]"
+              >
+                <CheckCircle2 size={18} />
+                Clock In (Hadir Kerja)
+              </button>
+            )}
+
+            {(liveAttendance.status === 'HADIR' || liveAttendance.status === 'OVERTIME') && (
+              <div className="space-y-2">
+                {liveAttendance.status === 'OVERTIME' && (
+                  <div className="rounded-lg bg-amber-500/10 border border-amber-500/30 p-2 text-[11px] text-amber-300">
+                    ⚠️ Melewati batas shift 15:00 WIB. Lembur aktif berjalan: <strong>{liveAttendance.overtimeMinutes} Menit</strong>.
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    clockOutDriver(matchedDriver.id)
+                    notify(`Absensi PULANG berhasil tercatat pada ${new Date().toLocaleTimeString('id-ID')} WIB`)
+                  }}
+                  className={`w-full flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl font-bold text-sm shadow-lg transition active:scale-[.98] ${
+                    liveAttendance.status === 'OVERTIME'
+                      ? 'bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-white shadow-amber-900/40'
+                      : 'bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white shadow-blue-900/40'
+                  }`}
+                >
+                  <Square size={16} />
+                  Clock Out (Selesai Dinas & Pulang)
+                </button>
+              </div>
+            )}
+
+            {liveAttendance.status === 'PULANG' && (
+              <div className="text-center py-2 space-y-2">
+                <div className="text-xs text-[#8fa99b]">
+                  Dinas hari ini telah selesai: <br />
+                  <span className="text-white font-mono font-medium">
+                    {fmtTime(liveAttendance.clockIn)} → {fmtTime(liveAttendance.clockOut)} WIB
+                  </span>
+                  {liveAttendance.overtimeMinutes > 0 && (
+                    <div className="mt-1 text-amber-400 font-semibold">
+                      Total Lembur: {liveAttendance.overtimeMinutes} Menit
+                    </div>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    clockInDriver(matchedDriver.id)
+                    notify('Status absensi diaktifkan kembali.')
+                  }}
+                  className="text-[11px] text-[#8fa99b] hover:text-white underline"
+                >
+                  Clock In Ulang Jika Masih Bertugas
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Counter Summary */}
+        <div className="mt-6 grid grid-cols-3 gap-3 border-t border-white/10 pt-4">
+          <div className="text-center">
+            <div className="text-xl font-extrabold text-[#bef264]">{upcomingTrips.length}</div>
+            <div className="text-[10px] text-[#8fa99b]">Siap Berangkat</div>
+          </div>
+          <div className="text-center border-x border-white/10">
+            <div className="text-xl font-extrabold text-amber-400">{activeTrip ? 1 : 0}</div>
+            <div className="text-[10px] text-[#8fa99b]">Sedang Berjalan</div>
+          </div>
+          <div className="text-center">
+            <div className="text-xl font-extrabold text-sky-400">{completedTrips.length}</div>
+            <div className="text-[10px] text-[#8fa99b]">Telah Selesai</div>
           </div>
         </div>
       </div>
@@ -134,11 +332,11 @@ export function DriverDashboard({ user }: DriverDashboardProps) {
         </Card>
       </div>
 
-      {/* Tugas Aktif Saat Ini */}
+      {/* TUGAS AKTIF SAAT INI (ON_TRIP) */}
       {activeTrip && (
         <Card 
           title="Tugas Sedang Berjalan (ON TRIP)"
-          subtitle="Kendaraan saat ini berada di luar gerbang pabrik"
+          subtitle="Kendaraan saat ini berada di perjalanan dinas"
           className="border border-amber-500/40 bg-amber-950/20"
         >
           <div className="p-5 space-y-4">
@@ -150,29 +348,73 @@ export function DriverDashboard({ user }: DriverDashboardProps) {
                 </div>
                 <div className="text-lg font-bold text-white flex items-center gap-2">
                   <MapPin className="h-5 w-5 text-amber-400 shrink-0" />
-                  {activeTrip.destination}
+                  <span>{activeTrip.origin || 'PT. JAI'}</span>
+                  <span className="text-[#8fa99b]">→</span>
+                  <span>{activeTrip.destination}</span>
                 </div>
                 <div className="text-xs text-[#8fa99b] flex flex-wrap items-center gap-4">
                   <span>🚗 {activeTrip.isOtherVehicle ? activeTrip.otherVehicleName || 'Mobil Luar' : activeTrip.plate}</span>
-                  <span>⏰ Berangkat: {activeTrip.date}</span>
-                  <span>👥 {activeTrip.driverOnly ? 'Hanya Driver (Kirim Barang/Dokumen)' : `${activeTrip.passengers?.length || 1} Penumpang`}</span>
+                  <span>⏰ Berangkat: {fmtTime(activeTrip.timeGo)} WIB</span>
+                  <span>⏱️ Durasi Berjalan: <strong className="text-white">{activeElapsedMinutes} Menit</strong> (Rencana: {activePlanMinutes}m)</span>
                 </div>
               </div>
 
-              <div className="rounded-xl bg-amber-500/10 border border-amber-500/20 px-3.5 py-2 text-right shrink-0">
-                <div className="text-[11px] text-amber-300 font-semibold">Status Kendaraan</div>
-                <div className="text-xs text-white font-medium">Di Luar Pabrik</div>
-                <div className="text-[10px] text-[#8fa99b] mt-0.5">Check-in kembali di Gerbang Security</div>
+              {/* Action Buttons for Active Trip */}
+              <div className="flex flex-col gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => handleOpenEndTripModal(activeTrip.id)}
+                  className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-bold text-sm shadow-lg shadow-amber-900/40 transition active:scale-[.98]"
+                >
+                  <Square size={16} />
+                  Selesai Perjalanan (End Trip)
+                </button>
+
+                {isActiveDelayed && !activeTrip.delayReason && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedDelayReason(DELAY_REASONS[0])
+                      setDelayModalTripId(activeTrip.id)
+                    }}
+                    className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/20 border border-red-500/40 text-red-300 text-xs font-semibold hover:bg-red-500/30 transition"
+                  >
+                    <AlertTriangle size={14} />
+                    Input Alasan Keterlambatan (+{activeElapsedMinutes - activePlanMinutes}m)
+                  </button>
+                )}
               </div>
             </div>
+
+            {/* Delay Alert Banner if Active Trip is Running Late */}
+            {isActiveDelayed && (
+              <div className="rounded-xl bg-red-950/40 border border-red-500/40 p-4 text-xs text-red-200 flex items-start gap-3">
+                <AlertTriangle className="h-5 w-5 text-red-400 shrink-0 mt-0.5" />
+                <div>
+                  <div className="font-bold text-white text-sm">Peringatan Keterlambatan (Actual &gt; Plan)</div>
+                  <div>
+                    Durasi riil perjalanan ({activeElapsedMinutes} menit) telah melampaui estimasi rencana ({activePlanMinutes} menit). 
+                    {activeTrip.delayReason ? (
+                      <div className="mt-1 text-emerald-300">
+                        Alasan terlapor: <strong>{activeTrip.delayReason}</strong>
+                      </div>
+                    ) : (
+                      <div className="mt-1 text-amber-300">
+                        Saat perjalanan diselesaikan, sistem akan meminta konfirmasi alasan keterlambatan.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </Card>
       )}
 
-      {/* Daftar Tugas Siap Berangkat (Jadwal Setelah ACC SPV Kendaraan) */}
+      {/* DAFTAR TUGAS SIAP BERANGKAT (READY) */}
       <Card 
         title="Jadwal Siap Berangkat (Disetujui SPV Kendaraan)"
-        subtitle="Hanya jadwal yang telah lolos verifikasi akhir SPV Kendaraan yang muncul di sini"
+        subtitle="Dapat dimulai langsung oleh Driver atau via Clearance Gerbang Security"
         className="border border-white/10 bg-white/[0.02]"
       >
         <div className="p-5">
@@ -186,7 +428,7 @@ export function DriverDashboard({ user }: DriverDashboardProps) {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {upcomingTrips.map(trip => (
+              {upcomingTrips.map((trip) => (
                 <div 
                   key={trip.id} 
                   className="rounded-xl border border-white/10 bg-black/40 p-5 space-y-4 hover:border-[#a3e635]/40 transition"
@@ -204,7 +446,9 @@ export function DriverDashboard({ user }: DriverDashboardProps) {
                       </div>
                       <h3 className="text-base font-bold text-white mt-2 flex items-center gap-1.5">
                         <MapPin className="h-4 w-4 text-[#a3e635] shrink-0" />
-                        {trip.destination}
+                        <span>{trip.origin || 'PT. JAI'}</span>
+                        <span className="text-[#8fa99b]">→</span>
+                        <span>{trip.destination}</span>
                       </h3>
                     </div>
 
@@ -216,7 +460,7 @@ export function DriverDashboard({ user }: DriverDashboardProps) {
                   <div className="space-y-2 text-xs text-[#cad6cf] bg-white/[0.03] p-3 rounded-lg border border-white/5">
                     <div className="flex items-center justify-between">
                       <span className="text-[#8fa99b]">Tanggal & Waktu:</span>
-                      <span className="font-medium text-white">{trip.date} • {trip.estDeparture || '08:00'}</span>
+                      <span className="font-medium text-white">{trip.date} • {trip.estDeparture || '08:00'} WIB</span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-[#8fa99b]">Kendaraan Ditugaskan:</span>
@@ -258,12 +502,22 @@ export function DriverDashboard({ user }: DriverDashboardProps) {
                     </div>
                   )}
 
-                  {/* Status alur keberangkatan dihandle oleh Security */}
-                  <div className="pt-2 flex items-center justify-between border-t border-white/5 text-[11px] text-[#8fa99b]">
-                    <span>Status Keberangkatan:</span>
-                    <span className="font-medium text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-                      Menunggu Gate Clearance Security
-                    </span>
+                  {/* START TRIP BUTTON (Driver App Self Start) */}
+                  <div className="pt-2 border-t border-white/10">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        startDriverTrip(trip.id)
+                        notify(`Perjalanan ${trip.plate} dimulai oleh Driver pada ${new Date().toLocaleTimeString('id-ID')} WIB`)
+                      }}
+                      className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white font-bold text-xs shadow-md shadow-emerald-900/30 transition active:scale-[.98]"
+                    >
+                      <Play size={15} fill="currentColor" />
+                      Mulai Perjalanan (Start Trip)
+                    </button>
+                    <p className="text-[10px] text-[#8fa99b] text-center mt-1">
+                      Klik saat berangkat (termasuk penjemputan rute luar yang tidak lewat gerbang pabrik)
+                    </p>
                   </div>
                 </div>
               ))}
@@ -272,7 +526,7 @@ export function DriverDashboard({ user }: DriverDashboardProps) {
         </div>
       </Card>
 
-      {/* Riwayat Selesai */}
+      {/* RIWAYAT TUGAS SELESAI */}
       {completedTrips.length > 0 && (
         <Card 
           title="Riwayat Tugas Selesai" 
@@ -280,12 +534,17 @@ export function DriverDashboard({ user }: DriverDashboardProps) {
           className="border border-white/10 bg-white/[0.02]"
         >
           <div className="divide-y divide-white/5 p-4">
-            {completedTrips.map(trip => (
-              <div key={trip.id} className="py-3 flex items-center justify-between text-xs">
+            {completedTrips.map((trip) => (
+              <div key={trip.id} className="py-3 flex flex-col md:flex-row md:items-center justify-between gap-2 text-xs">
                 <div>
                   <div className="font-semibold text-white flex items-center gap-2">
-                    <span>{trip.destination}</span>
+                    <span>{trip.origin || 'PT. JAI'} → {trip.destination}</span>
                     <Pill label="Selesai" tone="gray" />
+                    {trip.delayReason && (
+                      <span className="text-[10px] text-amber-300 bg-amber-500/20 px-2 py-0.5 rounded border border-amber-500/30">
+                        Catatan: {trip.delayReason}
+                      </span>
+                    )}
                   </div>
                   <div className="text-[#8fa99b] text-[11px] mt-0.5">
                     {trip.date} • {trip.plate} • {trip.distance_km || 0} KM ({trip.durationMin || 60} Menit)
@@ -299,6 +558,77 @@ export function DriverDashboard({ user }: DriverDashboardProps) {
           </div>
         </Card>
       )}
+
+      {/* POPUP MODAL: REASON FOR DELAY (ALASAN KETERLAMBATAN) */}
+      {delayModalTripId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-lg rounded-2xl border border-amber-500/40 bg-[#0f1712] p-6 text-white shadow-2xl space-y-4">
+            <div className="flex items-center gap-2.5 text-amber-400">
+              <AlertTriangle className="h-6 w-6 shrink-0" />
+              <div>
+                <h3 className="text-lg font-bold text-white">Alasan Keterlambatan (Delay Justification)</h3>
+                <p className="text-xs text-[#8fa99b]">
+                  Durasi aktual melebihi jadwal rencana. Pilih alasan untuk dokumentasi sistem:
+                </p>
+              </div>
+            </div>
+
+            {/* Multiple Choice Options */}
+            <div className="space-y-2 pt-2">
+              {DELAY_REASONS.map((reason) => (
+                <label
+                  key={reason}
+                  className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition text-xs ${
+                    selectedDelayReason === reason
+                      ? 'bg-amber-500/20 border-amber-400 text-white font-semibold'
+                      : 'bg-white/5 border-white/10 text-[#cad6cf] hover:bg-white/10'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="delayReason"
+                    value={reason}
+                    checked={selectedDelayReason === reason}
+                    onChange={() => setSelectedDelayReason(reason)}
+                    className="h-4 w-4 text-amber-500 focus:ring-amber-400"
+                  />
+                  <span>{reason}</span>
+                </label>
+              ))}
+            </div>
+
+            {selectedDelayReason === 'Lainnya' && (
+              <div className="pt-1">
+                <input
+                  type="text"
+                  placeholder="Ketik detail alasan keterlambatan..."
+                  value={customDelayReason}
+                  onChange={(e) => setCustomDelayReason(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-black/60 border border-white/20 text-xs text-white placeholder-gray-400 focus:border-amber-400 focus:outline-none"
+                />
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-white/10">
+              <button
+                type="button"
+                onClick={() => setDelayModalTripId(null)}
+                className="px-4 py-2 rounded-xl text-xs text-[#8fa99b] hover:text-white"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDelayAndFinish}
+                className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs shadow-lg shadow-amber-900/40 transition"
+              >
+                Simpan & Selesaikan Perjalanan
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
+

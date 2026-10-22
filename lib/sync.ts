@@ -188,6 +188,26 @@ export async function fetchTripsFromSupabase(): Promise<Trip[] | null> {
         dept: p.dept,
       }))
 
+      let origin = 'PT. JAI'
+      let delayReason: string | undefined = undefined
+      let returnToOrigin = true
+      let destinationsList: string[] = []
+
+      if (t.destinations && typeof t.destinations === 'object' && !Array.isArray(t.destinations)) {
+        origin = t.destinations.origin || t.origin || 'PT. JAI'
+        delayReason = t.destinations.delayReason || t.delay_reason
+        returnToOrigin = t.destinations.returnToOrigin !== false
+        destinationsList = Array.isArray(t.destinations.stops) ? t.destinations.stops : [t.destination]
+      } else if (Array.isArray(t.destinations)) {
+        destinationsList = t.destinations
+        origin = t.origin || 'PT. JAI'
+        delayReason = t.delay_reason
+      } else {
+        destinationsList = t.destination ? [t.destination] : []
+        origin = t.origin || 'PT. JAI'
+        delayReason = t.delay_reason
+      }
+
       return {
         id: t.id,
         date: t.date,
@@ -199,8 +219,11 @@ export async function fetchTripsFromSupabase(): Promise<Trip[] | null> {
         requesterNik: t.requester_nik,
         dept: t.department_name,
         section: t.section_name,
+        origin,
         destination: t.destination,
-        destinations: t.destinations || [],
+        destinations: destinationsList,
+        returnToOrigin,
+        delayReason,
         distance_km: t.distance_km != null ? Number(t.distance_km) : undefined,
         estimated_duration_minutes: t.estimated_duration_minutes != null ? Number(t.estimated_duration_minutes) : undefined,
         estDeparture: t.est_departure ? String(t.est_departure).slice(0, 5) : '08:00',
@@ -210,7 +233,7 @@ export async function fetchTripsFromSupabase(): Promise<Trip[] | null> {
         otherVehicleName: t.other_vehicle_name,
         blockedDefaultPlate: t.blocked_default_plate,
         blockedReason: t.blocked_reason,
-        plate: t.plate,
+        plate: t.plate || (t.is_other_vehicle ? t.other_vehicle_name : undefined),
         driverId: t.driver_id,
         adminNote: t.admin_note,
         spvName: t.spv_name || `SPV ${t.department_name}`,
@@ -254,29 +277,37 @@ export type SyncResult = {
 
 export async function upsertTripToSupabase(trip: Trip): Promise<SyncResult> {
   try {
+    const validRequester = (!trip.requesterUser || trip.requesterUser === 'admin') ? 'admin1' : trip.requesterUser
+    const plateValue = trip.isOtherVehicle ? null : (trip.plate || null)
+
     const { error } = await supabase.from('trips').upsert({
       id: trip.id,
       date: trip.date,
       category: trip.category,
       purpose: trip.purpose,
       guest: trip.guest,
-      requester_username: trip.requesterUser,
+      requester_username: validRequester,
       requester_name: trip.requesterName,
       requester_nik: trip.requesterNik || null,
       department_name: trip.dept,
       section_name: trip.section || null,
       destination: trip.destination,
-      destinations: trip.destinations || [],
+      destinations: {
+        origin: trip.origin || 'PT. JAI',
+        stops: trip.destinations || (trip.destination ? [trip.destination] : []),
+        delayReason: trip.delayReason || null,
+        returnToOrigin: trip.returnToOrigin !== false,
+      },
       distance_km: trip.distance_km != null ? trip.distance_km : null,
       estimated_duration_minutes: trip.estimated_duration_minutes != null ? trip.estimated_duration_minutes : null,
       est_departure: trip.estDeparture ? (trip.estDeparture.length === 5 ? `${trip.estDeparture}:00` : trip.estDeparture) : '08:00:00',
       est_return: trip.estReturn ? (trip.estReturn.length === 5 ? `${trip.estReturn}:00` : trip.estReturn) : null,
       driver_only: !!trip.driverOnly,
       is_other_vehicle: !!trip.isOtherVehicle,
-      other_vehicle_name: trip.otherVehicleName || null,
+      other_vehicle_name: trip.otherVehicleName || (trip.isOtherVehicle ? trip.plate : null),
       blocked_default_plate: trip.blockedDefaultPlate || null,
       blocked_reason: trip.blockedReason || null,
-      plate: trip.plate || null,
+      plate: plateValue,
       driver_id: trip.driverId || null,
       admin_note: trip.adminNote || null,
       spv_name: trip.spvName || null,

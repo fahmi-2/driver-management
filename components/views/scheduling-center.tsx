@@ -21,7 +21,7 @@ import {
   Users,
   AlertCircle
 } from 'lucide-react'
-import { DEPARTMENTS, DEPARTMENT_APPROVERS, type Account } from '@/lib/accounts'
+import { DEPARTMENTS, DEPARTMENT_APPROVERS, getManagerBySection, getAllAccounts, type Account } from '@/lib/accounts'
 import { useStore, type Trip, type Driver, type Vehicle, type Passenger, type Category, fmtDate, fmtTime, driverState, vehicleState, ymd } from '@/lib/store'
 import { Card, PageHeader, Pill, btnGhost, btnPrimary, inputCls, useToast } from '../ui-bits'
 import { VehicleTimelineScheduler, type TimelineSelection } from '../vehicle-timeline-scheduler'
@@ -63,6 +63,7 @@ export function AdminSchedulingCenter({ user }: { user: Account }) {
     requesterNik: string
     dept: string
     approvedBy: string
+    approverEmail?: string
     destination: string
     destinations: string[]
     purpose: string
@@ -72,6 +73,8 @@ export function AdminSchedulingCenter({ user }: { user: Account }) {
     adminNote: string
     driverOnly: boolean
     additionalUsers: Passenger[]
+    origin?: string
+    returnToOrigin?: boolean
     isOtherVehicle: boolean
     otherVehicleName: string
   } | null>(null)
@@ -86,8 +89,10 @@ export function AdminSchedulingCenter({ user }: { user: Account }) {
     if (!selectedTrip) {
       // FITUR DIRECT BOOKING VIA KALENDER (DRAG-TO-BOOK)
       // Menampilkan popup pengajuan lengkap seperti form requester
-      const defaultDept = user.dept && DEPARTMENTS.includes(user.dept) ? user.dept : 'HR & GA'
+      const defaultDept = user.dept && DEPARTMENTS.includes(user.dept) ? user.dept : 'PGA'
       const approvers = DEPARTMENT_APPROVERS[defaultDept] || []
+      const initialApprovedBy = approvers[0] || ''
+      const initialEmail = getManagerBySection(defaultDept).email
 
       setDirectBookingData({
         selection,
@@ -95,7 +100,8 @@ export function AdminSchedulingCenter({ user }: { user: Account }) {
         requesterName: user.name || 'Admin Utama',
         requesterNik: user.nik || 'JAI-2015003',
         dept: defaultDept,
-        approvedBy: approvers[0] || '',
+        approvedBy: initialApprovedBy,
+        approverEmail: initialEmail,
         destination: '',
         destinations: [''],
         purpose: '',
@@ -105,6 +111,8 @@ export function AdminSchedulingCenter({ user }: { user: Account }) {
         adminNote: '',
         driverOnly: false,
         additionalUsers: [],
+        origin: 'PT. JAI',
+        returnToOrigin: true,
         isOtherVehicle: false,
         otherVehicleName: '',
       })
@@ -199,17 +207,20 @@ export function AdminSchedulingCenter({ user }: { user: Account }) {
       ? `Hanya Driver (Operasional Logistik)`
       : requesterName.trim()
 
-    // Tentukan plat: jika Mobil Lain, gunakan nama mobil lain
     const targetPlate = isOtherVehicle && otherVehicleName.trim() ? otherVehicleName.trim() : selection.selectedVehiclePlate
+    const approverEmail = directBookingData.approverEmail || getManagerBySection(dept).email
 
     const res = await directBooking({
+      requesterUser: user.username,
       plate: targetPlate,
       driverId: driverId || undefined,
       date: selection.date,
       estDeparture: selection.startTime,
       estReturn: selection.endTime,
+      origin: directBookingData.origin || 'PT. JAI',
       destination: destination.trim(),
       destinations: destinations.filter(Boolean),
+      returnToOrigin: directBookingData.returnToOrigin,
       purpose: purpose.trim() || 'Operasional Pabrik / Direct Booking',
       guest: guestLabel,
       category,
@@ -217,6 +228,7 @@ export function AdminSchedulingCenter({ user }: { user: Account }) {
       requesterName: requesterName.trim(),
       requesterNik: requesterNik.trim(),
       approvedBy,
+      approverEmail,
       passengers: allPassengers,
       adminNote: adminNote.trim(),
       driverOnly,
@@ -232,7 +244,7 @@ export function AdminSchedulingCenter({ user }: { user: Account }) {
     }
 
     notify(
-      `Permohonan Direct Booking armada ${targetPlate} (${selection.startTime} - ${selection.endTime}) berhasil diajukan! Menunggu ACC SPV Kendaraan (Tahap 2).`
+      `Permohonan Direct Booking armada ${targetPlate} berhasil diajukan! Notifikasi E-Sign dikirim ke ${approvedBy} (${approverEmail}).`
     )
     setDirectBookingData(null)
   }
@@ -874,10 +886,13 @@ export function AdminSchedulingCenter({ user }: { user: Account }) {
                       onChange={(e) => {
                         const newDept = e.target.value
                         const approvers = DEPARTMENT_APPROVERS[newDept] || []
+                        const newApprovedBy = approvers[0] || ''
+                        const newEmail = getManagerBySection(newDept).email
                         setDirectBookingData({
                           ...directBookingData,
                           dept: newDept,
-                          approvedBy: approvers[0] || '',
+                          approvedBy: newApprovedBy,
+                          approverEmail: newEmail,
                         })
                       }}
                       className={`${inputCls} bg-black/40`}
@@ -897,7 +912,17 @@ export function AdminSchedulingCenter({ user }: { user: Account }) {
                     </label>
                     <select
                       value={directBookingData.approvedBy}
-                      onChange={(e) => setDirectBookingData({ ...directBookingData, approvedBy: e.target.value })}
+                      onChange={(e) => {
+                        const newApprovedBy = e.target.value
+                        const cleanName = newApprovedBy.replace(/\(.*\)/, '').trim().toUpperCase()
+                        const matched = getAllAccounts().find((a) => a.name.toUpperCase().includes(cleanName) || cleanName.includes(a.name.toUpperCase()))
+                        const newEmail = matched?.email || getManagerBySection(directBookingData.dept).email
+                        setDirectBookingData({
+                          ...directBookingData,
+                          approvedBy: newApprovedBy,
+                          approverEmail: newEmail,
+                        })
+                      }}
                       className={`${inputCls} bg-black/40 font-semibold text-[#bef264]`}
                       required
                     >
@@ -1088,15 +1113,19 @@ export function AdminSchedulingCenter({ user }: { user: Account }) {
                   Rute Perjalanan (Multi-Drop) & Peta PT. JAI
                 </label>
                 <DestinationAutocomplete
+                  origin={directBookingData.origin}
                   value={directBookingData.destination}
                   destinations={directBookingData.destinations}
+                  returnToOrigin={directBookingData.returnToOrigin}
                   distanceKm={directBookingData.distance_km}
                   durationMins={directBookingData.estimated_duration_minutes}
                   onChange={(data) => {
                     setDirectBookingData({
                       ...directBookingData,
+                      origin: data.origin,
                       destination: data.destination,
                       destinations: data.destinations,
+                      returnToOrigin: data.returnToOrigin,
                       distance_km: data.distance_km,
                       estimated_duration_minutes: data.estimated_duration_minutes,
                     })

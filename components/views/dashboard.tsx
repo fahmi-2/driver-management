@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { BusFront, Clock3, FileText, Truck, UserRound } from 'lucide-react'
 import type { Account } from '@/lib/accounts'
-import { driverState, fmtDur, fmtTime, useStore, vehicleState, ymd } from '@/lib/store'
+import { driverState, fmtDur, fmtTime, useStore, vehicleState, ymd, calculateDriverLiveAttendance } from '@/lib/store'
 import { Card, PageHeader, Pill } from '../ui-bits'
 import { VehicleTimelineScheduler } from '../vehicle-timeline-scheduler'
 
@@ -182,6 +182,22 @@ export function Dashboard({ user }: { user: Account }) {
   const active = db.trips.filter((t) => t.status === 'ON_TRIP')
   const availVeh = db.vehicles.filter((v) => vehicleState(db, v.plate) === 'Tersedia').length
 
+  // Live driver attendance statuses
+  const driverAttendanceList = db.drivers.map((d) => {
+    const att = db.attendances?.find((a) => a.driverId === d.id && a.date === today)
+    const live = calculateDriverLiveAttendance(att, today)
+    return {
+      driver: d,
+      att,
+      live,
+    }
+  })
+
+  const hadirCount = driverAttendanceList.filter((x) => x.live.status === 'HADIR').length
+  const overtimeCount = driverAttendanceList.filter((x) => x.live.status === 'OVERTIME').length
+  const pulangCount = driverAttendanceList.filter((x) => x.live.status === 'PULANG').length
+  const belumHadirCount = driverAttendanceList.filter((x) => x.live.status === 'BELUM_HADIR').length
+
   return (
     <>
       <PageHeader title="Dashboard" desc={`Status armada & driver secara real-time · ${user.title}`} />
@@ -208,6 +224,94 @@ export function Dashboard({ user }: { user: Account }) {
         ))}
       </section>
 
+      {/* Driver Live Attendance & Overtime Tracker Card */}
+      <Card
+        className="mt-4"
+        title="Monitoring Absensi & Lembur Driver (Real-Time)"
+        subtitle="Jam kerja standar 06:00 - 15:00 WIB · Otomatis OVERTIME jika belum Clock Out setelah 15:01 WIB"
+        action={
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="flex items-center gap-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 text-xs text-emerald-400 font-semibold">
+              🟢 Hadir: {hadirCount}
+            </span>
+            <span className="flex items-center gap-1.5 rounded-lg bg-amber-500/15 border border-amber-500/30 px-2.5 py-1 text-xs text-amber-300 font-bold animate-pulse">
+              🚨 Overtime: {overtimeCount}
+            </span>
+            <span className="flex items-center gap-1.5 rounded-lg bg-blue-500/10 border border-blue-500/20 px-2.5 py-1 text-xs text-blue-300 font-semibold">
+              🏁 Pulang: {pulangCount}
+            </span>
+            <span className="flex items-center gap-1.5 rounded-lg bg-gray-500/10 border border-gray-500/20 px-2.5 py-1 text-xs text-gray-400 font-semibold">
+              ⚪ Belum: {belumHadirCount}
+            </span>
+          </div>
+        }
+      >
+        <div className="grid gap-3 p-5 sm:grid-cols-2 lg:grid-cols-4">
+          {driverAttendanceList.map(({ driver: d, live }) => (
+            <div
+              key={d.id}
+              className={`rounded-xl border p-3 text-xs transition ${
+                live.status === 'OVERTIME'
+                  ? 'border-amber-500/50 bg-amber-950/20 shadow-md shadow-amber-950/30 ring-1 ring-amber-500/30'
+                  : live.status === 'HADIR'
+                  ? 'border-emerald-500/30 bg-emerald-950/10'
+                  : live.status === 'PULANG'
+                  ? 'border-blue-500/20 bg-blue-950/10'
+                  : 'border-white/5 bg-white/[0.02]'
+              }`}
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <div className="font-bold text-white flex items-center gap-1.5">
+                    <span>{d.name}</span>
+                    {d.onLeave && <span className="text-[10px] text-red-400 font-normal">(Cuti)</span>}
+                  </div>
+                  <div className="font-mono text-[10px] text-[#8fa99b]">{d.defaultPlate}</div>
+                </div>
+
+                {live.status === 'BELUM_HADIR' && (
+                  <span className="rounded-full bg-white/5 border border-white/10 px-2 py-0.5 text-[10px] text-gray-400 font-medium">
+                    Belum Hadir
+                  </span>
+                )}
+                {live.status === 'HADIR' && (
+                  <span className="rounded-full bg-emerald-500/20 border border-emerald-500/40 px-2 py-0.5 text-[10px] text-emerald-300 font-bold">
+                    🟢 Hadir
+                  </span>
+                )}
+                {live.status === 'OVERTIME' && (
+                  <span className="rounded-full bg-amber-500/25 border border-amber-500/50 px-2 py-0.5 text-[10px] text-amber-300 font-black animate-pulse">
+                    🚨 OVERTIME
+                  </span>
+                )}
+                {live.status === 'PULANG' && (
+                  <span className="rounded-full bg-blue-500/20 border border-blue-500/40 px-2 py-0.5 text-[10px] text-blue-300 font-bold">
+                    🏁 Pulang
+                  </span>
+                )}
+              </div>
+
+              <div className="mt-2.5 space-y-1 text-[11px] text-[#8fa99b] border-t border-white/5 pt-2">
+                <div className="flex items-center justify-between">
+                  <span>Clock In:</span>
+                  <span className="font-mono font-medium text-white">{fmtTime(live.clockIn)} WIB</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Clock Out:</span>
+                  <span className="font-mono font-medium text-white">{fmtTime(live.clockOut)} WIB</span>
+                </div>
+                {live.overtimeMinutes > 0 && (
+                  <div className="flex items-center justify-between font-bold text-amber-300 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">
+                    <span>Lembur:</span>
+                    <span>+{live.overtimeMinutes} Menit</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </Card>
+
       {/* Live Resource Timeline Calendar (View-Only Mode for Universal Dashboard) */}
       <section className="mt-4">
         <VehicleTimelineScheduler
@@ -229,14 +333,41 @@ export function Dashboard({ user }: { user: Account }) {
                   {list.length === 0 && <p className="py-4 text-center text-[11px] text-[#a3afa8]">Kosong</p>}
                   {list.map((d) => {
                     const trip = db.trips.find((t) => t.driverId === d.id && (t.status === 'READY' || t.status === 'ON_TRIP'))
+                    const att = db.attendances?.find((a) => a.driverId === d.id && a.date === today)
+                    const live = calculateDriverLiveAttendance(att, today)
+
                     return (
                       <div key={d.id} className="rounded-xl border border-[#e4ece6] bg-white p-3 text-xs">
-                        <div className="flex items-center gap-2 font-bold"><UserRound size={14} className="text-[#087348]" />{d.name}</div>
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2 font-bold"><UserRound size={14} className="text-[#087348]" />{d.name}</div>
+                          {live.status === 'OVERTIME' ? (
+                            <span className="rounded-full bg-amber-100 border border-amber-300 px-1.5 py-0.5 text-[9px] font-black text-amber-800 animate-pulse">
+                              OVERTIME (+{live.overtimeMinutes}m)
+                            </span>
+                          ) : live.status === 'HADIR' ? (
+                            <span className="rounded-full bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 text-[9px] font-bold text-emerald-700">
+                              HADIR ({fmtTime(live.clockIn)})
+                            </span>
+                          ) : live.status === 'PULANG' ? (
+                            <span className="rounded-full bg-blue-50 border border-blue-200 px-1.5 py-0.5 text-[9px] font-medium text-blue-700">
+                              PULANG
+                            </span>
+                          ) : (
+                            <span className="rounded-full bg-gray-50 border border-gray-200 px-1.5 py-0.5 text-[9px] font-normal text-gray-500">
+                              BELUM HADIR
+                            </span>
+                          )}
+                        </div>
                         {trip && (
                           <div className="mt-2 space-y-1 text-[11px] text-[#708078]">
                             <p className="flex items-center gap-1.5"><Truck size={12} />{trip.plate}</p>
                             <p className="flex items-center gap-1.5"><Clock3 size={12} />{trip.status === 'ON_TRIP' ? `Keluar ${fmtTime(trip.timeGo)}` : 'Siap berangkat'}</p>
-                            {isAdmin && <p className="rounded-md bg-[#f1f5f2] px-2 py-1 text-[#4b5b52]">{trip.guest} → {trip.destination}</p>}
+                            {isAdmin && (
+                              <p className="rounded-md bg-[#f1f5f2] px-2 py-1 text-[#4b5b52]">
+                                {trip.guest} → {trip.destination}
+                                {trip.origin && trip.origin !== 'PT. JAI' && <span className="block text-[10px] text-emerald-700 font-semibold">Start: {trip.origin}</span>}
+                              </p>
+                            )}
                           </div>
                         )}
                         {isAdmin && !trip && (

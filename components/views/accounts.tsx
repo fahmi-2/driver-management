@@ -97,12 +97,16 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
 
     // Listener Supabase realtime untuk tabel accounts
     let channel: any = null
+    let isCancelled = false
+
     import('@/lib/supabase').then(({ supabase }) => {
+      if (isCancelled) return
+      const channelName = `accounts-live-sync-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`
       channel = supabase
-        .channel('accounts-live-sync')
+        .channel(channelName)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'accounts' }, () => {
           syncAccountsWithSupabase().then((latest) => {
-            if (latest && latest.length > 0) setAccounts(latest)
+            if (latest && latest.length > 0 && !isCancelled) setAccounts(latest)
           })
         })
         .subscribe()
@@ -111,7 +115,7 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
     const handleUpdate = () => refreshAccounts()
     const handleFocus = () => {
       syncAccountsWithSupabase().then((latest) => {
-        if (latest && latest.length > 0) setAccounts(latest)
+        if (latest && latest.length > 0 && !isCancelled) setAccounts(latest)
       })
     }
 
@@ -120,6 +124,7 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
     window.addEventListener('focus', handleFocus)
 
     return () => {
+      isCancelled = true
       window.removeEventListener('accounts_updated', handleUpdate)
       window.removeEventListener('profile_updated', handleUpdate)
       window.removeEventListener('focus', handleFocus)

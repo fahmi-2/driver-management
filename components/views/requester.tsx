@@ -81,8 +81,10 @@ export function RequesterForm({ user }: { user: Account }) {
     approverEmail: initialManager.email,
     driverOnly: false, // Opsi "Hanya Driver" (tanpa penumpang / antar barang)
     additionalUsers: [] as Passenger[], // User tambahan yang bertambah saat klik "+ Tambah"
+    origin: 'PT. JAI', // Titik awal dinamis
     destination: '',
     destinations: [''] as string[],
+    returnToOrigin: true, // Pulang-pergi vs Sekali jalan
     purpose: '',
     estDeparture: '08:00',
     estReturn: '12:00',
@@ -225,8 +227,10 @@ export function RequesterForm({ user }: { user: Account }) {
         approverEmail: f.approverEmail,
         passengers: allPassengers,
         driverOnly: f.driverOnly,
+        origin: f.origin || 'PT. JAI',
         destination: f.destination,
         destinations: f.destinations.filter(Boolean),
+        returnToOrigin: f.returnToOrigin,
         purpose: f.purpose,
         estDeparture: f.estDeparture,
         estReturn: f.estReturn,
@@ -263,8 +267,10 @@ export function RequesterForm({ user }: { user: Account }) {
         approverEmail: resetManager.email,
         driverOnly: false,
         additionalUsers: [],
+        origin: 'PT. JAI',
         destination: '',
         destinations: [''],
+        returnToOrigin: true,
         purpose: '',
         estDeparture: '08:00',
         estReturn: '12:00',
@@ -613,15 +619,19 @@ export function RequesterForm({ user }: { user: Account }) {
                 Rute Perjalanan (Multi-Drop)
               </label>
               <DestinationAutocomplete
+                origin={f.origin}
                 value={f.destination}
                 destinations={f.destinations}
+                returnToOrigin={f.returnToOrigin}
                 distanceKm={f.distance_km}
                 durationMins={f.estimated_duration_minutes}
                 onChange={(data) => {
                   setF((prev) => ({
                     ...prev,
+                    origin: data.origin,
                     destination: data.destination,
                     destinations: data.destinations,
+                    returnToOrigin: data.returnToOrigin ?? true,
                     distance_km: data.distance_km,
                     estimated_duration_minutes: data.estimated_duration_minutes,
                   }))
