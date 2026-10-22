@@ -391,3 +391,20 @@ export async function upsertTripToSupabase(trip: Trip): Promise<SyncResult> {
     }
   }
 }
+
+export async function deleteTripFromSupabase(id: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    // Hapus juga penumpang jika ada foreign key / relasi
+    await supabase.from('trip_passengers').delete().eq('trip_id', id)
+    const { error } = await supabase.from('trips').delete().eq('id', id)
+    if (error) {
+      console.error('Failed to delete trip from Supabase:', error)
+      return { success: false, error: error.message }
+    }
+    return { success: true }
+  } catch (err: any) {
+    console.error('Failed to delete trip from Supabase:', err)
+    return { success: false, error: err?.message || 'Unknown error' }
+  }
+}
+

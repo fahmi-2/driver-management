@@ -16,10 +16,15 @@ import {
   CalendarDays,
   Sparkles,
   Search,
-  Filter
+  Filter,
+  Trash2,
+  RefreshCw,
+  AlertTriangle,
+  Send,
+  MapPin,
 } from 'lucide-react'
 import type { Trip, Vehicle } from '@/lib/store'
-import { useStore, ymd, fmtDate, fmtTime } from '@/lib/store'
+import { useStore, ymd, fmtDate, fmtTime, STATUS_LABEL } from '@/lib/store'
 import type { Account } from '@/lib/accounts'
 import { Pill, btnPrimary, btnGhost, inputCls, useToast } from './ui-bits'
 
@@ -75,7 +80,8 @@ export function VehicleTimelineScheduler({
   viewMode: controlledViewMode,
   onViewModeChange,
 }: VehicleTimelineSchedulerProps) {
-  const { db } = useStore()
+  const { db, rescheduleTrip, cancelTrip } = useStore()
+  const notify = useToast()
   const [internalViewMode, setInternalViewMode] = useState<TimelineViewMode>('daily')
   const viewMode = controlledViewMode ?? internalViewMode
   const setViewMode = (m: TimelineViewMode) => {
@@ -105,6 +111,119 @@ export function VehicleTimelineScheduler({
   const [hoverPos, setHoverPos] = useState<{ x: number; y: number } | null>(null)
   const gridRef = useRef<HTMLDivElement>(null)
   const isAdmin = user.role === 'admin' || user.role === 'admin_lobby'
+
+  // Inspect Modal State
+  const [inspectingTrip, setInspectingTrip] = useState<Trip | null>(null)
+  const [isRescheduling, setIsRescheduling] = useState(false)
+  const [isCanceling, setIsCanceling] = useState(false)
+  const [cancelReason, setCancelReason] = useState('')
+  const [isSubmittingAction, setIsSubmittingAction] = useState(false)
+
+  // Reschedule Form State
+  const [rescheduleData, setRescheduleData] = useState<{
+    date: string
+    estDeparture: string
+    estReturn: string
+    plate: string
+    driverId: string
+    adminNote: string
+    isOtherVehicle: boolean
+    otherVehicleName: string
+  }>({
+    date: '',
+    estDeparture: '08:00',
+    estReturn: '17:00',
+    plate: '',
+    driverId: '',
+    adminNote: '',
+    isOtherVehicle: false,
+    otherVehicleName: '',
+  })
+
+  // Handle open inspect modal
+  const handleOpenInspect = (trip: Trip) => {
+    setInspectingTrip(trip)
+    setIsRescheduling(false)
+    setIsCanceling(false)
+    setCancelReason('')
+    setRescheduleData({
+      date: trip.date || ymd(),
+      estDeparture: trip.estDeparture || '08:00',
+      estReturn: trip.estReturn || '17:00',
+      plate: trip.plate || '',
+      driverId: trip.driverId || '',
+      adminNote: trip.adminNote || '',
+      isOtherVehicle: !!trip.isOtherVehicle,
+      otherVehicleName: trip.otherVehicleName || '',
+    })
+    onBlockClick?.(trip)
+  }
+
+  // Handle submit Reschedule
+  const handleRescheduleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!inspectingTrip) return
+
+    const targetPlate = rescheduleData.isOtherVehicle
+      ? rescheduleData.otherVehicleName.trim()
+      : rescheduleData.plate
+
+    if (!targetPlate) {
+      notify('Armada / Plat kendaraan wajib dipilih!', 'error')
+      return
+    }
+
+    if (!rescheduleData.estDeparture) {
+      notify('Jam mulai wajib ditentukan!', 'error')
+      return
+    }
+
+    setIsSubmittingAction(true)
+    try {
+      const res = await rescheduleTrip(inspectingTrip.id, {
+        date: rescheduleData.date,
+        estDeparture: rescheduleData.estDeparture,
+        estReturn: rescheduleData.estReturn || undefined,
+        plate: targetPlate,
+        driverId: rescheduleData.driverId || undefined,
+        adminNote: rescheduleData.adminNote,
+        isOtherVehicle: rescheduleData.isOtherVehicle,
+        otherVehicleName: rescheduleData.isOtherVehicle ? rescheduleData.otherVehicleName.trim() : undefined,
+      })
+
+      if (res.success) {
+        notify('Jadwal berhasil di-reschedule dan dikirimkan ulang ke Tahap 2 (SPV Kendaraan - Pak Hayu) untuk ACC.')
+        setInspectingTrip(null)
+        setIsRescheduling(false)
+      } else {
+        notify(res.error || 'Gagal mereschedule jadwal.', 'error')
+      }
+    } catch (err: any) {
+      notify(err?.message || 'Terjadi kesalahan saat reschedule.', 'error')
+    } finally {
+      setIsSubmittingAction(false)
+    }
+  }
+
+  // Handle submit Cancel
+  const handleCancelSubmit = async () => {
+    if (!inspectingTrip) return
+    setIsSubmittingAction(true)
+    try {
+      const res = await cancelTrip(inspectingTrip.id, cancelReason)
+      if (res.success) {
+        notify(`Jadwal ${inspectingTrip.id} berhasil dibatalkan dan dihapus. Slot armada kembali bebas.`)
+        setInspectingTrip(null)
+        setIsCanceling(false)
+      } else {
+        notify(res.error || 'Gagal membatalkan jadwal.', 'error')
+      }
+    } catch (err: any) {
+      notify(err?.message || 'Terjadi kesalahan saat membatalkan.', 'error')
+    } finally {
+      setIsSubmittingAction(false)
+    }
+  }
 
   // Filter vehicles by search and status
   const visibleVehicles = useMemo(() => {
@@ -904,7 +1023,7 @@ export function VehicleTimelineScheduler({
                             return (
                               <div
                                 key={`${trip.id}-blocked-${itemIdx}`}
-                                onClick={() => onBlockClick?.(trip)}
+                                onClick={() => handleOpenInspect(trip)}
                                 onMouseEnter={(e) => {
                                   const rect = e.currentTarget.getBoundingClientRect()
                                   setHoverPos({ x: rect.left, y: rect.bottom + 4 })
@@ -935,7 +1054,7 @@ export function VehicleTimelineScheduler({
                             <div key={`${trip.id}-group-${itemIdx}`} className="contents">
                               {/* 1. Solid Color Block (PLAN) */}
                               <div
-                                onClick={() => onBlockClick?.(trip)}
+                                onClick={() => handleOpenInspect(trip)}
                                 onMouseEnter={(e) => {
                                   const rect = e.currentTarget.getBoundingClientRect()
                                   setHoverPos({ x: rect.left, y: rect.bottom + 4 })
@@ -970,7 +1089,7 @@ export function VehicleTimelineScheduler({
                               {/* 2. Transparent Color Block (ACTUAL) Overlapping the Plan Block */}
                               {hasActual && (
                                 <div
-                                  onClick={() => onBlockClick?.(trip)}
+                                  onClick={() => handleOpenInspect(trip)}
                                   onMouseEnter={(e) => {
                                     const rect = e.currentTarget.getBoundingClientRect()
                                     setHoverPos({ x: rect.left, y: rect.bottom + 4 })
@@ -1107,6 +1226,410 @@ export function VehicleTimelineScheduler({
                 <strong>Catatan Admin:</strong> {hoveredTrip.adminNote}
               </p>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* MODAL INSPECT / DETAIL PENJADWALAN */}
+      {inspectingTrip && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="relative w-full max-w-lg rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden max-h-[90vh] flex flex-col animate-in zoom-in-95 duration-150">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50 px-6 py-4">
+              <div className="flex items-center gap-3">
+                <div className="flex size-10 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-sm">
+                  <CalendarDays size={20} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base font-bold text-slate-900">
+                      {isRescheduling
+                        ? 'Reschedule Jadwal Perjalanan'
+                        : isCanceling
+                        ? 'Konfirmasi Pembatalan Jadwal'
+                        : 'Detail Blok Penjadwalan'}
+                    </h3>
+                    <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-extrabold text-emerald-800">
+                      {inspectingTrip.id}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    Status: <strong className="text-slate-700">{STATUS_LABEL[inspectingTrip.status] || inspectingTrip.status}</strong>
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setInspectingTrip(null)
+                  setIsRescheduling(false)
+                  setIsCanceling(false)
+                }}
+                className="rounded-lg p-1 text-slate-400 hover:bg-slate-200 hover:text-slate-700 transition"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Content Body */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+              {/* VIEW MODE: DETAIL INFO */}
+              {!isRescheduling && !isCanceling && (
+                <>
+                  {/* Status Banner */}
+                  <div className={`rounded-xl p-3 border text-xs flex items-start gap-2.5 ${
+                    inspectingTrip.status === 'WAITING_POOL_SPV'
+                      ? 'bg-amber-50 border-amber-200 text-amber-900'
+                      : inspectingTrip.status === 'READY'
+                      ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                      : inspectingTrip.status === 'ON_TRIP'
+                      ? 'bg-blue-50 border-blue-200 text-blue-900'
+                      : 'bg-slate-50 border-slate-200 text-slate-800'
+                  }`}>
+                    <Info size={16} className="shrink-0 mt-0.5" />
+                    <div className="space-y-0.5 leading-relaxed">
+                      <p className="font-bold">
+                        {inspectingTrip.status === 'WAITING_POOL_SPV'
+                          ? 'Menunggu Persetujuan Tahap 2 (SPV Kendaraan - Pak Hayu)'
+                          : inspectingTrip.status === 'READY'
+                          ? 'Telah Disetujui Tahap 2 (Siap Berangkat)'
+                          : inspectingTrip.status === 'ON_TRIP'
+                          ? 'Kendaraan Sedang Beroperasi di Lapangan'
+                          : inspectingTrip.status === 'DONE'
+                          ? 'Perjalanan Telah Selesai'
+                          : `Status: ${STATUS_LABEL[inspectingTrip.status] || inspectingTrip.status}`}
+                      </p>
+                      <p className="text-[11px] opacity-80">
+                        {isAdmin
+                          ? 'Sebagai Admin, Anda dapat melakukan Reschedule atau Membatalkan (Hapus) penjadwalan ini.'
+                          : 'Informasi detail jadwal armada dan supir.'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Trip Details Grid */}
+                  <div className="grid grid-cols-2 gap-3 text-xs">
+                    <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                        Kendaraan &amp; Plat
+                      </span>
+                      <p className="font-mono font-bold text-slate-900 text-sm">
+                        {inspectingTrip.plate || inspectingTrip.otherVehicleName || '—'}
+                      </p>
+                      {inspectingTrip.isOtherVehicle && (
+                        <span className="inline-block mt-1 text-[9px] font-bold text-purple-700 bg-purple-100 px-1.5 py-0.5 rounded">
+                          Mobil Luar / Rental
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                        Driver Ditugaskan
+                      </span>
+                      <p className="font-bold text-slate-900 text-sm">
+                        {db.drivers.find((d) => d.id === inspectingTrip.driverId)?.name || inspectingTrip.driverId || 'Belum Ditugaskan'}
+                      </p>
+                    </div>
+
+                    <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                        Tanggal &amp; Waktu Rencana
+                      </span>
+                      <p className="font-semibold text-slate-900">
+                        {fmtDate(inspectingTrip.date)}
+                      </p>
+                      <p className="font-mono font-bold text-emerald-700 mt-0.5">
+                        {inspectingTrip.estDeparture} – {inspectingTrip.estReturn || '—'} WIB
+                      </p>
+                    </div>
+
+                    <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                        Pemohon &amp; Dept
+                      </span>
+                      <p className="font-bold text-slate-900">{inspectingTrip.requesterName}</p>
+                      <p className="text-slate-500 text-[11px]">{inspectingTrip.dept || '—'}</p>
+                    </div>
+                  </div>
+
+                  {/* Route & Purpose */}
+                  <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3.5 space-y-2 text-xs">
+                    <div>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                        Rute Perjalanan
+                      </span>
+                      <div className="flex items-center gap-2 font-medium text-slate-800">
+                        <MapPin size={14} className="text-emerald-600 shrink-0" />
+                        <span>{inspectingTrip.origin || 'PT. JAI'}</span>
+                        <span className="text-slate-400">➔</span>
+                        <strong className="text-slate-900">{inspectingTrip.destination}</strong>
+                      </div>
+                    </div>
+
+                    <div>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                        Keperluan / Tujuan
+                      </span>
+                      <p className="text-slate-800 font-medium">
+                        {inspectingTrip.purpose || '—'}
+                      </p>
+                    </div>
+
+                    {inspectingTrip.adminNote && (
+                      <div className="pt-2 border-t border-slate-200">
+                        <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider block mb-0.5">
+                          Catatan Admin
+                        </span>
+                        <p className="text-emerald-950 bg-emerald-50 p-2 rounded-lg text-[11px]">
+                          {inspectingTrip.adminNote}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+
+              {/* FORM MODE: RESCHEDULE */}
+              {isRescheduling && (
+                <form id="reschedule-form" onSubmit={handleRescheduleSubmit} className="space-y-4">
+                  <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 text-xs text-amber-900 flex items-start gap-2">
+                    <AlertTriangle size={16} className="text-amber-600 shrink-0 mt-0.5" />
+                    <p className="leading-relaxed">
+                      <strong>Perhatian:</strong> Mereschedule jadwal akan <strong>mereset status persetujuan ke Tahap 2</strong> (SPV Kendaraan - Pak Hayu). Notifikasi konfirmasi akan dikirimkan ulang secara otomatis.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs font-bold text-slate-700 block mb-1">
+                        Tanggal Baru <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="date"
+                        required
+                        value={rescheduleData.date}
+                        onChange={(e) => setRescheduleData({ ...rescheduleData, date: e.target.value })}
+                        className="w-full h-9 rounded-lg border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-800 outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-bold text-slate-700 block mb-1">
+                        Kendaraan / Armada <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        value={rescheduleData.isOtherVehicle ? '__OTHER__' : rescheduleData.plate}
+                        onChange={(e) => {
+                          if (e.target.value === '__OTHER__') {
+                            setRescheduleData({ ...rescheduleData, isOtherVehicle: true, plate: '' })
+                          } else {
+                            setRescheduleData({ ...rescheduleData, isOtherVehicle: false, plate: e.target.value })
+                          }
+                        }}
+                        className="w-full h-9 rounded-lg border border-slate-300 bg-white px-2.5 text-xs font-bold text-slate-800 outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600"
+                      >
+                        <optgroup label="Armada Operasional (Standby / Aktif)">
+                          {vehicles
+                            .filter((v) => (v.status || 'Active') === 'Active')
+                            .map((v) => (
+                              <option key={v.plate} value={v.plate}>
+                                {v.plate} - {v.type} ({v.category || 'Operasional'})
+                              </option>
+                            ))}
+                        </optgroup>
+                        <optgroup label="Opsi Lainnya">
+                          <option value="__OTHER__">+ Mobil Rental / Eksternal</option>
+                        </optgroup>
+                      </select>
+                    </div>
+                  </div>
+
+                  {rescheduleData.isOtherVehicle && (
+                    <div>
+                      <label className="text-xs font-bold text-slate-700 block mb-1">
+                        Nama Mobil / Plat Eksternal <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="Contoh: Avanza Rental (B 1234 XYZ)"
+                        value={rescheduleData.otherVehicleName}
+                        onChange={(e) => setRescheduleData({ ...rescheduleData, otherVehicleName: e.target.value })}
+                        className="w-full h-9 rounded-lg border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-800 outline-none focus:border-emerald-600"
+                      />
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs font-bold text-slate-700 block mb-1">
+                        Jam Berangkat (Start) <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="time"
+                        required
+                        value={rescheduleData.estDeparture}
+                        onChange={(e) => setRescheduleData({ ...rescheduleData, estDeparture: e.target.value })}
+                        className="w-full h-9 rounded-lg border border-slate-300 bg-white px-3 text-xs font-mono font-bold text-slate-800 outline-none focus:border-emerald-600"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-bold text-slate-700 block mb-1">
+                        Jam Selesai (Return)
+                      </label>
+                      <input
+                        type="time"
+                        value={rescheduleData.estReturn}
+                        onChange={(e) => setRescheduleData({ ...rescheduleData, estReturn: e.target.value })}
+                        className="w-full h-9 rounded-lg border border-slate-300 bg-white px-3 text-xs font-mono font-bold text-slate-800 outline-none focus:border-emerald-600"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-slate-700 block mb-1">
+                      Driver Ditugaskan
+                    </label>
+                    <select
+                      value={rescheduleData.driverId}
+                      onChange={(e) => setRescheduleData({ ...rescheduleData, driverId: e.target.value })}
+                      className="w-full h-9 rounded-lg border border-slate-300 bg-white px-2.5 text-xs font-bold text-slate-800 outline-none focus:border-emerald-600"
+                    >
+                      <option value="">-- Pilih Driver (Atau Biarkan Kosong) --</option>
+                      {db.drivers.map((d) => (
+                        <option key={d.id} value={d.id}>
+                          {d.name} {d.defaultPlate ? `(${d.defaultPlate})` : ''} {d.onLeave ? '[SEDANG CUTI]' : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-slate-700 block mb-1">
+                      Catatan Perubahan / Reschedule
+                    </label>
+                    <textarea
+                      rows={2}
+                      placeholder="Contoh: Digeser ke jam 10:00 karena ada agenda meeting mendadak..."
+                      value={rescheduleData.adminNote}
+                      onChange={(e) => setRescheduleData({ ...rescheduleData, adminNote: e.target.value })}
+                      className="w-full rounded-lg border border-slate-300 bg-white p-2.5 text-xs text-slate-800 outline-none focus:border-emerald-600"
+                    />
+                  </div>
+                </form>
+              )}
+
+              {/* CONFIRMATION MODE: CANCEL */}
+              {isCanceling && (
+                <div className="space-y-4">
+                  <div className="rounded-xl bg-red-50 border border-red-200 p-4 text-xs text-red-900 flex items-start gap-3">
+                    <div className="size-8 rounded-lg bg-red-100 flex items-center justify-center shrink-0 text-red-600 font-bold">
+                      <Trash2 size={18} />
+                    </div>
+                    <div className="space-y-1">
+                      <p className="font-bold text-sm text-red-800">
+                        Yakin ingin membatalkan &amp; menghapus jadwal ini?
+                      </p>
+                      <p className="text-red-700 leading-relaxed text-[11px]">
+                        Tindakan ini akan <strong>menghapus blok jadwal</strong> dari kalender, membebaskan kembali unit armada dan supir yang bersangkutan, serta menyinkronkan status pembatalan ke server database.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-slate-700 block mb-1">
+                      Alasan Pembatalan (Opsional)
+                    </label>
+                    <textarea
+                      rows={2}
+                      placeholder="Contoh: Agenda user dibatalkan / dialihkan ke meeting online..."
+                      value={cancelReason}
+                      onChange={(e) => setCancelReason(e.target.value)}
+                      className="w-full rounded-lg border border-slate-300 bg-white p-2.5 text-xs text-slate-800 outline-none focus:border-red-500"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer Buttons */}
+            <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50 px-6 py-3.5">
+              {!isRescheduling && !isCanceling ? (
+                <>
+                  <div className="flex items-center gap-2">
+                    {isAdmin && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => setIsRescheduling(true)}
+                          className="inline-flex items-center gap-1.5 rounded-xl bg-amber-500 px-3.5 py-2 text-xs font-bold text-white shadow-xs hover:bg-amber-600 transition"
+                        >
+                          <RefreshCw size={13} />
+                          Reschedule Jadwal
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setIsCanceling(true)}
+                          className="inline-flex items-center gap-1.5 rounded-xl bg-red-600 px-3.5 py-2 text-xs font-bold text-white shadow-xs hover:bg-red-700 transition"
+                        >
+                          <Trash2 size={13} />
+                          Cancel / Hapus
+                        </button>
+                      </>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setInspectingTrip(null)}
+                    className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 transition"
+                  >
+                    Tutup
+                  </button>
+                </>
+              ) : isRescheduling ? (
+                <>
+                  <button
+                    type="button"
+                    disabled={isSubmittingAction}
+                    onClick={() => setIsRescheduling(false)}
+                    className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 transition"
+                  >
+                    Kembali
+                  </button>
+                  <button
+                    type="submit"
+                    form="reschedule-form"
+                    disabled={isSubmittingAction}
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-emerald-700 transition disabled:opacity-50"
+                  >
+                    <Send size={13} />
+                    {isSubmittingAction ? 'Menyimpan & Mengirim...' : 'Simpan & Konfirmasi Tahap 2'}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    disabled={isSubmittingAction}
+                    onClick={() => setIsCanceling(false)}
+                    className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 transition"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isSubmittingAction}
+                    onClick={handleCancelSubmit}
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-red-600 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-red-700 transition disabled:opacity-50"
+                  >
+                    <Trash2 size={13} />
+                    {isSubmittingAction ? 'Menghapus...' : 'Ya, Batalkan Jadwal Ini'}
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         </div>
       )}

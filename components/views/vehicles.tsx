@@ -186,11 +186,11 @@ export function AdminVehicles() {
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value as any)}
-              className="h-8 rounded-lg bg-[#f0f4f1] px-2.5 text-[11px] font-semibold text-[#10251c] outline-none border border-[#d2ddd6] focus:border-[#075b3d]"
+              className="h-8 rounded-lg bg-[#0a2418] px-2.5 text-[11px] font-bold text-[#bef264] outline-none border border-[#a3e635]/40 focus:border-[#a3e635] shadow-xs cursor-pointer"
             >
-              <option value="ALL">Semua Status</option>
-              <option value="Active">Hanya Aktif</option>
-              <option value="Maintenance">Hanya Maintenance</option>
+              <option value="ALL" className="bg-[#0a2418] text-[#bef264] font-bold py-1">Semua Status</option>
+              <option value="Active" className="bg-[#0a2418] text-white font-medium py-1">Hanya Aktif</option>
+              <option value="Maintenance" className="bg-[#0a2418] text-red-300 font-medium py-1">Hanya Maintenance</option>
             </select>
           </div>
         }

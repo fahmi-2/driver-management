@@ -393,6 +393,8 @@ type Ctx = {
   poolSpvDecision: (id: string, approve: boolean, note?: string, approverName?: string) => void
   assignTrip: (id: string, driverId: string, plate: string) => void
   scheduleTrip: (id: string, params: { plate: string; driverId?: string; date: string; estDeparture: string; estReturn?: string; adminNote?: string; isOtherVehicle?: boolean; otherVehicleName?: string; origin?: string; destination?: string; returnToOrigin?: boolean; isLeaveReplacement?: boolean; replacementDriverName?: string }) => void
+  rescheduleTrip: (id: string, params: { plate: string; driverId?: string; date: string; estDeparture: string; estReturn?: string; adminNote?: string; isOtherVehicle?: boolean; otherVehicleName?: string }) => Promise<{ success: boolean; error?: string }>
+  cancelTrip: (id: string, reason?: string) => Promise<{ success: boolean; error?: string }>
   rejectTrip: (id: string, reason: string) => void
   gateGo: (id: string, security: string) => void
   gateBack: (id: string, security: string, delayReason?: string) => void
@@ -771,6 +773,69 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           returnToOrigin: params.returnToOrigin ?? t.returnToOrigin,
         }
       }),
+    // Reschedule Jadwal: Mengubah waktu/plat/driver/catatan dan me-reset persetujuan ke Tahap 2 (SPV Kendaraan - Pak Hayu)
+    rescheduleTrip: async (id, params) => {
+      const assignedDriver = params.driverId ? db.drivers.find((d) => d.id === params.driverId) : null
+      const isUsingOtherCar = !!params.isOtherVehicle || (!!assignedDriver?.defaultPlate && assignedDriver.defaultPlate !== params.plate)
+      const blockedDefault = isUsingOtherCar && assignedDriver?.defaultPlate ? assignedDriver.defaultPlate : undefined
+      const blockedText = blockedDefault ? `Driver sedang bertugas di ${params.plate || params.otherVehicleName || 'Mobil Luar'}` : undefined
+
+      let targetTrip: Trip | null = null
+      update((d) => {
+        const nextTrips = d.trips.map((t) => {
+          if (t.id === id) {
+            const next: Trip = {
+              ...t,
+              status: 'WAITING_POOL_SPV', // Reset ke Tahap 2 agar di-ACC ulang oleh Pak Hayu
+              poolSpvAt: undefined, // Hapus stempel ACC Tahap 2 sebelumnya
+              poolSpvName: undefined,
+              poolSpvNote: undefined,
+              plate: params.plate,
+              driverId: params.driverId,
+              date: params.date,
+              estDeparture: params.estDeparture,
+              estReturn: params.estReturn,
+              adminNote: params.adminNote ?? t.adminNote,
+              isOtherVehicle: params.isOtherVehicle,
+              otherVehicleName: params.otherVehicleName,
+              blockedDefaultPlate: blockedDefault,
+              blockedReason: blockedText,
+            }
+            targetTrip = next
+            return next
+          }
+          return t
+        })
+        return { ...d, trips: nextTrips }
+      })
+
+      if (targetTrip) {
+        const { upsertTripToSupabase } = await import('./sync')
+        const syncRes = await upsertTripToSupabase(targetTrip)
+        // Kirim notifikasi konfirmasi ulang ke Pak Hayu (Tahap 2)
+        notifyApprover(id)
+        if (!syncRes.success) {
+          console.error('Failed to sync rescheduled trip:', syncRes.error)
+          return { success: false, error: syncRes.error }
+        }
+      }
+      return { success: true }
+    },
+    // Cancel (Hapus) Penjadwalan: Menghapus trip dari sistem dan membersihkan data di Supabase
+    cancelTrip: async (id, reason) => {
+      // Hapus dari state lokal
+      update((d) => ({
+        ...d,
+        trips: d.trips.filter((t) => t.id !== id),
+      }))
+      const { deleteTripFromSupabase } = await import('./sync')
+      const syncRes = await deleteTripFromSupabase(id)
+      if (!syncRes.success) {
+        console.error('Failed to delete trip from Supabase:', syncRes.error)
+        return { success: false, error: syncRes.error }
+      }
+      return { success: true }
+    },
     rejectTrip: (id, reason) => patch(id, { status: 'REJECTED', rejectReason: reason }),
     gateGo: (id, security) => patch(id, { status: 'ON_TRIP', timeGo: new Date().toISOString(), securityGo: security }),
     gateBack: (id, security, delayReason) =>
