@@ -75,14 +75,23 @@ export function DriverDashboard({ user }: DriverDashboardProps) {
     return () => clearInterval(timer)
   }, [])
 
-  // Match driver by username or name
+  // Match driver by driverId, username, or name
   const matchedDriver = useMemo(() => {
+    if (user.driverId) {
+      const byId = db.drivers.find((d) => d.id === user.driverId)
+      if (byId) return byId
+    }
+    const cleanUser = user.username.toLowerCase()
+    const cleanName = user.name.toLowerCase()
+
     return (
       db.drivers.find(
         (d) =>
-          d.name.toLowerCase() === user.name.toLowerCase() ||
-          d.name.toLowerCase().includes(user.name.toLowerCase()) ||
-          user.name.toLowerCase().includes(d.name.toLowerCase())
+          d.id.toLowerCase() === cleanUser ||
+          d.name.toLowerCase() === cleanName ||
+          d.name.toLowerCase() === cleanUser ||
+          cleanName.includes(d.name.toLowerCase()) ||
+          d.name.toLowerCase().includes(cleanName)
       ) || db.drivers[0]
     )
   }, [db.drivers, user])

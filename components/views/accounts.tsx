@@ -28,6 +28,7 @@ import {
   type Role,
   ROLE_LABEL,
   DEPARTMENTS,
+  getDynamicDepartments,
   getSectionsByDept,
   getAllAccounts,
   resetToDefaultAccounts,
@@ -37,6 +38,7 @@ import {
   verifyAdminPassword,
   syncAccountsWithSupabase,
 } from '@/lib/accounts'
+import { getLocalRoles, type MasterRole } from '@/lib/master-data'
 import { useStore } from '@/lib/store'
 import { Card, PageHeader, Pill, btnGhost, btnPrimary, inputCls, useToast } from '../ui-bits'
 
@@ -84,6 +86,15 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
   })
   const [formShowPassword, setFormShowPassword] = useState(false)
 
+  // Dynamic Master Roles & Departments State
+  const [dynamicRoles, setDynamicRoles] = useState<MasterRole[]>([])
+  const [dynamicDepts, setDynamicDepts] = useState<{ id: string; name: string }[]>([])
+
+  const refreshMasterData = () => {
+    setDynamicRoles(getLocalRoles())
+    setDynamicDepts(getDynamicDepartments())
+  }
+
   // Load accounts
   const refreshAccounts = () => {
     setAccounts(getAllAccounts())
@@ -91,6 +102,7 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
 
   useEffect(() => {
     refreshAccounts()
+    refreshMasterData()
     syncAccountsWithSupabase().then((latest) => {
       if (latest && latest.length > 0) setAccounts(latest)
     })
@@ -113,7 +125,9 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
     })
 
     const handleUpdate = () => refreshAccounts()
+    const handleMasterUpdate = () => refreshMasterData()
     const handleFocus = () => {
+      refreshMasterData()
       syncAccountsWithSupabase().then((latest) => {
         if (latest && latest.length > 0 && !isCancelled) setAccounts(latest)
       })
@@ -121,12 +135,18 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
 
     window.addEventListener('accounts_updated', handleUpdate)
     window.addEventListener('profile_updated', handleUpdate)
+    window.addEventListener('master_roles_updated', handleMasterUpdate)
+    window.addEventListener('master_depts_updated', handleMasterUpdate)
+    window.addEventListener('master_secs_updated', handleMasterUpdate)
     window.addEventListener('focus', handleFocus)
 
     return () => {
       isCancelled = true
       window.removeEventListener('accounts_updated', handleUpdate)
       window.removeEventListener('profile_updated', handleUpdate)
+      window.removeEventListener('master_roles_updated', handleMasterUpdate)
+      window.removeEventListener('master_depts_updated', handleMasterUpdate)
+      window.removeEventListener('master_secs_updated', handleMasterUpdate)
       window.removeEventListener('focus', handleFocus)
       if (channel) {
         import('@/lib/supabase').then(({ supabase }) => {
@@ -162,7 +182,8 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
   // Open Add Modal
   const openAddModal = () => {
     setEditingAccount(null)
-    const defaultDept = DEPARTMENTS[0] || 'PGA'
+    const currentDepts = dynamicDepts.length > 0 ? dynamicDepts.map((d) => d.name) : DEPARTMENTS
+    const defaultDept = currentDepts[0] || 'PGA'
     const defaultSecs = getSectionsByDept(defaultDept)
     setFormData({
       username: '',
@@ -183,7 +204,8 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
   // Open Edit Modal
   const openEditModal = (acc: Account) => {
     setEditingAccount(acc)
-    const curDept = acc.dept || DEPARTMENTS[0] || 'PGA'
+    const currentDepts = dynamicDepts.length > 0 ? dynamicDepts.map((d) => d.name) : DEPARTMENTS
+    const curDept = acc.dept || currentDepts[0] || 'PGA'
     const secList = getSectionsByDept(curDept)
     const curSection = acc.section && secList.includes(acc.section) ? acc.section : secList[0] || ''
     setFormData({
@@ -846,14 +868,24 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
                     onChange={(e) => setFormData({ ...formData, role: e.target.value as Role })}
                     className="h-10 w-full rounded-xl border border-[#dce7df] bg-[#fafcfb] px-3 text-xs font-semibold text-[#10251c] focus:border-[#075b3d] focus:outline-none"
                   >
-                    <option value="requester">Requester (Pemohon)</option>
-                    <option value="approver">Approver SPV Departemen (Tahap 1)</option>
-                    <option value="approver_pool">Approver SPV Kendaraan (Tahap 2)</option>
-                    <option value="admin">Super Admin (Pool GA)</option>
-                    <option value="admin_lobby">Admin Lobby Frontdesk</option>
-                    <option value="driver">Driver (Sopir)</option>
-                    <option value="security">Security Gerbang</option>
-                    <option value="coupon">Admin Kupon</option>
+                    {dynamicRoles.length > 0 ? (
+                      dynamicRoles.map((r) => (
+                        <option key={r.id} value={r.id}>
+                          {r.name}
+                        </option>
+                      ))
+                    ) : (
+                      <>
+                        <option value="requester">Requester (Pemohon)</option>
+                        <option value="approver">Approver SPV Departemen (Tahap 1)</option>
+                        <option value="approver_pool">Approver SPV Kendaraan (Tahap 2)</option>
+                        <option value="admin">Super Admin (Pool GA)</option>
+                        <option value="admin_lobby">Admin Lobby Frontdesk</option>
+                        <option value="driver">Driver (Sopir)</option>
+                        <option value="security">Security Gerbang</option>
+                        <option value="coupon">Admin Kupon</option>
+                      </>
+                    )}
                   </select>
                 </div>
 
@@ -892,7 +924,7 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
                       }}
                       className="h-10 w-full rounded-xl border border-[#dce7df] bg-[#fafcfb] px-3 text-xs font-semibold text-[#10251c] focus:border-[#075b3d] focus:outline-none"
                     >
-                      {DEPARTMENTS.map((dept) => (
+                      {(dynamicDepts.length > 0 ? dynamicDepts.map((d) => d.name) : DEPARTMENTS).map((dept) => (
                         <option key={dept} value={dept}>{dept}</option>
                       ))}
                     </select>

@@ -460,10 +460,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         ])
 
         setDb((prev) => {
+          let currentLocal: DB = prev
+          try {
+            const raw = window.localStorage.getItem(KEY)
+            if (raw) currentLocal = JSON.parse(raw)
+          } catch {}
+
           const mergedRaw = {
-            trips: remoteTrips != null ? remoteTrips : prev.trips,
-            vehicles: remoteVehicles != null ? remoteVehicles : prev.vehicles,
-            drivers: remoteDrivers != null ? remoteDrivers : prev.drivers,
+            ...prev,
+            ...currentLocal,
+            trips: remoteTrips != null ? remoteTrips : (currentLocal.trips || prev.trips),
+            vehicles: remoteVehicles != null ? remoteVehicles : (currentLocal.vehicles || prev.vehicles),
+            drivers: remoteDrivers != null ? remoteDrivers : (currentLocal.drivers || prev.drivers),
+            attendances: currentLocal.attendances || prev.attendances || [],
+            overtimeRequests: currentLocal.overtimeRequests || prev.overtimeRequests || [],
           }
           const next = sanitizeDB(mergedRaw)
           window.localStorage.setItem(KEY, JSON.stringify(next))

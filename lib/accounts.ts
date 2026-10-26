@@ -252,12 +252,47 @@ export const ORG_MATRIX = [
   },
 ]
 
-// Daftar Departemen Unik
+// Daftar Departemen Unik Bawaan
 export const DEPARTMENTS = Array.from(new Set(ORG_MATRIX.map((m) => m.dept)))
 
-// Fungsi bantu mendapatkan daftar section per departemen
+// Fungsi bantu mendapatkan daftar departemen dinamis (menggabungkan master data aktif)
+export function getDynamicDepartments(): { id: string; name: string }[] {
+  if (typeof window === 'undefined') {
+    return DEPARTMENTS.map((d) => ({ id: d, name: d }))
+  }
+  try {
+    const raw = window.localStorage.getItem('ff_master_depts_v1')
+    if (raw) {
+      const parsed: any[] = JSON.parse(raw)
+      const active = parsed.filter((d) => !d.is_deleted)
+      if (active.length > 0) return active.map((d) => ({ id: d.id, name: d.name }))
+    }
+  } catch {}
+  return DEPARTMENTS.map((d) => ({ id: `dept_${d.toLowerCase().replace(/[^a-z0-9]/g, '_')}`, name: d }))
+}
+
+// Fungsi bantu mendapatkan daftar section per departemen (dinamis)
 export function getSectionsByDept(dept: string): string[] {
-  return Array.from(new Set(ORG_MATRIX.filter((m) => m.dept === dept).map((m) => m.section)))
+  if (typeof window !== 'undefined') {
+    try {
+      const rawDepts = window.localStorage.getItem('ff_master_depts_v1')
+      const rawSecs = window.localStorage.getItem('ff_master_secs_v1')
+      if (rawDepts && rawSecs) {
+        const depts: any[] = JSON.parse(rawDepts)
+        const secs: any[] = JSON.parse(rawSecs)
+        const targetDept = depts.find(
+          (d) => d.id === dept || d.name.toUpperCase() === dept.toUpperCase()
+        )
+        if (targetDept) {
+          const matched = secs
+            .filter((s) => s.department_id === targetDept.id && !s.is_deleted)
+            .map((s) => s.name)
+          if (matched.length > 0) return matched
+        }
+      }
+    } catch {}
+  }
+  return Array.from(new Set(ORG_MATRIX.filter((m) => m.dept.toUpperCase() === dept.toUpperCase()).map((m) => m.section)))
 }
 
 // Fungsi bantu mendapatkan data Manajer resmi berdasarkan Section & Dept
@@ -1006,6 +1041,20 @@ export const ROLE_LABEL: Record<Role, string> = {
   driver: 'Driver (Sopir)',
   security: 'Security Gerbang',
   coupon: 'Admin Kupon',
+}
+
+export function getDynamicRoleLabel(role: string): string {
+  if (typeof window !== 'undefined') {
+    try {
+      const raw = window.localStorage.getItem('ff_master_roles_v1')
+      if (raw) {
+        const roles: any[] = JSON.parse(raw)
+        const found = roles.find((r) => r.id === role)
+        if (found && found.name) return found.name
+      }
+    } catch {}
+  }
+  return (ROLE_LABEL as any)[role] || role
 }
 
 const PROFILES_KEY = 'ff_custom_profiles'
