@@ -94,7 +94,8 @@ export type Trip = {
   prCreatedBy?: string
 }
 
-export type DriverAttendanceStatus = 'BELUM_HADIR' | 'HADIR' | 'OVERTIME' | 'PULANG'
+// Status kehadiran murni untuk mencatat kehadiran driver (tidak bercampur dengan lembur)
+export type DriverAttendanceStatus = 'BELUM_HADIR' | 'HADIR' | 'PULANG'
 
 export type DriverAttendance = {
   driverId: string
@@ -168,7 +169,7 @@ export function getWibNow(date = new Date()) {
   return { h, m, s, totalMins, isPast1500, timeStr: `${hStr}:${mStr}` }
 }
 
-/** Hitung status live kehadiran dan lembur supir */
+/** Hitung status live kehadiran murni supir (HADIR / BELUM_HADIR / PULANG) */
 export function calculateDriverLiveAttendance(
   att?: DriverAttendance,
   targetDate = ymd()
@@ -191,31 +192,16 @@ export function calculateDriverLiveAttendance(
 
   // Jika sudah Clock Out
   if (att.clockOut) {
-    const outDate = new Date(att.clockOut)
-    const outWib = getWibNow(outDate)
-    const overtimeMins = outWib.totalMins > 900 ? outWib.totalMins - 900 : 0
     return {
       status: 'PULANG',
       clockIn: att.clockIn,
       clockOut: att.clockOut,
-      overtimeMinutes: overtimeMins,
-      isOvertime: overtimeMins > 0,
+      overtimeMinutes: att.overtimeMinutes || 0,
+      isOvertime: (att.overtimeMinutes || 0) > 0,
     }
   }
 
-  // Jika masih Clock In (belum Clock Out)
-  const nowWib = getWibNow()
-  if (nowWib.isPast1500) {
-    const runningOvertime = Math.max(0, nowWib.totalMins - 900)
-    return {
-      status: 'OVERTIME',
-      clockIn: att.clockIn,
-      clockOut: undefined,
-      overtimeMinutes: runningOvertime,
-      isOvertime: true,
-    }
-  }
-
+  // Jika masih aktif hadir hari ini
   return {
     status: 'HADIR',
     clockIn: att.clockIn,
@@ -902,8 +888,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const today = ymd()
       const now = new Date()
       const nowIso = now.toISOString()
-      const wib = getWibNow(now)
-      const overtimeMins = wib.totalMins > 900 ? wib.totalMins - 900 : 0
       update((d) => {
         const currentList = d.attendances || []
         const existingIdx = currentList.findIndex((a) => a.driverId === driverId && a.date === today)
@@ -915,7 +899,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                   ...a,
                   clockOut: nowIso,
                   status: 'PULANG' as const,
-                  overtimeMinutes: overtimeMins,
+                  overtimeMinutes: a.overtimeMinutes || 0,
                 }
               : a
           )
@@ -928,7 +912,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               clockIn: nowIso,
               clockOut: nowIso,
               status: 'PULANG' as const,
-              overtimeMinutes: overtimeMins,
+              overtimeMinutes: 0,
             },
           ]
         }

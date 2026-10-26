@@ -106,6 +106,20 @@ export function DriverDashboard({ user }: DriverDashboardProps) {
     )
   }, [db.overtimeRequests, matchedDriver])
 
+  // Riwayat Overtime khusus untuk driver ini
+  const myOvertimeHistory = useMemo(() => {
+    if (!matchedDriver) return []
+    return (db.overtimeRequests || [])
+      .filter((ot) => ot.driverId === matchedDriver.id)
+      .slice()
+      .reverse()
+  }, [db.overtimeRequests, matchedDriver])
+
+  // Cek apakah saat ini sudah di luar jam kerja reguler (06:00 - 15:00 WIB)
+  const isPastRegulerShift = useMemo(() => {
+    return wibNow.totalMins > 900 // Lewat dari 15:00 WIB
+  }, [wibNow])
+
   // State Laporan Alasan Ketidaksesuaian Jam (Penangguhan Toleransi 15 Menit)
   const [showOtReportModal, setShowOtReportModal] = useState(false)
   const [otReportText, setOtReportText] = useState('')
@@ -341,100 +355,123 @@ export function DriverDashboard({ user }: DriverDashboardProps) {
               Halo, {user.name} 👋
             </h2>
             <p className="text-xs text-[#8fa99b] max-w-xl">
-              Jam kerja reguler PT. JAI: <span className="text-emerald-300 font-semibold">06:00 - 15:00 WIB</span>. 
-              Lewat dari pukul <span className="text-amber-400 font-semibold">15:01 WIB</span>, status otomatis tercatat sebagai <span className="text-amber-300 font-bold">OVERTIME (Lembur)</span> hingga tombol Pulang ditekan.
+              Jam kerja reguler dinas: <span className="text-emerald-300 font-semibold">06:00 - 15:00 WIB</span>. 
+              Fitur <strong>Check In</strong> berfungsi mencatat kehadiran. Lembur (Overtime) diproses terpisah atas permohonan <strong>Admin Lobby</strong> dan persetujuan <strong>SPV Kendaraan (Pak Hayu)</strong>.
             </p>
           </div>
 
           {/* Attendance Action Box */}
           <div className="shrink-0 rounded-2xl bg-black/60 border border-white/10 p-4 min-w-[280px]">
             <div className="flex items-center justify-between mb-3 text-xs">
-              <span className="text-[#8fa99b]">Status Kehadiran Hari Ini:</span>
-              {liveAttendance.status === 'BELUM_HADIR' && (
-                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-gray-500/20 text-gray-300 border border-gray-500/30">
-                  ⚪ Belum Hadir
+              <span className="text-[#8fa99b]">Status Kehadiran / Dinas:</span>
+              {activeOvertime ? (
+                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-purple-500/25 text-purple-200 border border-purple-400/50 flex items-center gap-1 animate-pulse">
+                  ⏰ OVERTIME AKTIF
                 </span>
-              )}
-              {liveAttendance.status === 'HADIR' && (
+              ) : liveAttendance.status === 'BELUM_HADIR' ? (
+                isPastRegulerShift ? (
+                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                    ⏱️ Di Luar Jam Kerja
+                  </span>
+                ) : (
+                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-gray-500/20 text-gray-300 border border-gray-500/30">
+                    ⚪ Belum Hadir
+                  </span>
+                )
+              ) : liveAttendance.status === 'HADIR' ? (
                 <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1">
                   🟢 Hadir (Masuk {fmtTime(liveAttendance.clockIn)} WIB)
                 </span>
-              )}
-              {liveAttendance.status === 'OVERTIME' && (
-                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/50 flex items-center gap-1 animate-pulse">
-                  🚨 OVERTIME (+{liveAttendance.overtimeMinutes}m)
-                </span>
-              )}
-              {liveAttendance.status === 'PULANG' && (
+              ) : (
                 <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-500/20 text-blue-300 border border-blue-500/40">
                   🏁 Sudah Pulang
                 </span>
               )}
             </div>
 
-            {/* Attendance Buttons */}
-            {liveAttendance.status === 'BELUM_HADIR' && (
-              <button
-                type="button"
-                onClick={() => {
-                  clockInDriver(matchedDriver.id)
-                  notify(`Absensi HADIR berhasil tercatat pada ${new Date().toLocaleTimeString('id-ID')} WIB`)
-                }}
-                className="w-full flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white font-bold text-sm shadow-lg shadow-emerald-900/40 transition active:scale-[.98]"
-              >
-                <CheckCircle2 size={18} />
-                Clock In (Hadir Kerja)
-              </button>
-            )}
-
-            {(liveAttendance.status === 'HADIR' || liveAttendance.status === 'OVERTIME') && (
+            {/* Jika sedang dalam Overtime Aktif, tampilkan tombol Akhiri Overtime */}
+            {activeOvertime ? (
               <div className="space-y-2">
-                {liveAttendance.status === 'OVERTIME' && (
-                  <div className="rounded-lg bg-amber-500/10 border border-amber-500/30 p-2 text-[11px] text-amber-300">
-                    ⚠️ Melewati batas shift 15:00 WIB. Lembur aktif berjalan: <strong>{liveAttendance.overtimeMinutes} Menit</strong>.
+                <div className="rounded-lg bg-purple-500/20 border border-purple-500/40 p-2.5 text-[11px] text-purple-200 space-y-1">
+                  <div className="font-bold flex items-center justify-between text-purple-100">
+                    <span>Target OT: {activeOvertime.startOT} – {activeOvertime.endOT} WIB</span>
+                    <span className="font-mono text-purple-300">{otCountdown?.formatted}</span>
                   </div>
-                )}
+                  <p className="text-[10px] text-purple-300/80">
+                    Alasan: {activeOvertime.reason}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleEndOvertimeClick}
+                  className="w-full flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-sm shadow-lg shadow-purple-900/40 transition active:scale-[.98]"
+                >
+                  <Square size={16} />
+                  Akhiri Overtime (End OT)
+                </button>
+              </div>
+            ) : liveAttendance.status === 'BELUM_HADIR' ? (
+              isPastRegulerShift ? (
+                <div className="space-y-2 text-center">
+                  <button
+                    type="button"
+                    disabled
+                    className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-gray-800 text-gray-500 font-bold text-xs cursor-not-allowed border border-white/5"
+                  >
+                    <CheckCircle2 size={16} />
+                    Clock In Dinonaktifkan (Lewat 15:00 WIB)
+                  </button>
+                  <p className="text-[10px] text-amber-300/80">
+                    Waktu reguler shift telah berakhir. Hubungi Admin Lobby jika ada penugasan lembur.
+                  </p>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    clockInDriver(matchedDriver.id)
+                    notify(`Absensi HADIR berhasil tercatat pada ${new Date().toLocaleTimeString('id-ID')} WIB`)
+                  }}
+                  className="w-full flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white font-bold text-sm shadow-lg shadow-emerald-900/40 transition active:scale-[.98]"
+                >
+                  <CheckCircle2 size={18} />
+                  Clock In (Hadir Kerja)
+                </button>
+              )
+            ) : liveAttendance.status === 'HADIR' ? (
+              <div className="space-y-2">
                 <button
                   type="button"
                   onClick={() => {
                     clockOutDriver(matchedDriver.id)
                     notify(`Absensi PULANG berhasil tercatat pada ${new Date().toLocaleTimeString('id-ID')} WIB`)
                   }}
-                  className={`w-full flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl font-bold text-sm shadow-lg transition active:scale-[.98] ${
-                    liveAttendance.status === 'OVERTIME'
-                      ? 'bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-white shadow-amber-900/40'
-                      : 'bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white shadow-blue-900/40'
-                  }`}
+                  className="w-full flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl font-bold text-sm shadow-lg transition active:scale-[.98] bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white shadow-blue-900/40"
                 >
                   <Square size={16} />
                   Clock Out (Selesai Dinas & Pulang)
                 </button>
               </div>
-            )}
-
-            {liveAttendance.status === 'PULANG' && (
+            ) : (
               <div className="text-center py-2 space-y-2">
                 <div className="text-xs text-[#8fa99b]">
-                  Dinas hari ini telah selesai: <br />
+                  Dinas reguler hari ini telah selesai: <br />
                   <span className="text-white font-mono font-medium">
                     {fmtTime(liveAttendance.clockIn)} → {fmtTime(liveAttendance.clockOut)} WIB
                   </span>
-                  {liveAttendance.overtimeMinutes > 0 && (
-                    <div className="mt-1 text-amber-400 font-semibold">
-                      Total Lembur: {liveAttendance.overtimeMinutes} Menit
-                    </div>
-                  )}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    clockInDriver(matchedDriver.id)
-                    notify('Status absensi diaktifkan kembali.')
-                  }}
-                  className="text-[11px] text-[#8fa99b] hover:text-white underline"
-                >
-                  Clock In Ulang Jika Masih Bertugas
-                </button>
+                {!isPastRegulerShift && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      clockInDriver(matchedDriver.id)
+                      notify('Status absensi diaktifkan kembali.')
+                    }}
+                    className="text-[11px] text-[#8fa99b] hover:text-white underline"
+                  >
+                    Clock In Ulang Jika Masih Bertugas
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -706,6 +743,69 @@ export function DriverDashboard({ user }: DriverDashboardProps) {
                 </div>
                 <div className="text-right text-[#8fa99b]">
                   {trip.requesterName} ({trip.dept})
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {/* RIWAYAT OVERTIME (LEMBUR) DRIVER */}
+      {myOvertimeHistory.length > 0 && (
+        <Card 
+          title="Riwayat Overtime (Lembur)" 
+          subtitle="Daftar pengajuan permohonan lembur dan status persetujuan dari SPV Kendaraan"
+          className="border border-purple-500/20 bg-purple-950/[0.05]"
+        >
+          <div className="divide-y divide-white/5 p-4">
+            {myOvertimeHistory.map((ot) => (
+              <div key={ot.id} className="py-3 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
+                <div className="space-y-1">
+                  <div className="font-semibold text-white flex items-center gap-2 flex-wrap">
+                    <span className="font-mono text-purple-300 font-bold">{ot.id}</span>
+                    <span>•</span>
+                    <span>{ot.date} ({ot.startOT} – {ot.endOT} WIB)</span>
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold ${
+                      ot.status === 'APPROVED' || ot.status === 'ACTIVE'
+                        ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40'
+                        : ot.status === 'COMPLETED'
+                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                        : ot.status === 'PENDING'
+                        ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                        : ot.status === 'WAITING_REPORT'
+                        ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40 animate-pulse'
+                        : 'bg-red-500/20 text-red-300 border border-red-500/40'
+                    }`}>
+                      {ot.status === 'APPROVED' || ot.status === 'ACTIVE'
+                        ? 'Aktif Berjalan'
+                        : ot.status === 'COMPLETED'
+                        ? 'Selesai'
+                        : ot.status === 'PENDING'
+                        ? 'Menunggu ACC Pak Hayu'
+                        : ot.status === 'WAITING_REPORT'
+                        ? 'Laporan Ditangguhkan'
+                        : 'Ditolak'}
+                    </span>
+                  </div>
+                  <p className="text-[#8fa99b] text-[11px]">
+                    Alasan: <span className="text-white font-medium">{ot.reason}</span>
+                  </p>
+                  {ot.actualEnd && (
+                    <p className="text-[10px] text-purple-300/80">
+                      Selesai aktual: {fmtTime(ot.actualEnd)} WIB
+                    </p>
+                  )}
+                  {ot.driverReport && (
+                    <p className="text-[10px] text-rose-300">
+                      Laporan kendala jam: <em>"{ot.driverReport}"</em>
+                    </p>
+                  )}
+                </div>
+                <div className="text-right text-[#8fa99b] text-[11px] shrink-0">
+                  <div>Diajukan: {ot.requestedByName}</div>
+                  {ot.approvedBy && (
+                    <div className="text-emerald-400 font-medium">ACC: {ot.approvedBy}</div>
+                  )}
                 </div>
               </div>
             ))}
