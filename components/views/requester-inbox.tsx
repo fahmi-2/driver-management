@@ -16,11 +16,16 @@ import {
   MessageSquare,
   Edit3,
   Trash2,
+  Info,
+  Users,
+  MapPin,
+  Map as MapIcon,
 } from 'lucide-react'
 import type { Account } from '@/lib/accounts'
 import { useStore, type Trip, fmtDate, fmtTime } from '@/lib/store'
 import { Card, PageHeader, Pill, useToast } from '../ui-bits'
 import { TripEditModal } from '../trip-edit-modal'
+import { TripRouteMap } from '../route-map'
 
 export function RequesterInbox({ user }: { user: Account }) {
   const { db, deleteTrip } = useStore()
@@ -28,6 +33,7 @@ export function RequesterInbox({ user }: { user: Account }) {
   const [filterStatus, setFilterStatus] = useState<'ALL' | 'APPROVED' | 'REJECTED' | 'PENDING'>('ALL')
   const [search, setSearch] = useState('')
   const [editingTrip, setEditingTrip] = useState<Trip | null>(null)
+  const [detailTrip, setDetailTrip] = useState<Trip | null>(null)
 
   // Requester trips
   const myTrips = db.trips
@@ -183,6 +189,16 @@ export function RequesterInbox({ user }: { user: Account }) {
                         </span>
                       )}
 
+                      {/* Tombol Detail Perjalanan (Pemohon, Penumpang & Map) */}
+                      <button
+                        type="button"
+                        onClick={() => setDetailTrip(trip)}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-[#075b3d]/30 bg-[#075b3d]/10 hover:bg-[#075b3d]/20 px-3 py-1 text-xs font-bold text-[#075b3d] transition shadow-xs"
+                      >
+                        <Info size={13} />
+                        <span>Detail & Peta</span>
+                      </button>
+
                       {/* Tombol Edit & Hapus (Strict Pre-Approval Phase: Hanya jika WAITING_SPV) */}
                       {trip.status === 'WAITING_SPV' && (
                         <div className="flex items-center gap-1">
@@ -301,6 +317,188 @@ export function RequesterInbox({ user }: { user: Account }) {
           </div>
         )}
       </Card>
+
+      {/* Modal Detail Perjalanan (Pemohon, Penumpang & Map) */}
+      {detailTrip && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="w-full max-w-2xl rounded-2xl bg-[#081f14] text-white shadow-2xl border border-white/15 overflow-hidden max-h-[92vh] flex flex-col">
+            {/* Header Modal */}
+            <div className="flex items-center justify-between border-b border-white/10 bg-[#075b3d] px-6 py-4 text-white shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="flex size-9 items-center justify-center rounded-xl bg-lime-400 text-[#052e16] font-bold">
+                  <Info size={18} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-bold text-white">Detail Pengajuan & Penumpang</h3>
+                    <span className="rounded bg-white/20 px-2 py-0.5 text-[10px] font-mono font-bold text-white">
+                      {detailTrip.id}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-emerald-200">
+                    Departemen {detailTrip.dept} {detailTrip.section ? `· Section ${detailTrip.section}` : ''}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setDetailTrip(null)}
+                className="p-1 rounded-lg text-emerald-200 hover:bg-emerald-800/40 transition"
+              >
+                <XCircle size={18} />
+              </button>
+            </div>
+
+            {/* Content Modal */}
+            <div className="p-6 space-y-5 overflow-y-auto flex-1 text-xs">
+              {/* 1. Pemohon Utama & Rincian Dasar */}
+              <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 space-y-3">
+                <h4 className="text-xs font-bold text-[#bef264] flex items-center gap-1.5 uppercase tracking-wide">
+                  <User size={14} className="text-[#a3e635]" /> Informasi Pemohon Utama
+                </h4>
+                <div className="grid gap-2.5 sm:grid-cols-2 text-xs">
+                  <div>
+                    <span className="text-[10px] text-[#8fa99b] block">Nama Pemohon:</span>
+                    <span className="font-bold text-white text-sm">{detailTrip.requesterName || detailTrip.guest}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-[#8fa99b] block">NIK Pemohon:</span>
+                    <span className="font-mono font-bold text-white">{detailTrip.requesterNik || '—'}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-[#8fa99b] block">Departemen & Section:</span>
+                    <span className="font-medium text-white">{detailTrip.dept} {detailTrip.section ? `(${detailTrip.section})` : ''}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-[#8fa99b] block">Approver Tahap 1:</span>
+                    <span className="font-semibold text-white">{detailTrip.spvName}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* 2. Daftar Penumpang Berangkat */}
+              <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold text-[#bef264] flex items-center gap-1.5 uppercase tracking-wide">
+                    <Users size={14} className="text-[#a3e635]" /> Penumpang yang Berangkat
+                  </h4>
+                  <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-bold text-white">
+                    {detailTrip.driverOnly ? '0 Orang (Hanya Driver)' : `${(detailTrip.passengers?.length || 1)} Orang`}
+                  </span>
+                </div>
+
+                {detailTrip.driverOnly ? (
+                  <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 p-3 text-amber-300 text-xs flex items-center gap-2">
+                    <AlertCircle size={15} className="shrink-0" />
+                    <span>Perjalanan berstatus <strong>Hanya Driver (Driver Only)</strong> untuk keperluan pengiriman barang atau dokumen logistik pabrik tanpa penumpang.</span>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-white/5 border border-white/10 rounded-xl overflow-hidden bg-black/20">
+                    {/* Pemohon sebagai penumpang 1 jika tidak ada list terpisah */}
+                    {(!detailTrip.passengers || detailTrip.passengers.length === 0) ? (
+                      <div className="p-3 flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-2.5">
+                          <span className="flex size-5 items-center justify-center rounded-full bg-[#a3e635] text-[10px] font-bold text-black">
+                            1
+                          </span>
+                          <div>
+                            <p className="font-bold text-white">{detailTrip.requesterName || detailTrip.guest}</p>
+                            <p className="text-[10px] text-[#8fa99b]">NIK: {detailTrip.requesterNik || '—'} · Dept: {detailTrip.dept}</p>
+                          </div>
+                        </div>
+                        <span className="rounded bg-[#a3e635]/20 text-[#bef264] px-2 py-0.5 text-[10px] font-bold">
+                          Pemohon Utama
+                        </span>
+                      </div>
+                    ) : (
+                      detailTrip.passengers.map((p, idx) => (
+                        <div key={idx} className="p-3 flex items-center justify-between text-xs">
+                          <div className="flex items-center gap-2.5">
+                            <span className="flex size-5 items-center justify-center rounded-full bg-[#a3e635] text-[10px] font-bold text-black">
+                              {idx + 1}
+                            </span>
+                            <div>
+                              <p className="font-bold text-white">{p.name}</p>
+                              <p className="text-[10px] text-[#8fa99b]">NIK: {p.nik || '—'} · Dept: {p.dept || detailTrip.dept}</p>
+                            </div>
+                          </div>
+                          <span className="rounded bg-white/10 text-white px-2 py-0.5 text-[10px]">
+                            {idx === 0 ? 'Pemohon Utama' : `Penumpang #${idx + 1}`}
+                          </span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* 3. Detail Jadwal, Tujuan & Keperluan */}
+              <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 space-y-2.5 text-xs">
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <div>
+                    <span className="text-[10px] text-[#8fa99b] block">Tanggal Perjalanan:</span>
+                    <span className="font-bold text-white">{fmtDate(detailTrip.date)}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-[#8fa99b] block">Estimasi Waktu:</span>
+                    <span className="font-semibold text-white">
+                      Jam {detailTrip.estDeparture} {detailTrip.estReturn ? `– ${detailTrip.estReturn}` : ''} WIB
+                    </span>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <span className="text-[10px] text-[#8fa99b] block">Tujuan & Rute:</span>
+                    <span className="font-bold text-[#bef264] text-sm">{detailTrip.destination}</span>
+                    {detailTrip.destinations && detailTrip.destinations.length > 1 && (
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {detailTrip.destinations.map((d, i) => (
+                          <span key={i} className="rounded bg-white/10 px-2 py-0.5 text-[10px] text-white">
+                            Stop {i + 1}: {d}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <div className="sm:col-span-2">
+                    <span className="text-[10px] text-[#8fa99b] block">Keperluan:</span>
+                    <span className="text-white">{detailTrip.purpose}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* 4. Peta Rute Interaktif */}
+              <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold text-[#bef264] flex items-center gap-1.5 uppercase tracking-wide">
+                    <MapIcon size={14} className="text-[#a3e635]" /> Peta Rute Perjalanan PT. JAI
+                  </h4>
+                  {detailTrip.distance_km && (
+                    <span className="text-[11px] font-bold text-[#a3e635]">
+                      {detailTrip.distance_km} KM PP
+                    </span>
+                  )}
+                </div>
+                <div className="rounded-xl overflow-hidden border border-white/10">
+                  <TripRouteMap
+                    destinations={detailTrip.destinations}
+                    destination={detailTrip.destination}
+                    height={260}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Footer Modal */}
+            <div className="flex justify-end border-t border-white/10 bg-[#052115] px-6 py-3.5 shrink-0">
+              <button
+                type="button"
+                onClick={() => setDetailTrip(null)}
+                className="rounded-xl bg-white/10 hover:bg-white/15 px-5 py-2 text-xs font-bold text-white transition"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal Edit Permohonan (Pre-Approval Phase) */}
       <TripEditModal
