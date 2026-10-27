@@ -20,6 +20,8 @@ import {
   Users,
   MapPin,
   Map as MapIcon,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react'
 import type { Account } from '@/lib/accounts'
 import { useStore, type Trip, fmtDate, fmtTime } from '@/lib/store'
@@ -27,11 +29,14 @@ import { Card, PageHeader, Pill, useToast } from '../ui-bits'
 import { TripEditModal } from '../trip-edit-modal'
 import { TripRouteMap } from '../route-map'
 
+const ITEMS_PER_PAGE = 10
+
 export function RequesterInbox({ user }: { user: Account }) {
   const { db, deleteTrip } = useStore()
   const notify = useToast()
   const [filterStatus, setFilterStatus] = useState<'ALL' | 'APPROVED' | 'REJECTED' | 'PENDING'>('ALL')
   const [search, setSearch] = useState('')
+  const [currentPage, setCurrentPage] = useState(1)
   const [editingTrip, setEditingTrip] = useState<Trip | null>(null)
   const [detailTrip, setDetailTrip] = useState<Trip | null>(null)
 
@@ -58,6 +63,13 @@ export function RequesterInbox({ user }: { user: Account }) {
 
     return matchSearch
   })
+
+  // Pagination calculation (10 rows per slide / page)
+  const totalPages = Math.max(1, Math.ceil(filteredTrips.length / ITEMS_PER_PAGE))
+  const safeCurrentPage = Math.min(currentPage, totalPages)
+  const startIndex = (safeCurrentPage - 1) * ITEMS_PER_PAGE
+  const endIndex = Math.min(startIndex + ITEMS_PER_PAGE, filteredTrips.length)
+  const paginatedTrips = filteredTrips.slice(startIndex, endIndex)
 
   const countApproved = myTrips.filter((t) => t.status === 'READY' || t.status === 'ON_TRIP' || t.status === 'DONE').length
   const countRejected = myTrips.filter((t) => t.status === 'REJECTED').length
@@ -112,14 +124,20 @@ export function RequesterInbox({ user }: { user: Account }) {
               <Search size={13} className="absolute left-2.5 top-2.5 text-[#93a097]" />
               <input
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => {
+                  setSearch(e.target.value)
+                  setCurrentPage(1)
+                }}
                 placeholder="Cari tujuan / tamu / no. tiket…"
                 className="h-8 w-44 sm:w-56 rounded-lg bg-[#f5f7f5] pl-8 pr-3 text-[11px] outline-none border border-transparent focus:border-[#075b3d]"
               />
             </div>
             <select
               value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value as any)}
+              onChange={(e) => {
+                setFilterStatus(e.target.value as any)
+                setCurrentPage(1)
+              }}
               className="h-8 rounded-lg bg-[#f5f7f5] px-2.5 text-[11px] font-medium text-[#62736b] outline-none border border-transparent focus:border-[#075b3d]"
             >
               <option value="ALL">Semua Keputusan</option>
@@ -135,13 +153,14 @@ export function RequesterInbox({ user }: { user: Account }) {
             Tidak ada riwayat pengajuan yang sesuai kriteria.
           </div>
         ) : (
-          <div className="divide-y divide-[#edf1ee]">
-            {filteredTrips.map((trip) => {
-              const isApproved =
-                trip.status === 'READY' || trip.status === 'ON_TRIP' || trip.status === 'DONE'
-              const isRejected = trip.status === 'REJECTED'
-              const assignedDriver = db.drivers.find((d) => d.id === trip.driverId)
-              const assignedVehicle = db.vehicles.find((v) => v.plate === trip.plate)
+          <div>
+            <div className="divide-y divide-[#edf1ee]">
+              {paginatedTrips.map((trip) => {
+                const isApproved =
+                  trip.status === 'READY' || trip.status === 'ON_TRIP' || trip.status === 'DONE'
+                const isRejected = trip.status === 'REJECTED'
+                const assignedDriver = db.drivers.find((d) => d.id === trip.driverId)
+                const assignedVehicle = db.vehicles.find((v) => v.plate === trip.plate)
 
               return (
                 <div key={trip.id} className="p-5 transition hover:bg-lime-400/10 rounded-xl m-1">
@@ -315,13 +334,87 @@ export function RequesterInbox({ user }: { user: Account }) {
               )
             })}
           </div>
-        )}
-      </Card>
+
+          {/* Pagination Navigation Bar */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-[#edf1ee] bg-[#fafcfa] px-5 py-3 text-xs text-[#708078] rounded-b-2xl">
+            <div className="flex items-center gap-1.5 text-[11px]">
+              <span>Menampilkan</span>
+              <strong className="text-[#075b3d] font-semibold">
+                {filteredTrips.length === 0 ? 0 : startIndex + 1}–{endIndex}
+              </strong>
+              <span>dari</span>
+              <strong className="text-[#10251c] font-semibold">{filteredTrips.length}</strong>
+              <span>pengajuan</span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-medium text-[#708078]">
+                Halaman {safeCurrentPage} dari {totalPages}
+              </span>
+
+              <div className="inline-flex items-center gap-1">
+                <button
+                  type="button"
+                  disabled={safeCurrentPage <= 1}
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  className="inline-flex size-8 items-center justify-center rounded-lg border border-[#e4ece6] bg-white text-[#075b3d] shadow-2xs hover:bg-[#eef5f0] disabled:opacity-40 disabled:cursor-not-allowed transition"
+                  title="Halaman Sebelumnya"
+                >
+                  <ChevronLeft size={16} />
+                </button>
+
+                {/* Direct Page Numbers (if <= 5 pages, show all; else sliding window) */}
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter((p) => {
+                    if (totalPages <= 5) return true
+                    return (
+                      p === 1 ||
+                      p === totalPages ||
+                      Math.abs(p - safeCurrentPage) <= 1
+                    )
+                  })
+                  .map((pageNum, idx, arr) => {
+                    const prev = arr[idx - 1]
+                    const showEllipsis = prev && pageNum - prev > 1
+
+                    return (
+                      <span key={pageNum} className="inline-flex items-center">
+                        {showEllipsis && <span className="px-1 text-[#93a097]">…</span>}
+                        <button
+                          type="button"
+                          onClick={() => setCurrentPage(pageNum)}
+                          className={`size-8 rounded-lg text-xs font-bold transition ${
+                            pageNum === safeCurrentPage
+                              ? 'bg-[#075b3d] text-white shadow-xs'
+                              : 'border border-[#e4ece6] bg-white text-[#62736b] hover:bg-[#eef5f0]'
+                          }`}
+                        >
+                          {pageNum}
+                        </button>
+                      </span>
+                    )
+                  })}
+
+                <button
+                  type="button"
+                  disabled={safeCurrentPage >= totalPages}
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  className="inline-flex size-8 items-center justify-center rounded-lg border border-[#e4ece6] bg-white text-[#075b3d] shadow-2xs hover:bg-[#eef5f0] disabled:opacity-40 disabled:cursor-not-allowed transition"
+                  title="Halaman Selanjutnya"
+                >
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </Card>
 
       {/* Modal Detail Perjalanan (Pemohon, Penumpang & Map) */}
       {detailTrip && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="w-full max-w-2xl rounded-2xl bg-[#081f14] text-white shadow-2xl border border-white/15 overflow-hidden max-h-[92vh] flex flex-col">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150 overflow-y-auto">
+          <div className="w-full max-w-2xl rounded-2xl bg-[#081f14] text-white shadow-2xl border border-white/15 overflow-hidden max-h-[90vh] flex flex-col my-auto">
             {/* Header Modal */}
             <div className="flex items-center justify-between border-b border-white/10 bg-[#075b3d] px-6 py-4 text-white shrink-0">
               <div className="flex items-center gap-2.5">
