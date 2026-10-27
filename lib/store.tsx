@@ -231,12 +231,20 @@ export const COUPON_LABEL: Record<CouponStatus, string> = {
 
 // Kirim email notifikasi approval via API route server (/api/notify). Error hanya di-log,
 // tidak menggagalkan pengajuan karena data sudah tersimpan di database.
-export async function notifyApprover(tripId: string): Promise<{ ok: boolean; error?: string }> {
+export async function notifyApprover(
+  tripId: string,
+  options?: { isEdit?: boolean; actionType?: 'reschedule'; rescheduleChanges?: string }
+): Promise<{ ok: boolean; error?: string }> {
   try {
     const res = await fetch('/api/notify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tripId }),
+      body: JSON.stringify({
+        tripId,
+        isEdit: options?.isEdit,
+        actionType: options?.actionType,
+        rescheduleChanges: options?.rescheduleChanges,
+      }),
     })
     const json = await res.json().catch(() => ({}))
     if (!res.ok || json.ok === false) {
@@ -379,6 +387,8 @@ type Ctx = {
   poolSpvDecision: (id: string, approve: boolean, note?: string, approverName?: string) => void
   assignTrip: (id: string, driverId: string, plate: string) => void
   scheduleTrip: (id: string, params: { plate: string; driverId?: string; date: string; estDeparture: string; estReturn?: string; adminNote?: string; isOtherVehicle?: boolean; otherVehicleName?: string; origin?: string; destination?: string; returnToOrigin?: boolean; isLeaveReplacement?: boolean; replacementDriverName?: string }) => void
+  editTrip: (id: string, t: Partial<NewTrip>) => Promise<TripSubmitResult>
+  deleteTrip: (id: string) => Promise<{ success: boolean; error?: string }>
   rescheduleTrip: (id: string, params: { plate: string; driverId?: string; date: string; estDeparture: string; estReturn?: string; adminNote?: string; isOtherVehicle?: boolean; otherVehicleName?: string }) => Promise<{ success: boolean; error?: string }>
   cancelTrip: (id: string, reason?: string) => Promise<{ success: boolean; error?: string }>
   rejectTrip: (id: string, reason: string) => void
@@ -769,7 +779,89 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           returnToOrigin: params.returnToOrigin ?? t.returnToOrigin,
         }
       }),
-    // Reschedule Jadwal: Mengubah waktu/plat/driver/catatan dan me-reset persetujuan ke Tahap 2 (SPV Kendaraan - Pak Hayu)
+    // Edit Pengajuan oleh User (Pre-Approval Phase: Hanya diizinkan jika status masih WAITING_SPV)
+    editTrip: async (id, params) => {
+      const current = db.trips.find((t) => t.id === id)
+      if (!current) {
+        return { id, success: false, error: 'Pengajuan tidak ditemukan.' }
+      }
+      if (current.status !== 'WAITING_SPV') {
+        return {
+          id,
+          success: false,
+          error: 'Pengajuan ini sudah diproses/disetujui oleh atasan (status >= APPROVED_1) dan tidak dapat diedit langsung oleh User.',
+        }
+      }
+
+      const updatedTrip: Trip = {
+        ...current,
+        ...params,
+        id,
+        requesterUser: current.requesterUser, // preserve original requester
+        status: 'WAITING_SPV', // tetap WAITING_SPV
+        coupon: params.driverOnly ? 'VOID' : (current.coupon || 'NONE'),
+      }
+
+      const { upsertTripToSupabase } = await import('./sync')
+      const syncRes = await upsertTripToSupabase(updatedTrip)
+
+      if (syncRes.success) {
+        update((d) => ({
+          ...d,
+          trips: d.trips.map((t) => (t.id === id ? updatedTrip : t)),
+        }))
+
+        if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+          try {
+            const bc = new BroadcastChannel('ff_store_sync_channel')
+            bc.postMessage({ type: 'sync' })
+            bc.close()
+          } catch {}
+        }
+
+        // Trigger ulang notifikasi email ke Approver Tahap 1 dengan label [EDITED]
+        const mail = await notifyApprover(id, { isEdit: true })
+        return { id, success: true, emailError: mail.ok ? undefined : mail.error }
+      } else {
+        return { id, success: false, error: syncRes.error }
+      }
+    },
+    // Delete Pengajuan oleh User (Pre-Approval Phase: Hanya diizinkan jika status masih WAITING_SPV)
+    deleteTrip: async (id) => {
+      const current = db.trips.find((t) => t.id === id)
+      if (!current) {
+        return { success: false, error: 'Pengajuan tidak ditemukan.' }
+      }
+      if (current.status !== 'WAITING_SPV') {
+        return {
+          success: false,
+          error: 'Pengajuan ini sudah diproses/disetujui oleh atasan (status >= APPROVED_1) dan tidak dapat dihapus oleh User.',
+        }
+      }
+
+      update((d) => ({
+        ...d,
+        trips: d.trips.filter((t) => t.id !== id),
+      }))
+
+      const { deleteTripFromSupabase } = await import('./sync')
+      const syncRes = await deleteTripFromSupabase(id)
+      if (!syncRes.success) {
+        console.error('Failed to delete trip from Supabase:', syncRes.error)
+        return { success: false, error: syncRes.error }
+      }
+
+      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        try {
+          const bc = new BroadcastChannel('ff_store_sync_channel')
+          bc.postMessage({ type: 'sync' })
+          bc.close()
+        } catch {}
+      }
+
+      return { success: true }
+    },
+    // Reschedule Jadwal oleh Admin Lobby / GA: Mengubah waktu/plat/driver/catatan dan mengirim notifikasi [UPDATE JADWAL]
     rescheduleTrip: async (id, params) => {
       const assignedDriver = params.driverId ? db.drivers.find((d) => d.id === params.driverId) : null
       const isUsingOtherCar = !!params.isOtherVehicle || (!!assignedDriver?.defaultPlate && assignedDriver.defaultPlate !== params.plate)
@@ -782,10 +874,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           if (t.id === id) {
             const next: Trip = {
               ...t,
-              status: 'WAITING_POOL_SPV', // Reset ke Tahap 2 agar di-ACC ulang oleh Pak Hayu
-              poolSpvAt: undefined, // Hapus stempel ACC Tahap 2 sebelumnya
-              poolSpvName: undefined,
-              poolSpvNote: undefined,
+              // Jika status sebelumnya sudah disetujui (READY/ON_TRIP) atau WAITING_POOL_SPV, tetap siap jalan atau sesuaikan operasional
               plate: params.plate,
               driverId: params.driverId,
               date: params.date,
@@ -808,16 +897,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (targetTrip) {
         const { upsertTripToSupabase } = await import('./sync')
         const syncRes = await upsertTripToSupabase(targetTrip)
-        // Kirim notifikasi konfirmasi ulang ke Pak Hayu (Tahap 2)
-        notifyApprover(id)
         if (!syncRes.success) {
           console.error('Failed to sync rescheduled trip:', syncRes.error)
           return { success: false, error: syncRes.error }
         }
+
+        // Kirim Automated Notification [UPDATE JADWAL] ke Requester, Driver, & CC Approver 1 & 2
+        notifyApprover(id, { actionType: 'reschedule' })
       }
       return { success: true }
     },
-    // Cancel (Hapus) Penjadwalan: Menghapus trip dari sistem dan membersihkan data di Supabase
+    // Cancel (Hapus/Batal) Penjadwalan oleh Admin Lobby / GA: Menghapus trip dari sistem dan membersihkan data di Supabase
     cancelTrip: async (id, reason) => {
       // Hapus dari state lokal
       update((d) => ({
@@ -830,6 +920,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         console.error('Failed to delete trip from Supabase:', syncRes.error)
         return { success: false, error: syncRes.error }
       }
+
+      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        try {
+          const bc = new BroadcastChannel('ff_store_sync_channel')
+          bc.postMessage({ type: 'sync' })
+          bc.close()
+        } catch {}
+      }
+
       return { success: true }
     },
     rejectTrip: (id, reason) => patch(id, { status: 'REJECTED', rejectReason: reason }),

@@ -13,16 +13,21 @@ import {
   FileText,
   Search,
   Filter,
-  MessageSquare
+  MessageSquare,
+  Edit3,
+  Trash2,
 } from 'lucide-react'
 import type { Account } from '@/lib/accounts'
 import { useStore, type Trip, fmtDate, fmtTime } from '@/lib/store'
-import { Card, PageHeader, Pill } from '../ui-bits'
+import { Card, PageHeader, Pill, useToast } from '../ui-bits'
+import { TripEditModal } from '../trip-edit-modal'
 
 export function RequesterInbox({ user }: { user: Account }) {
-  const { db } = useStore()
+  const { db, deleteTrip } = useStore()
+  const notify = useToast()
   const [filterStatus, setFilterStatus] = useState<'ALL' | 'APPROVED' | 'REJECTED' | 'PENDING'>('ALL')
   const [search, setSearch] = useState('')
+  const [editingTrip, setEditingTrip] = useState<Trip | null>(null)
 
   // Requester trips
   const myTrips = db.trips
@@ -155,8 +160,8 @@ export function RequesterInbox({ user }: { user: Account }) {
                       </p>
                     </div>
 
-                    {/* Status Pill */}
-                    <div>
+                    {/* Status Pill & Pre-Approval Actions */}
+                    <div className="flex flex-col sm:flex-row items-end sm:items-center gap-2">
                       {isApproved ? (
                         <span className="inline-flex items-center gap-1.5 rounded-full bg-[#dff5e9] px-3 py-1 text-xs font-bold text-[#168052]">
                           <CheckCircle size={14} />
@@ -176,6 +181,39 @@ export function RequesterInbox({ user }: { user: Account }) {
                             ? 'Menunggu SPV Kendaraan (Tahap 2)'
                             : 'Menunggu Dispatcher'}
                         </span>
+                      )}
+
+                      {/* Tombol Edit & Hapus (Strict Pre-Approval Phase: Hanya jika WAITING_SPV) */}
+                      {trip.status === 'WAITING_SPV' && (
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            title="Edit / Revisi Pengajuan [EDITED]"
+                            onClick={() => setEditingTrip(trip)}
+                            className="inline-flex items-center gap-1 rounded-lg border border-amber-400/40 bg-amber-500/15 hover:bg-amber-500/25 px-2.5 py-1 text-[11px] font-bold text-amber-300 transition shadow-xs"
+                          >
+                            <Edit3 size={12} />
+                            <span>Edit</span>
+                          </button>
+                          <button
+                            type="button"
+                            title="Hapus Pengajuan"
+                            onClick={async () => {
+                              if (confirm(`Apakah Anda yakin ingin menghapus pengajuan ${trip.id} ke ${trip.destination}?`)) {
+                                const res = await deleteTrip(trip.id)
+                                if (res.success) {
+                                  notify(`Pengajuan ${trip.id} berhasil dihapus.`)
+                                } else {
+                                  notify(res.error || 'Gagal menghapus pengajuan.', 'error')
+                                }
+                              }
+                            }}
+                            className="inline-flex items-center gap-1 rounded-lg border border-red-500/40 bg-red-500/15 hover:bg-red-500/25 px-2.5 py-1 text-[11px] font-bold text-red-300 transition shadow-xs"
+                          >
+                            <Trash2 size={12} />
+                            <span>Hapus</span>
+                          </button>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -224,7 +262,7 @@ export function RequesterInbox({ user }: { user: Account }) {
                   )}
 
                   {isRejected && (
-                    <div className="mt-3.5 rounded-xl border border-[#fecaca] bg-[#fef2f2] p-3.5 text-xs text-[#991b1b]">
+                    <div className="mt-3.5 rounded-xl border border-[#fecaca] bg-[#fef2f2] p-3 text-xs text-[#991b1b]">
                       <div className="flex items-start gap-2">
                         <AlertCircle size={16} className="text-[#dc2626] shrink-0 mt-0.5" />
                         <div>
@@ -263,6 +301,13 @@ export function RequesterInbox({ user }: { user: Account }) {
           </div>
         )}
       </Card>
+
+      {/* Modal Edit Permohonan (Pre-Approval Phase) */}
+      <TripEditModal
+        trip={editingTrip}
+        isOpen={!!editingTrip}
+        onClose={() => setEditingTrip(null)}
+      />
     </>
   )
 }

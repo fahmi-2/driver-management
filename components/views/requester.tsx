@@ -5,6 +5,7 @@ import {
   AlertCircle,
   Building,
   CheckCircle,
+  Edit3,
   Mail,
   MapPin,
   Plus,
@@ -18,6 +19,7 @@ import {
   Calendar,
 } from 'lucide-react'
 import { SmtpSettingsModal } from '../smtp-settings-modal'
+import { TripEditModal } from '../trip-edit-modal'
 import {
   DEPARTMENTS,
   DEPARTMENT_APPROVERS,
@@ -63,8 +65,9 @@ import { TripRouteToggle } from '../route-map'
 const CATS: Category[] = ['Dinas', 'Non-Dinas']
 
 export function RequesterForm({ user }: { user: Account }) {
-  const { db, createTrip } = useStore()
+  const { db, createTrip, deleteTrip } = useStore()
   const notify = useToast()
+  const [editingTrip, setEditingTrip] = useState<Trip | null>(null)
 
   // Kapasitas maksimum kendaraan dari master fleet (default 7 kursi jika belum diset)
   const maxVehicleCapacity = Math.max(7, ...db.vehicles.map((v) => v.capacity || 7))
@@ -924,6 +927,40 @@ export function RequesterForm({ user }: { user: Account }) {
 
                     <div className="flex items-center gap-2">
                       <Pill label={STATUS_LABEL[t.status]} tone={tripTone(t.status)} />
+                      
+                      {/* Pre-Approval Phase: Tombol Aksi Edit & Hapus strictly HANYA jika status WAITING_SPV */}
+                      {t.status === 'WAITING_SPV' && (
+                        <div className="flex items-center gap-1.5 ml-1">
+                          <button
+                            type="button"
+                            title="Edit / Revisi Pengajuan [EDITED]"
+                            onClick={() => setEditingTrip(t)}
+                            className="inline-flex items-center gap-1 rounded-lg border border-amber-400/40 bg-amber-500/15 hover:bg-amber-500/25 px-2.5 py-1 text-[11px] font-bold text-amber-300 transition shadow-xs"
+                          >
+                            <Edit3 size={12} />
+                            <span>Edit</span>
+                          </button>
+                          <button
+                            type="button"
+                            title="Hapus Pengajuan"
+                            onClick={async () => {
+                              if (confirm(`Apakah Anda yakin ingin menghapus pengajuan ${t.id} ke ${t.destination}? Tindakan ini tidak dapat dibatalkan.`)) {
+                                const res = await deleteTrip(t.id)
+                                if (res.success) {
+                                  notify(`Pengajuan ${t.id} berhasil dihapus dari sistem.`)
+                                } else {
+                                  notify(res.error || 'Gagal menghapus pengajuan.', 'error')
+                                }
+                              }
+                            }}
+                            className="inline-flex items-center gap-1 rounded-lg border border-red-500/40 bg-red-500/15 hover:bg-red-500/25 px-2.5 py-1 text-[11px] font-bold text-red-300 transition shadow-xs"
+                          >
+                            <Trash2 size={12} />
+                            <span>Hapus</span>
+                          </button>
+                        </div>
+                      )}
+
                       {(t.status === 'WAITING_SPV' || t.status === 'WAITING_POOL_SPV') && (
                         <a
                           href={`/approve/${t.id}`}
@@ -942,6 +979,13 @@ export function RequesterForm({ user }: { user: Account }) {
           )}
         </Card>
       )}
+
+      {/* Modal Edit Permohonan (Pre-Approval Phase) */}
+      <TripEditModal
+        trip={editingTrip}
+        isOpen={!!editingTrip}
+        onClose={() => setEditingTrip(null)}
+      />
 
       {/* Modal Pengaturan SMTP Departemen / Akun */}
       <SmtpSettingsModal

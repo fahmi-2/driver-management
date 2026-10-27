@@ -192,7 +192,7 @@ export function VehicleTimelineScheduler({
       })
 
       if (res.success) {
-        notify('Jadwal berhasil di-reschedule dan dikirimkan ulang ke Tahap 2 (SPV Kendaraan - Pak Hayu) untuk ACC.')
+        notify('Jadwal berhasil di-reschedule! Notifikasi otomatis [UPDATE JADWAL] telah dikirimkan ke Pemohon, Driver, dan Approver sebagai tembusan.')
         setInspectingTrip(null)
         setIsRescheduling(false)
       } else {
@@ -1393,10 +1393,10 @@ export function VehicleTimelineScheduler({
               {/* FORM MODE: RESCHEDULE */}
               {isRescheduling && (
                 <form id="reschedule-form" onSubmit={handleRescheduleSubmit} className="space-y-4">
-                  <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 text-xs text-amber-900 flex items-start gap-2">
-                    <AlertTriangle size={16} className="text-amber-600 shrink-0 mt-0.5" />
+                  <div className="rounded-xl bg-sky-50 border border-sky-200 p-3 text-xs text-sky-950 flex items-start gap-2">
+                    <AlertTriangle size={16} className="text-sky-600 shrink-0 mt-0.5" />
                     <p className="leading-relaxed">
-                      <strong>Perhatian:</strong> Mereschedule jadwal akan <strong>mereset status persetujuan ke Tahap 2</strong> (SPV Kendaraan - Pak Hayu). Notifikasi konfirmasi akan dikirimkan ulang secara otomatis.
+                      <strong>Standar Post-Approval Edge Case:</strong> Penjadwalan ulang ini adalah <strong>penyesuaian operasional logistik</strong>. Begitu disimpan, sistem otomatis mengirim notifikasi <strong>[UPDATE JADWAL]</strong> kepada Pemohon, Driver, dan Approver Tahap 1 & 2 (sebagai tembusan/CC). <em>Approver tidak perlu menekan tombol approve lagi.</em>
                     </p>
                   </div>
 
@@ -1605,7 +1605,7 @@ export function VehicleTimelineScheduler({
                     className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-emerald-700 transition disabled:opacity-50"
                   >
                     <Send size={13} />
-                    {isSubmittingAction ? 'Menyimpan & Mengirim...' : 'Simpan & Konfirmasi Tahap 2'}
+                    {isSubmittingAction ? 'Menyimpan & Mengirim Notifikasi...' : 'Simpan [UPDATE JADWAL]'}
                   </button>
                 </>
               ) : (
