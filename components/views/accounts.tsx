@@ -661,7 +661,7 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
 
       {/* MODAL 1: Verifikasi Password Admin untuk Melihat Password */}
       {verifyModalTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150 overflow-y-auto">
           <div className="w-full max-w-sm rounded-2xl bg-white shadow-2xl border border-[#dce7df] overflow-hidden my-auto animate-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between border-b border-[#edf1ee] bg-[#f8faf9] px-5 py-3.5">
               <div className="flex items-center gap-2">
@@ -741,8 +741,8 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
 
       {/* MODAL 2: Tambah / Edit Akun */}
       {formModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl border border-[#dce7df] overflow-hidden my-auto max-h-[88vh] flex flex-col animate-in zoom-in-95 duration-150">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150 overflow-y-auto">
+          <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl border border-[#dce7df] overflow-hidden my-auto max-h-[92vh] flex flex-col animate-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between border-b border-[#edf1ee] bg-[#f8faf9] px-6 py-4">
               <div className="flex items-center gap-2.5">
                 <div className="flex size-9 items-center justify-center rounded-xl bg-[#075b3d] text-white">

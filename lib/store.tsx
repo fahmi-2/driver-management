@@ -68,6 +68,8 @@ export type Trip = {
   distance_km?: number
   estimated_duration_minutes?: number
   status: TripStatus
+  isEdited?: boolean // Flag penanda pengajuan telah direvisi oleh pemohon
+  editedAt?: string // Timestamp revisi terakhir
   spvName: string // Approver SPV Departemen
   spvEmail?: string
   spvAt?: string
@@ -805,6 +807,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         id,
         requesterUser: current.requesterUser, // preserve original requester
         status: 'WAITING_SPV', // tetap WAITING_SPV
+        isEdited: true, // Beri tanda keterangan EDITED
+        editedAt: new Date().toISOString(),
         coupon: params.driverOnly ? 'VOID' : (current.coupon || 'NONE'),
       }
 

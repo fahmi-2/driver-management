@@ -193,11 +193,16 @@ export async function fetchTripsFromSupabase(): Promise<Trip[] | null> {
       let returnToOrigin = true
       let destinationsList: string[] = []
 
+      let isEdited: boolean | undefined = undefined
+      let editedAt: string | undefined = undefined
+
       if (t.destinations && typeof t.destinations === 'object' && !Array.isArray(t.destinations)) {
         origin = t.destinations.origin || t.origin || 'PT. JAI'
         delayReason = t.destinations.delayReason || t.delay_reason
         returnToOrigin = t.destinations.returnToOrigin !== false
         destinationsList = Array.isArray(t.destinations.stops) ? t.destinations.stops : [t.destination]
+        isEdited = t.destinations.isEdited
+        editedAt = t.destinations.editedAt
       } else if (Array.isArray(t.destinations)) {
         destinationsList = t.destinations
         origin = t.origin || 'PT. JAI'
@@ -224,6 +229,8 @@ export async function fetchTripsFromSupabase(): Promise<Trip[] | null> {
         destinations: destinationsList,
         returnToOrigin,
         delayReason,
+        isEdited: isEdited || (t.admin_note && t.admin_note.includes('[EDITED]')),
+        editedAt,
         distance_km: t.distance_km != null ? Number(t.distance_km) : undefined,
         estimated_duration_minutes: t.estimated_duration_minutes != null ? Number(t.estimated_duration_minutes) : undefined,
         estDeparture: t.est_departure ? String(t.est_departure).slice(0, 5) : '08:00',
@@ -297,6 +304,8 @@ export async function upsertTripToSupabase(trip: Trip): Promise<SyncResult> {
         stops: trip.destinations || (trip.destination ? [trip.destination] : []),
         delayReason: trip.delayReason || null,
         returnToOrigin: trip.returnToOrigin !== false,
+        isEdited: !!trip.isEdited,
+        editedAt: trip.editedAt || null,
       },
       distance_km: trip.distance_km != null ? trip.distance_km : null,
       estimated_duration_minutes: trip.estimated_duration_minutes != null ? trip.estimated_duration_minutes : null,

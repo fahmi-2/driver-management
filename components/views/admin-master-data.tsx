@@ -784,8 +784,8 @@ export function AdminMasterDataView() {
 
       {/* MODAL 1: TAMBAH / EDIT ROLE */}
       {(modalType === 'ADD_ROLE' || modalType === 'EDIT_ROLE') && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="w-full max-w-md rounded-2xl bg-[#0f1712] text-white shadow-2xl border border-purple-500/30 overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150 overflow-y-auto">
+          <div className="w-full max-w-md rounded-2xl bg-[#0f1712] text-white shadow-2xl border border-purple-500/30 overflow-hidden my-auto max-h-[92vh] flex flex-col animate-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between border-b border-white/10 bg-purple-950/40 px-6 py-4">
               <div className="flex items-center gap-2.5">
                 <div className="flex size-9 items-center justify-center rounded-xl bg-purple-500/20 text-purple-300 border border-purple-500/40">
@@ -868,8 +868,8 @@ export function AdminMasterDataView() {
 
       {/* MODAL 2: TAMBAH / EDIT DEPARTEMEN */}
       {(modalType === 'ADD_DEPT' || modalType === 'EDIT_DEPT') && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="w-full max-w-md rounded-2xl bg-[#0f1712] text-white shadow-2xl border border-emerald-500/30 overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150 overflow-y-auto">
+          <div className="w-full max-w-md rounded-2xl bg-[#0f1712] text-white shadow-2xl border border-emerald-500/30 overflow-hidden my-auto max-h-[92vh] flex flex-col animate-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between border-b border-white/10 bg-emerald-950/40 px-6 py-4">
               <div className="flex items-center gap-2.5">
                 <div className="flex size-9 items-center justify-center rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
@@ -944,8 +944,8 @@ export function AdminMasterDataView() {
 
       {/* MODAL 3: TAMBAH / EDIT SECTION */}
       {(modalType === 'ADD_SEC' || modalType === 'EDIT_SEC') && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="w-full max-w-md rounded-2xl bg-[#0f1712] text-white shadow-2xl border border-lime-500/30 overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150 overflow-y-auto">
+          <div className="w-full max-w-md rounded-2xl bg-[#0f1712] text-white shadow-2xl border border-lime-500/30 overflow-hidden my-auto max-h-[92vh] flex flex-col animate-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between border-b border-white/10 bg-lime-950/40 px-6 py-4">
               <div className="flex items-center gap-2.5">
                 <div className="flex size-9 items-center justify-center rounded-xl bg-lime-400/20 text-lime-300 border border-lime-400/40">
@@ -1027,8 +1027,8 @@ export function AdminMasterDataView() {
 
       {/* MODAL 4: PINDAHKAN (MOVE / REASSIGN) SECTION KE DEPARTEMEN LAIN */}
       {modalType === 'MOVE_SEC' && selectedSec && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="w-full max-w-md rounded-2xl bg-[#0f1712] text-white shadow-2xl border border-amber-500/30 overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150 overflow-y-auto">
+          <div className="w-full max-w-md rounded-2xl bg-[#0f1712] text-white shadow-2xl border border-amber-500/30 overflow-hidden my-auto max-h-[92vh] flex flex-col animate-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between border-b border-white/10 bg-amber-950/40 px-6 py-4">
               <div className="flex items-center gap-2.5">
                 <div className="flex size-9 items-center justify-center rounded-xl bg-amber-500/20 text-amber-300 border border-amber-500/40">
@@ -1098,8 +1098,8 @@ export function AdminMasterDataView() {
 
       {/* MODAL 5: KONFIRMASI SOFT DELETE & SAFETY LOGIC */}
       {modalType === 'DELETE_CONFIRM' && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="w-full max-w-md rounded-2xl bg-[#140b0f] text-white shadow-2xl border border-rose-500/40 overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150 overflow-y-auto">
+          <div className="w-full max-w-md rounded-2xl bg-[#140b0f] text-white shadow-2xl border border-rose-500/40 overflow-hidden my-auto max-h-[92vh] flex flex-col animate-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between border-b border-white/10 bg-rose-950/40 px-6 py-4">
               <div className="flex items-center gap-2.5 text-rose-400">
                 <AlertTriangle size={20} />

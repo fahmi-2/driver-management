@@ -312,8 +312,8 @@ export function SmtpSettingsModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm anim-fade-in">
-      <div className="relative w-full max-w-2xl rounded-3xl border border-white/20 bg-[#061e14]/95 p-6 sm:p-7 shadow-2xl text-[#e8f5ec] max-h-[92vh] flex flex-col overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150 overflow-y-auto">
+      <div className="relative w-full max-w-2xl rounded-3xl border border-white/20 bg-[#061e14] p-6 sm:p-7 shadow-2xl text-[#e8f5ec] my-auto max-h-[92vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-150">
         {/* Header */}
         <div className="flex items-center justify-between pb-4 border-b border-white/10 shrink-0">
           <div className="flex items-center gap-3">

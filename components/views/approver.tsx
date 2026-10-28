@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { TripRouteToggle } from '../route-map'
 import {
   CheckCircle2,
@@ -17,11 +17,19 @@ import {
   UserCheck,
   XCircle,
   AlertCircle,
-  Timer
+  Timer,
+  ChevronLeft,
+  ChevronRight,
+  FileEdit,
+  Sparkles,
+  Ban,
+  CheckCircle,
 } from 'lucide-react'
 import type { Account } from '@/lib/accounts'
 import { useStore, type Trip, type OvertimeRequest, fmtDate, fmtTime, STATUS_LABEL } from '@/lib/store'
 import { Card, PageHeader, Pill, btnPrimary, btnGhost, tripTone, useToast } from '../ui-bits'
+
+type StatusFilterType = 'ALL' | 'NEW' | 'SUCCESS' | 'CANCEL'
 
 export function ApproverInbox({ user }: { user: Account }) {
   const { db, spvDecision, poolSpvDecision, approveOvertime, rejectOvertime, approveOvertimeReport } = useStore()
@@ -29,6 +37,9 @@ export function ApproverInbox({ user }: { user: Account }) {
 
   const [activeTab, setActiveTab] = useState<'pending' | 'history' | 'overtime'>('pending')
   const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState<StatusFilterType>('ALL')
+  const [currentPage, setCurrentPage] = useState(1)
+  const pageSize = 10
   const [decisionModal, setDecisionModal] = useState<{
     trip: Trip
     type: 'dept' | 'pool'
@@ -44,58 +55,94 @@ export function ApproverInbox({ user }: { user: Account }) {
   // 2. SPV Kendaraan: meninjau trip yang sudah dijadwalkan oleh admin dan berstatus WAITING_POOL_SPV (Tahap 2)
   const allTrips = db.trips.slice().reverse()
 
-  const pendingTrips = allTrips.filter((t) => {
-    // Normalisasi email & nama user untuk pencocokan dinamis
-    const userEmail = user.email?.trim().toLowerCase()
-    const userName = user.name?.trim().toUpperCase()
-    const isTargetedApprover = (userEmail && (t.approverEmail?.toLowerCase() === userEmail || t.spvEmail?.toLowerCase() === userEmail)) ||
-      (userName && t.spvName && t.spvName.toUpperCase().includes(userName))
-
-    if (isPoolSpv) {
-      // SPV Kendaraan (Tahap 2):
-      // Karena double-job / otoritas approver kendaraan, bisa approve Tahap 2 (WAITING_POOL_SPV)
-      // dan juga semua pengajuan Tahap 1 (WAITING_SPV)
-      return t.status === 'WAITING_POOL_SPV' || t.status === 'WAITING_SPV'
+  // Deduplikasi trips berdasarkan ID: pastikan data terbaru yang tampil (jika ada trip dengan id sama)
+  const uniqueAllTrips = useMemo(() => {
+    const map = new Map<string, Trip>()
+    for (const t of allTrips) {
+      if (!map.has(t.id)) {
+        map.set(t.id, t)
+      }
     }
-    // SPV Departemen (Tahap 1):
-    // 1. Pengajuan berstatus WAITING_SPV milik departemennya atau ditujukan spesifik kepadanya
-    // 2. Termasuk pengajuan direct-booking yang masih WAITING_POOL_SPV jika SPV Kendaraan belum ACC final
-    const isDeptPending = (
-      (t.status === 'WAITING_SPV' && (t.dept === user.dept || isTargetedApprover)) ||
-      (t.status === 'WAITING_POOL_SPV' && !t.poolSpvAt && (t.dept === user.dept || isTargetedApprover))
-    )
-    return isDeptPending
-  })
+    return Array.from(map.values())
+  }, [allTrips])
 
-  const historyTrips = allTrips.filter((t) => {
-    const userEmail = user.email?.trim().toLowerCase()
-    const userName = user.name?.trim().toUpperCase()
-    const isTargetedApprover = (userEmail && (t.approverEmail?.toLowerCase() === userEmail || t.spvEmail?.toLowerCase() === userEmail)) ||
-      (userName && t.spvName && t.spvName.toUpperCase().includes(userName))
+  const pendingTrips = useMemo(() => {
+    return uniqueAllTrips.filter((t) => {
+      const userEmail = user.email?.trim().toLowerCase()
+      const userName = user.name?.trim().toUpperCase()
+      const isTargetedApprover = (userEmail && (t.approverEmail?.toLowerCase() === userEmail || t.spvEmail?.toLowerCase() === userEmail)) ||
+        (userName && t.spvName && t.spvName.toUpperCase().includes(userName))
 
-    if (isPoolSpv) {
-      return Boolean(t.poolSpvAt || t.spvAt)
-    }
-    return (t.dept === user.dept || isTargetedApprover) && (t.spvAt || t.status === 'DONE' || t.status === 'READY')
-  })
+      if (isPoolSpv) {
+        return t.status === 'WAITING_POOL_SPV' || t.status === 'WAITING_SPV'
+      }
+      return (
+        (t.status === 'WAITING_SPV' && (t.dept === user.dept || isTargetedApprover)) ||
+        (t.status === 'WAITING_POOL_SPV' && !t.poolSpvAt && (t.dept === user.dept || isTargetedApprover))
+      )
+    })
+  }, [uniqueAllTrips, isPoolSpv, user])
+
+  const historyTrips = useMemo(() => {
+    return uniqueAllTrips.filter((t) => {
+      const userEmail = user.email?.trim().toLowerCase()
+      const userName = user.name?.trim().toUpperCase()
+      const isTargetedApprover = (userEmail && (t.approverEmail?.toLowerCase() === userEmail || t.spvEmail?.toLowerCase() === userEmail)) ||
+        (userName && t.spvName && t.spvName.toUpperCase().includes(userName))
+
+      if (isPoolSpv) {
+        return Boolean(t.poolSpvAt || t.spvAt)
+      }
+      return (t.dept === user.dept || isTargetedApprover) && (t.spvAt || t.status === 'DONE' || t.status === 'READY')
+    })
+  }, [uniqueAllTrips, isPoolSpv, user])
 
   // Overtime Requests untuk Pak Hayu (Approver Kendaraan Tahap 2)
   const allOts = (db.overtimeRequests || []).slice().reverse()
   const pendingOts = allOts.filter((ot) => ot.status === 'PENDING' || ot.status === 'WAITING_REPORT')
   const historyOts = allOts.filter((ot) => ot.status === 'COMPLETED' || ot.status === 'REJECTED' || ot.status === 'APPROVED')
 
-  const currentList = activeTab === 'pending' ? pendingTrips : historyTrips
+  const baseList = activeTab === 'pending' ? pendingTrips : historyTrips
 
-  const filteredTrips = currentList.filter((t) => {
-    const q = search.toLowerCase()
-    return (
-      t.destination.toLowerCase().includes(q) ||
-      t.purpose.toLowerCase().includes(q) ||
-      t.requesterName.toLowerCase().includes(q) ||
-      t.guest.toLowerCase().includes(q) ||
-      t.id.toLowerCase().includes(q)
-    )
-  })
+  // Filter berdasarkan kelas notifikasi:
+  // NEW: Baru Masuk / Menunggu Tinjauan (WAITING_SPV, WAITING_POOL_SPV, WAITING_ASSIGN)
+  // SUCCESS: Berhasil / Disetujui (READY, ON_TRIP, DONE, atau trip yang sudah di-spvAt / poolSpvAt)
+  // CANCEL: Batal / Ditolak (REJECTED)
+  const categoryFilteredTrips = useMemo(() => {
+    return baseList.filter((t) => {
+      if (statusFilter === 'NEW') {
+        return t.status === 'WAITING_SPV' || t.status === 'WAITING_POOL_SPV' || t.status === 'WAITING_ASSIGN'
+      }
+      if (statusFilter === 'SUCCESS') {
+        return t.status === 'READY' || t.status === 'ON_TRIP' || t.status === 'DONE' || (!['REJECTED', 'WAITING_SPV', 'WAITING_POOL_SPV'].includes(t.status))
+      }
+      if (statusFilter === 'CANCEL') {
+        return t.status === 'REJECTED'
+      }
+      return true
+    })
+  }, [baseList, statusFilter])
+
+  const filteredTrips = useMemo(() => {
+    return categoryFilteredTrips.filter((t) => {
+      const q = search.toLowerCase()
+      return (
+        t.destination.toLowerCase().includes(q) ||
+        t.purpose.toLowerCase().includes(q) ||
+        t.requesterName.toLowerCase().includes(q) ||
+        t.guest.toLowerCase().includes(q) ||
+        t.id.toLowerCase().includes(q)
+      )
+    })
+  }, [categoryFilteredTrips, search])
+
+  // Hitung total pages dan batas row (10 baris per halaman)
+  const totalPages = Math.max(1, Math.ceil(filteredTrips.length / pageSize))
+  const safeCurrentPage = Math.min(currentPage, totalPages)
+  const pagedTrips = useMemo(() => {
+    const start = (safeCurrentPage - 1) * pageSize
+    return filteredTrips.slice(start, start + pageSize)
+  }, [filteredTrips, safeCurrentPage, pageSize])
 
   const handleDecisionSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -338,16 +385,69 @@ export function ApproverInbox({ user }: { user: Account }) {
       ) : (
       <Card
         title={activeTab === 'pending' ? 'Daftar Pengajuan Menunggu ACC' : 'Riwayat Keputusan Approver'}
-        subtitle={`Total ${filteredTrips.length} data ditemukan`}
+        subtitle={`Total ${filteredTrips.length} data ditemukan (10 per halaman)`}
         action={
-          <div className="relative">
-            <Search size={13} className="absolute left-2.5 top-2.5 text-[#93a097]" />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Cari tujuan / pemohon / nomor tiket..."
-              className="h-8 w-56 sm:w-64 rounded-lg bg-[#f5f7f5] pl-8 pr-3 text-[11px] outline-none border border-transparent focus:border-[#075b3d]"
-            />
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Filter Kelas Notifikasi */}
+            <div className="flex items-center gap-1 rounded-xl bg-[#0a271a] p-1 border border-white/10 text-[11px]">
+              <button
+                type="button"
+                onClick={() => { setStatusFilter('ALL'); setCurrentPage(1) }}
+                className={`rounded-lg px-2.5 py-1 font-bold transition ${
+                  statusFilter === 'ALL'
+                    ? 'bg-[#a3e635] text-[#052e16] shadow-sm'
+                    : 'text-[#8fa99b] hover:text-white'
+                }`}
+              >
+                Semua
+              </button>
+              <button
+                type="button"
+                onClick={() => { setStatusFilter('NEW'); setCurrentPage(1) }}
+                className={`flex items-center gap-1 rounded-lg px-2.5 py-1 font-bold transition ${
+                  statusFilter === 'NEW'
+                    ? 'bg-amber-400 text-black shadow-sm'
+                    : 'text-amber-300/80 hover:text-amber-300'
+                }`}
+              >
+                <Sparkles size={11} />
+                Baru Masuk
+              </button>
+              <button
+                type="button"
+                onClick={() => { setStatusFilter('SUCCESS'); setCurrentPage(1) }}
+                className={`flex items-center gap-1 rounded-lg px-2.5 py-1 font-bold transition ${
+                  statusFilter === 'SUCCESS'
+                    ? 'bg-emerald-500 text-white shadow-sm'
+                    : 'text-emerald-300/80 hover:text-emerald-300'
+                }`}
+              >
+                <CheckCircle size={11} />
+                Berhasil
+              </button>
+              <button
+                type="button"
+                onClick={() => { setStatusFilter('CANCEL'); setCurrentPage(1) }}
+                className={`flex items-center gap-1 rounded-lg px-2.5 py-1 font-bold transition ${
+                  statusFilter === 'CANCEL'
+                    ? 'bg-red-500 text-white shadow-sm'
+                    : 'text-red-300/80 hover:text-red-300'
+                }`}
+              >
+                <Ban size={11} />
+                Batal
+              </button>
+            </div>
+
+            <div className="relative">
+              <Search size={13} className="absolute left-2.5 top-2.5 text-[#93a097]" />
+              <input
+                value={search}
+                onChange={(e) => { setSearch(e.target.value); setCurrentPage(1) }}
+                placeholder="Cari tujuan / pemohon / nomor tiket..."
+                className="h-8 w-52 sm:w-60 rounded-lg bg-[#f5f7f5] pl-8 pr-3 text-[11px] outline-none border border-transparent focus:border-[#075b3d]"
+              />
+            </div>
           </div>
         }
       >
@@ -359,7 +459,7 @@ export function ApproverInbox({ user }: { user: Account }) {
           </div>
         ) : (
           <div className="divide-y divide-[#edf1ee]">
-            {filteredTrips.map((trip) => {
+            {pagedTrips.map((trip) => {
               const isStage1 = trip.status === 'WAITING_SPV' || (!isPoolSpv && trip.status === 'WAITING_POOL_SPV')
               const isStage2 = trip.status === 'WAITING_POOL_SPV'
               const assignedDriver = db.drivers.find((d) => d.id === trip.driverId)
@@ -372,6 +472,13 @@ export function ApproverInbox({ user }: { user: Account }) {
                         <span className="font-mono text-xs font-bold text-[#075b3d] bg-[#eef5f0] px-2 py-0.5 rounded">
                           {trip.id}
                         </span>
+                        {/* Tag Keterangan EDITED (Jika pengajuan direvisi agar Approver tahu data terupdate) */}
+                        {trip.isEdited && (
+                          <span className="inline-flex items-center gap-1 rounded bg-amber-500/15 border border-amber-500/40 px-2 py-0.5 text-[10px] font-black text-amber-800 animate-pulse">
+                            <FileEdit size={11} className="text-amber-600" />
+                            [EDITED] Revisi Terbaru
+                          </span>
+                        )}
                         {trip.golongan && (
                           <span className="rounded bg-indigo-100 border border-indigo-300 px-2 py-0.5 text-[10px] font-extrabold text-indigo-900">
                             Golongan {trip.golongan} ({trip.approverRole || (trip.golongan === 4 ? 'Manager' : 'SSPV')})
@@ -395,7 +502,14 @@ export function ApproverInbox({ user }: { user: Account }) {
                         )}
                       </div>
 
-                      <h3 className="text-sm font-bold text-[#10251c]">{trip.destination}</h3>
+                      <h3 className="text-sm font-bold text-[#10251c] flex items-center gap-2">
+                        {trip.destination}
+                        {trip.isEdited && (
+                          <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">
+                            Telah Diperbarui
+                          </span>
+                        )}
+                      </h3>
                       <p className="text-xs text-[#708078]">Keperluan: {trip.purpose}</p>
 
                       <div className="grid gap-1 sm:grid-cols-2 text-[11px] text-[#63726a] pt-1">
@@ -468,6 +582,68 @@ export function ApproverInbox({ user }: { user: Account }) {
                 </div>
               )
             })}
+          </div>
+        )}
+
+        {/* Pagination 10 Baris per Halaman */}
+        {filteredTrips.length > pageSize && (
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#edf1ee] px-5 py-3.5 text-xs text-[#708078] bg-[#fbfdfb]">
+            <div>
+              Menampilkan{' '}
+              <strong className="text-[#10251c]">
+                {(safeCurrentPage - 1) * pageSize + 1}–
+                {Math.min(safeCurrentPage * pageSize, filteredTrips.length)}
+              </strong>{' '}
+              dari <strong className="text-[#10251c]">{filteredTrips.length}</strong> tiket
+            </div>
+
+            <div className="inline-flex items-center gap-1.5">
+              <button
+                type="button"
+                disabled={safeCurrentPage <= 1}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                className="inline-flex size-8 items-center justify-center rounded-lg border border-[#b8cec2] bg-white text-[#075b3d] font-bold shadow-xs hover:bg-[#075b3d] hover:text-white disabled:opacity-35 disabled:cursor-not-allowed transition"
+                title="Halaman Sebelumnya"
+              >
+                <ChevronLeft size={16} />
+              </button>
+
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter((p) => {
+                  if (totalPages <= 5) return true
+                  return p === 1 || p === totalPages || Math.abs(p - safeCurrentPage) <= 1
+                })
+                .map((pageNum, idx, arr) => {
+                  const prev = arr[idx - 1]
+                  const showEllipsis = prev && pageNum - prev > 1
+                  return (
+                    <span key={pageNum} className="inline-flex items-center gap-1">
+                      {showEllipsis && <span className="px-1 text-slate-400">…</span>}
+                      <button
+                        type="button"
+                        onClick={() => setCurrentPage(pageNum)}
+                        className={`size-8 rounded-lg text-xs font-bold transition shadow-xs ${
+                          pageNum === safeCurrentPage
+                            ? 'bg-[#075b3d] text-white ring-2 ring-[#075b3d]/30 font-extrabold'
+                            : 'border border-[#b8cec2] bg-white text-[#1b382c] hover:bg-[#d8e8de]'
+                        }`}
+                      >
+                        {pageNum}
+                      </button>
+                    </span>
+                  )
+                })}
+
+              <button
+                type="button"
+                disabled={safeCurrentPage >= totalPages}
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                className="inline-flex size-8 items-center justify-center rounded-lg border border-[#b8cec2] bg-white text-[#075b3d] font-bold shadow-xs hover:bg-[#075b3d] hover:text-white disabled:opacity-35 disabled:cursor-not-allowed transition"
+                title="Halaman Selanjutnya"
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
           </div>
         )}
       </Card>
