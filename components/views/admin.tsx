@@ -6,6 +6,7 @@ import type { Account } from '@/lib/accounts'
 import { COUPON_LABEL, STATUS_LABEL, driverState, fmtDate, fmtDur, fmtTime, useStore, vehicleState, ymd, type Driver, type ShiftType, type Trip } from '@/lib/store'
 import { Card, Empty, PageHeader, Pill, btnGhost, btnPrimary, couponTone, inputCls, tdCls, thCls, tripTone, useToast } from '../ui-bits'
 import { WorkloadCard } from './dashboard'
+import { ModalPortal } from '../modal-portal'
 
 function AssignRow({ trip }: { trip: Trip }) {
   const { db, assignTrip } = useStore()
@@ -580,13 +581,10 @@ export function AdminDrivers({ user }: { user?: Account }) {
 
       {/* Modal Tambah / Edit Sopir */}
       {showModal && (
-        <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150 overflow-hidden"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              setShowModal(false)
-              setEditingDriver(null)
-            }
+        <ModalPortal
+          onClose={() => {
+            setShowModal(false)
+            setEditingDriver(null)
           }}
         >
           <div className="relative w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl border border-[#dce7df] max-h-[88vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-150">
@@ -761,17 +759,12 @@ export function AdminDrivers({ user }: { user?: Account }) {
               </div>
             </form>
           </div>
-        </div>
+        </ModalPortal>
       )}
 
       {/* POP-UP REQUEST OVERTIME (LEMBUR) - FORM UI UNGU */}
       {overtimeDriver && (
-        <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150 overflow-hidden"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setOvertimeDriver(null)
-          }}
-        >
+        <ModalPortal onClose={() => setOvertimeDriver(null)}>
           <div className="relative w-full max-w-md rounded-2xl bg-[#1e1333] text-white shadow-2xl border border-purple-500/30 overflow-hidden max-h-[88vh] flex flex-col animate-in zoom-in-95 duration-150">
             {/* Header Form Ungu */}
             <div className="flex items-center justify-between border-b border-purple-500/20 bg-gradient-to-r from-purple-900 to-indigo-900 px-6 py-4">
@@ -866,17 +859,12 @@ export function AdminDrivers({ user }: { user?: Account }) {
               </div>
             </form>
           </div>
-        </div>
+        </ModalPortal>
       )}
 
       {/* POP-UP STATUS CUTI & PENGGANTIAN NAMA SEMENTARA */}
       {leaveModalDriver && (
-        <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150 overflow-hidden"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setLeaveModalDriver(null)
-          }}
-        >
+        <ModalPortal onClose={() => setLeaveModalDriver(null)}>
           <div className="relative w-full max-w-md rounded-2xl bg-white shadow-2xl border border-[#dce7df] overflow-hidden max-h-[88vh] flex flex-col animate-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between border-b border-[#edf1ee] bg-[#f7faf8] px-6 py-4">
               <div className="flex items-center gap-2.5">
@@ -952,7 +940,7 @@ export function AdminDrivers({ user }: { user?: Account }) {
               </div>
             </form>
           </div>
-        </div>
+        </ModalPortal>
       )}
     </>
   )

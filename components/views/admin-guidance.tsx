@@ -30,6 +30,7 @@ import {
   type Slide,
 } from '@/lib/guidance'
 import { Card, PageHeader, useToast } from '../ui-bits'
+import { ModalPortal } from '../modal-portal'
 
 export function AdminManageGuidanceView() {
   const notify = useToast()
@@ -442,12 +443,7 @@ export function AdminManageGuidanceView() {
 
       {/* MODAL: Tambah / Edit Slide */}
       {slideModalOpen && (
-        <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150 overflow-hidden"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setSlideModalOpen(false)
-          }}
-        >
+        <ModalPortal onClose={() => setSlideModalOpen(false)}>
           <div className="relative w-full max-w-xl rounded-3xl bg-[#091e14] shadow-2xl border border-white/20 overflow-hidden max-h-[88vh] flex flex-col animate-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between border-b border-white/10 bg-black/40 px-6 py-4">
               <div className="flex items-center gap-2.5">
@@ -698,7 +694,7 @@ export function AdminManageGuidanceView() {
               </div>
             </form>
           </div>
-        </div>
+        </ModalPortal>
       )}
     </div>
   )

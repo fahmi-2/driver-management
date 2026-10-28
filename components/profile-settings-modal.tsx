@@ -5,6 +5,7 @@ import { Camera, Check, Mail, Settings, Trash2, User, X } from 'lucide-react'
 import { saveUserProfile, type Account } from '@/lib/accounts'
 import { SmtpSettingsModal } from './smtp-settings-modal'
 import { useToast } from './ui-bits'
+import { ModalPortal } from './modal-portal'
 
 interface ProfileSettingsModalProps {
   user: Account
@@ -66,12 +67,7 @@ export function ProfileSettingsModal({ user, isOpen, onClose, onUpdate }: Profil
     .toUpperCase()
 
   return (
-    <div 
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150 overflow-hidden"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose()
-      }}
-    >
+    <ModalPortal isOpen={isOpen} onClose={onClose}>
       <div className="relative w-full max-w-md rounded-3xl border border-white/20 bg-[#061e14] p-6 sm:p-7 shadow-2xl text-[#e8f5ec] max-h-[88vh] flex flex-col overflow-y-auto animate-in zoom-in-95 duration-150">
         {/* Header */}
         <div className="flex items-center justify-between pb-4 border-b border-white/10">
@@ -222,6 +218,6 @@ export function ProfileSettingsModal({ user, isOpen, onClose, onUpdate }: Profil
         onClose={() => setSmtpModalOpen(false)}
         user={user}
       />
-    </div>
+    </ModalPortal>
   )
 }

@@ -26,6 +26,7 @@ import {
 import { useStore, type Trip, type Passenger, type Category, ymd } from '@/lib/store'
 import { btnGhost, btnPrimary, inputCls, useToast } from './ui-bits'
 import { DestinationAutocomplete } from './destination-autocomplete'
+import { ModalPortal } from './modal-portal'
 
 interface TripEditModalProps {
   trip: Trip | null
@@ -115,30 +116,25 @@ export function TripEditModal({ trip, isOpen, onClose, onSuccess }: TripEditModa
   // Strict check: User only allowed to edit if status is WAITING_SPV
   if (trip.status !== 'WAITING_SPV') {
     return (
-      <div 
-        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150 overflow-hidden"
-        onClick={(e) => {
-          if (e.target === e.currentTarget) onClose()
-        }}
-      >
+      <ModalPortal onClose={onClose}>
         <div className="relative w-full max-w-md rounded-2xl bg-[#081f14] p-6 shadow-2xl border border-red-500/30 text-white space-y-4 max-h-[88vh] flex flex-col overflow-y-auto animate-in zoom-in-95 duration-150">
-          <div className="flex items-center gap-3 text-red-600">
+          <div className="flex items-center gap-3 text-red-400">
             <AlertCircle size={24} />
-            <h3 className="font-bold text-base text-slate-800">Dokumen Terkunci</h3>
+            <h3 className="font-bold text-base text-white">Dokumen Terkunci</h3>
           </div>
-          <p className="text-xs text-slate-600 leading-relaxed">
+          <p className="text-xs text-slate-300 leading-relaxed">
             Pengajuan <strong>{trip.id}</strong> telah diproses atau disetujui oleh atasan (status saat ini: <strong>{trip.status}</strong>). Sesuai aturan sistem, hak revisi terkunci dan hanya dapat disesuaikan melalui Admin Lobby.
           </p>
           <div className="flex justify-end pt-2">
             <button
               onClick={onClose}
-              className="rounded-xl bg-slate-800 px-4 py-2 text-xs font-bold text-white hover:bg-slate-700"
+              className="rounded-xl bg-white/10 px-4 py-2 text-xs font-bold text-white hover:bg-white/20 transition"
             >
               Tutup
             </button>
           </div>
         </div>
-      </div>
+      </ModalPortal>
     )
   }
 
@@ -260,12 +256,7 @@ export function TripEditModal({ trip, isOpen, onClose, onSuccess }: TripEditModa
   }
 
   return (
-    <div 
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150 overflow-hidden"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose()
-      }}
-    >
+    <ModalPortal onClose={onClose}>
       <div className="relative w-full max-w-2xl rounded-2xl bg-[#081f14] text-white shadow-2xl border border-white/15 overflow-hidden max-h-[88vh] flex flex-col animate-in zoom-in-95 duration-150">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-white/10 bg-[#075b3d] px-6 py-4 text-white shrink-0">
@@ -598,6 +589,6 @@ export function TripEditModal({ trip, isOpen, onClose, onSuccess }: TripEditModa
           </button>
         </div>
       </div>
-    </div>
+    </ModalPortal>
   )
 }

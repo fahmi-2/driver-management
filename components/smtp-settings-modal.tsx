@@ -24,6 +24,7 @@ import {
 } from 'lucide-react'
 import type { Account } from '@/lib/accounts'
 import { useToast, inputCls } from './ui-bits'
+import { ModalPortal } from './modal-portal'
 
 interface SmtpSettingsModalProps {
   isOpen: boolean
@@ -312,12 +313,7 @@ export function SmtpSettingsModal({
   }
 
   return (
-    <div 
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150 overflow-hidden"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose()
-      }}
-    >
+    <ModalPortal isOpen={isOpen} onClose={onClose}>
       <div className="relative w-full max-w-2xl rounded-3xl border border-white/20 bg-[#061e14] p-6 sm:p-7 shadow-2xl text-[#e8f5ec] max-h-[88vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-150">
         {/* Header */}
         <div className="flex items-center justify-between pb-4 border-b border-white/10 shrink-0">
@@ -639,6 +635,6 @@ export function SmtpSettingsModal({
           </div>
         </div>
       </div>
-    </div>
+    </ModalPortal>
   )
 }

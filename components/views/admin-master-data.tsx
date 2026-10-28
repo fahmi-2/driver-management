@@ -40,6 +40,7 @@ import {
   upsertMasterSectionToSupabase,
 } from '@/lib/master-data'
 import { Card, PageHeader, Pill, useToast, btnPrimary, btnGhost } from '../ui-bits'
+import { ModalPortal } from '../modal-portal'
 
 export function AdminMasterDataView() {
   const notify = useToast()
@@ -784,12 +785,7 @@ export function AdminMasterDataView() {
 
       {/* MODAL 1: TAMBAH / EDIT ROLE */}
       {(modalType === 'ADD_ROLE' || modalType === 'EDIT_ROLE') && (
-        <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150 overflow-hidden"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) closeModal()
-          }}
-        >
+        <ModalPortal onClose={closeModal}>
           <div className="relative w-full max-w-md rounded-2xl bg-[#0f1712] text-white shadow-2xl border border-purple-500/30 overflow-hidden max-h-[88vh] flex flex-col animate-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between border-b border-white/10 bg-purple-950/40 px-6 py-4">
               <div className="flex items-center gap-2.5">
@@ -868,17 +864,12 @@ export function AdminMasterDataView() {
               </div>
             </form>
           </div>
-        </div>
+        </ModalPortal>
       )}
 
       {/* MODAL 2: TAMBAH / EDIT DEPARTEMEN */}
       {(modalType === 'ADD_DEPT' || modalType === 'EDIT_DEPT') && (
-        <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150 overflow-hidden"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) closeModal()
-          }}
-        >
+        <ModalPortal onClose={closeModal}>
           <div className="relative w-full max-w-md rounded-2xl bg-[#0f1712] text-white shadow-2xl border border-emerald-500/30 overflow-hidden max-h-[88vh] flex flex-col animate-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between border-b border-white/10 bg-emerald-950/40 px-6 py-4">
               <div className="flex items-center gap-2.5">
@@ -949,17 +940,12 @@ export function AdminMasterDataView() {
               </div>
             </form>
           </div>
-        </div>
+        </ModalPortal>
       )}
 
       {/* MODAL 3: TAMBAH / EDIT SECTION */}
       {(modalType === 'ADD_SEC' || modalType === 'EDIT_SEC') && (
-        <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150 overflow-hidden"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) closeModal()
-          }}
-        >
+        <ModalPortal onClose={closeModal}>
           <div className="relative w-full max-w-md rounded-2xl bg-[#0f1712] text-white shadow-2xl border border-lime-500/30 overflow-hidden max-h-[88vh] flex flex-col animate-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between border-b border-white/10 bg-lime-950/40 px-6 py-4">
               <div className="flex items-center gap-2.5">
@@ -1037,17 +1023,12 @@ export function AdminMasterDataView() {
               </div>
             </form>
           </div>
-        </div>
+        </ModalPortal>
       )}
 
       {/* MODAL 4: PINDAHKAN (MOVE / REASSIGN) SECTION KE DEPARTEMEN LAIN */}
       {modalType === 'MOVE_SEC' && selectedSec && (
-        <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150 overflow-hidden"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) closeModal()
-          }}
-        >
+        <ModalPortal onClose={closeModal}>
           <div className="relative w-full max-w-md rounded-2xl bg-[#0f1712] text-white shadow-2xl border border-amber-500/30 overflow-hidden max-h-[88vh] flex flex-col animate-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between border-b border-white/10 bg-amber-950/40 px-6 py-4">
               <div className="flex items-center gap-2.5">
@@ -1113,17 +1094,12 @@ export function AdminMasterDataView() {
               </div>
             </form>
           </div>
-        </div>
+        </ModalPortal>
       )}
 
       {/* MODAL 5: KONFIRMASI SOFT DELETE & SAFETY LOGIC */}
       {modalType === 'DELETE_CONFIRM' && (
-        <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150 overflow-hidden"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) closeModal()
-          }}
-        >
+        <ModalPortal onClose={closeModal}>
           <div className="relative w-full max-w-md rounded-2xl bg-[#140b0f] text-white shadow-2xl border border-rose-500/40 overflow-hidden max-h-[88vh] flex flex-col animate-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between border-b border-white/10 bg-rose-950/40 px-6 py-4">
               <div className="flex items-center gap-2.5 text-rose-400">
@@ -1203,7 +1179,7 @@ export function AdminMasterDataView() {
               </div>
             </div>
           </div>
-        </div>
+        </ModalPortal>
       )}
     </div>
   )

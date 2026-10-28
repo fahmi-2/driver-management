@@ -35,6 +35,7 @@ import { useStore, type Trip, type Driver, type Vehicle, type Passenger, type Ca
 import { Card, PageHeader, Pill, btnGhost, btnPrimary, inputCls, useToast } from '../ui-bits'
 import { VehicleTimelineScheduler, type TimelineSelection } from '../vehicle-timeline-scheduler'
 import { DestinationAutocomplete } from '../destination-autocomplete'
+import { ModalPortal } from '../modal-portal'
 
 export function AdminSchedulingCenter({ user }: { user: Account }) {
   const { db, scheduleTrip, rejectTrip, directBooking } = useStore()
@@ -516,12 +517,7 @@ export function AdminSchedulingCenter({ user }: { user: Account }) {
 
       {/* MODAL 1: Mandatory Reason Reject Modal */}
       {rejectingTrip && (
-        <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150 overflow-hidden"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setRejectingTrip(null)
-          }}
-        >
+        <ModalPortal onClose={() => setRejectingTrip(null)}>
           <div className="relative w-full max-w-md rounded-2xl bg-white shadow-2xl border border-[#dce7df] overflow-hidden max-h-[88vh] flex flex-col animate-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between border-b border-[#edf1ee] bg-[#fff5f5] px-6 py-4">
               <div className="flex items-center gap-2.5">
@@ -574,17 +570,12 @@ export function AdminSchedulingCenter({ user }: { user: Account }) {
               </div>
             </form>
           </div>
-        </div>
+        </ModalPortal>
       )}
 
       {/* MODAL 2: Approve & Assign Confirmation Modal (with Optional Note) */}
       {confirmModalData && (
-        <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150 overflow-hidden"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setConfirmModalData(null)
-          }}
-        >
+        <ModalPortal onClose={() => setConfirmModalData(null)}>
           <div className="relative w-full max-w-lg rounded-2xl bg-white shadow-2xl border border-[#dce7df] overflow-hidden max-h-[88vh] flex flex-col animate-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between border-b border-[#edf1ee] bg-[#f7faf8] px-6 py-4">
               <div className="flex items-center gap-2.5">
@@ -748,17 +739,12 @@ export function AdminSchedulingCenter({ user }: { user: Account }) {
               </div>
             </form>
           </div>
-        </div>
+        </ModalPortal>
       )}
 
       {/* MODAL 3: Direct Booking via Kalender (Drag-to-Book / Ajukan Perjalanan) */}
       {directBookingData && (
-        <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150 overflow-hidden"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setDirectBookingData(null)
-          }}
-        >
+        <ModalPortal onClose={() => setDirectBookingData(null)}>
           <div className="relative w-full max-w-2xl rounded-2xl bg-[#081f14] text-white shadow-2xl border border-white/15 overflow-hidden max-h-[88vh] flex flex-col animate-in zoom-in-95 duration-150">
             {/* Modal Header */}
             <div className="flex items-center justify-between border-b border-white/10 bg-[#075b3d] px-6 py-4 text-white shrink-0">
@@ -1279,7 +1265,7 @@ export function AdminSchedulingCenter({ user }: { user: Account }) {
               </div>
             </form>
           </div>
-        </div>
+        </ModalPortal>
       )}
     </>
   )

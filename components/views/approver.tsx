@@ -29,6 +29,7 @@ import {
 import type { Account } from '@/lib/accounts'
 import { useStore, type Trip, type OvertimeRequest, fmtDate, fmtTime, STATUS_LABEL } from '@/lib/store'
 import { Card, PageHeader, Pill, btnPrimary, btnGhost, tripTone, useToast } from '../ui-bits'
+import { ModalPortal } from '../modal-portal'
 
 type StatusFilterType = 'ALL' | 'NEW' | 'SUCCESS' | 'CANCEL'
 
@@ -652,12 +653,7 @@ export function ApproverInbox({ user }: { user: Account }) {
 
       {/* Decision Modal (E-Sign Approval / Rejection) */}
       {decisionModal && (
-        <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150 overflow-hidden"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setDecisionModal(null)
-          }}
-        >
+        <ModalPortal onClose={() => setDecisionModal(null)}>
           <div className="relative w-full max-w-md rounded-2xl bg-[#081f14] text-white shadow-2xl border border-white/20 overflow-hidden max-h-[88vh] flex flex-col animate-in zoom-in-95 duration-150">
             <div
               className={`flex items-center justify-between border-b px-5 py-4 shrink-0 ${
@@ -767,7 +763,7 @@ export function ApproverInbox({ user }: { user: Account }) {
               </div>
             </form>
           </div>
-        </div>
+        </ModalPortal>
       )}
     </>
   )

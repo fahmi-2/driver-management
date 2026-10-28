@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { Plus, Trash2, Edit3, Truck, AlertTriangle, CheckCircle, Search, Wrench, ShieldCheck, X, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useStore, type Vehicle, type VehicleStatus } from '@/lib/store'
 import { Card, PageHeader, Pill, btnGhost, btnPrimary, inputCls, useToast } from '../ui-bits'
+import { ModalPortal } from '../modal-portal'
 
 export function AdminVehicles() {
   const { db, addVehicle, updateVehicle, removeVehicle } = useStore()
@@ -341,12 +342,7 @@ export function AdminVehicles() {
 
       {/* Modal Add / Edit Vehicle */}
       {isModalOpen && (
-        <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150 overflow-hidden"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setIsModalOpen(false)
-          }}
-        >
+        <ModalPortal onClose={() => setIsModalOpen(false)}>
           <div className="relative w-full max-w-md rounded-2xl bg-white shadow-2xl border border-[#dce7df] overflow-hidden max-h-[88vh] flex flex-col animate-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between border-b border-[#edf1ee] bg-[#f7faf8] px-6 py-4">
               <div className="flex items-center gap-2.5">
@@ -481,7 +477,7 @@ export function AdminVehicles() {
               </div>
             </form>
           </div>
-        </div>
+        </ModalPortal>
       )}
     </>
   )

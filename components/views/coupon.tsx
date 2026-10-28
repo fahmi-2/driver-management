@@ -5,6 +5,7 @@ import { BadgeCheck, FileText, ArrowRight, CheckCircle2, Search, Eye } from 'luc
 import type { Account } from '@/lib/accounts'
 import { COUPON_LABEL, fmtDate, fmtTime, useStore, Trip } from '@/lib/store'
 import { Card, Empty, PageHeader, Pill, btnPrimary, couponTone, tdCls, thCls, useToast } from '../ui-bits'
+import { ModalPortal } from '../modal-portal'
 
 export function CouponPending({ user }: { user: Account }) {
   const { db, setCouponProgress, payCoupon } = useStore()
@@ -146,12 +147,7 @@ export function CouponPending({ user }: { user: Account }) {
 
       {/* Pop-up Modal Input Nomor PR Manual */}
       {prModalTrip && (
-        <div 
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm animate-in fade-in duration-150 overflow-hidden"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setPrModalTrip(null)
-          }}
-        >
+        <ModalPortal onClose={() => setPrModalTrip(null)}>
           <div className="relative w-full max-w-md rounded-2xl border border-white/15 bg-gradient-to-b from-[#0a2318] to-[#04120c] p-6 text-white shadow-2xl space-y-5 max-h-[88vh] flex flex-col overflow-y-auto animate-in zoom-in-95 duration-150">
             <div className="flex items-start justify-between border-b border-white/10 pb-4">
               <div>
@@ -229,17 +225,12 @@ export function CouponPending({ user }: { user: Account }) {
               </div>
             </form>
           </div>
-        </div>
+        </ModalPortal>
       )}
 
       {/* Modal Detail Tiket Kupon (Nama, NIK, Tujuan, Jam Berangkat, Jam Kembali) */}
       {selectedTicket && (
-        <div 
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm animate-in fade-in duration-150 overflow-hidden"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setSelectedTicket(null)
-          }}
-        >
+        <ModalPortal onClose={() => setSelectedTicket(null)}>
           <div className="relative w-full max-w-md rounded-2xl border border-white/15 bg-gradient-to-b from-[#0a2318] to-[#04120c] p-6 text-white shadow-2xl space-y-4 max-h-[88vh] flex flex-col overflow-y-auto animate-in zoom-in-95 duration-150">
             <div className="flex items-start justify-between border-b border-white/10 pb-3">
               <div>
@@ -266,7 +257,7 @@ export function CouponPending({ user }: { user: Account }) {
               Tutup
             </button>
           </div>
-        </div>
+        </ModalPortal>
       )}
     </>
   )
@@ -340,12 +331,7 @@ export function CouponHistory() {
 
       {/* Modal Detail Tiket Kupon (Nama, NIK, Tujuan, Jam Berangkat, Jam Kembali) */}
       {selectedTicket && (
-        <div 
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm animate-in fade-in duration-150 overflow-hidden"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setSelectedTicket(null)
-          }}
-        >
+        <ModalPortal onClose={() => setSelectedTicket(null)}>
           <div className="relative w-full max-w-md rounded-2xl border border-white/15 bg-gradient-to-b from-[#0a2318] to-[#04120c] p-6 text-white shadow-2xl space-y-4 max-h-[88vh] flex flex-col overflow-y-auto animate-in zoom-in-95 duration-150">
             <div className="flex items-start justify-between border-b border-white/10 pb-3">
               <div>
@@ -373,7 +359,7 @@ export function CouponHistory() {
               Tutup
             </button>
           </div>
-        </div>
+        </ModalPortal>
       )}
     </>
   )

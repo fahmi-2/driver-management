@@ -41,6 +41,7 @@ import {
 import { getLocalRoles, type MasterRole } from '@/lib/master-data'
 import { useStore } from '@/lib/store'
 import { Card, PageHeader, Pill, btnGhost, btnPrimary, inputCls, useToast } from '../ui-bits'
+import { ModalPortal } from '../modal-portal'
 
 export function AdminAccounts({ currentUser }: { currentUser: Account }) {
   const notify = useToast()
@@ -661,12 +662,7 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
 
       {/* MODAL 1: Verifikasi Password Admin untuk Melihat Password */}
       {verifyModalTarget && (
-        <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150 overflow-hidden"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setVerifyModalTarget(null)
-          }}
-        >
+        <ModalPortal onClose={() => setVerifyModalTarget(null)}>
           <div className="relative w-full max-w-sm rounded-2xl bg-white shadow-2xl border border-[#dce7df] overflow-hidden max-h-[88vh] flex flex-col animate-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between border-b border-[#edf1ee] bg-[#f8faf9] px-5 py-3.5">
               <div className="flex items-center gap-2">
@@ -741,17 +737,12 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
               </div>
             </form>
           </div>
-        </div>
+        </ModalPortal>
       )}
 
       {/* MODAL 2: Tambah / Edit Akun */}
       {formModalOpen && (
-        <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150 overflow-hidden"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setFormModalOpen(false)
-          }}
-        >
+        <ModalPortal onClose={() => setFormModalOpen(false)}>
           <div className="relative w-full max-w-lg rounded-2xl bg-white shadow-2xl border border-[#dce7df] overflow-hidden max-h-[88vh] flex flex-col animate-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between border-b border-[#edf1ee] bg-[#f8faf9] px-6 py-4">
               <div className="flex items-center gap-2.5">
@@ -1012,7 +1003,7 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
               </div>
             </form>
           </div>
-        </div>
+        </ModalPortal>
       )}
     </div>
   )

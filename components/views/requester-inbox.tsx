@@ -28,6 +28,7 @@ import { useStore, type Trip, fmtDate, fmtTime } from '@/lib/store'
 import { Card, PageHeader, Pill, useToast } from '../ui-bits'
 import { TripEditModal } from '../trip-edit-modal'
 import { TripRouteMap } from '../route-map'
+import { ModalPortal } from '../modal-portal'
 
 const ITEMS_PER_PAGE = 10
 
@@ -413,12 +414,7 @@ export function RequesterInbox({ user }: { user: Account }) {
 
       {/* Modal Detail Perjalanan (Pemohon, Penumpang & Map) */}
       {detailTrip && (
-        <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150 overflow-hidden"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setDetailTrip(null)
-          }}
-        >
+        <ModalPortal onClose={() => setDetailTrip(null)}>
           <div className="relative w-full max-w-2xl rounded-2xl bg-[#081f14] text-white shadow-2xl border border-white/15 overflow-hidden max-h-[88vh] flex flex-col animate-in zoom-in-95 duration-150">
             {/* Header Modal */}
             <div className="flex items-center justify-between border-b border-white/10 bg-[#075b3d] px-6 py-4 text-white shrink-0">
@@ -595,7 +591,7 @@ export function RequesterInbox({ user }: { user: Account }) {
               </button>
             </div>
           </div>
-        </div>
+        </ModalPortal>
       )}
 
       {/* Modal Edit Permohonan (Pre-Approval Phase) */}

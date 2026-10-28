@@ -27,6 +27,7 @@ import type { Trip, Vehicle } from '@/lib/store'
 import { useStore, ymd, fmtDate, fmtTime, STATUS_LABEL } from '@/lib/store'
 import type { Account } from '@/lib/accounts'
 import { Pill, btnPrimary, btnGhost, inputCls, useToast } from './ui-bits'
+import { ModalPortal } from './modal-portal'
 
 export type TimelineViewMode = 'daily' | 'weekly' | 'monthly'
 
@@ -1232,14 +1233,11 @@ export function VehicleTimelineScheduler({
 
       {/* MODAL INSPECT / DETAIL PENJADWALAN */}
       {inspectingTrip && (
-        <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150 overflow-hidden"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              setInspectingTrip(null)
-              setIsRescheduling(false)
-              setIsCanceling(false)
-            }
+        <ModalPortal
+          onClose={() => {
+            setInspectingTrip(null)
+            setIsRescheduling(false)
+            setIsCanceling(false)
           }}
         >
           <div className="relative w-full max-w-lg rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden max-h-[88vh] flex flex-col animate-in zoom-in-95 duration-150">
@@ -1640,7 +1638,7 @@ export function VehicleTimelineScheduler({
               )}
             </div>
           </div>
-        </div>
+        </ModalPortal>
       )}
     </div>
   )
