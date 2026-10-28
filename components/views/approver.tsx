@@ -587,16 +587,16 @@ export function ApproverInbox({ user }: { user: Account }) {
           </div>
         )}
 
-        {/* Pagination 10 Baris per Halaman */}
+        {/* Pagination 10 Baris per Halaman (Dark High-Contrast Theme) */}
         {filteredTrips.length > pageSize && (
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#edf1ee] px-5 py-3.5 text-xs text-[#708078] bg-[#fbfdfb]">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#0d3b26] px-5 py-3.5 text-xs bg-[#04160e] text-[#8fa99b]">
             <div>
               Menampilkan{' '}
-              <strong className="text-[#10251c]">
+              <strong className="text-white font-bold">
                 {(safeCurrentPage - 1) * pageSize + 1}–
                 {Math.min(safeCurrentPage * pageSize, filteredTrips.length)}
               </strong>{' '}
-              dari <strong className="text-[#10251c]">{filteredTrips.length}</strong> tiket
+              dari <strong className="text-[#a3e635] font-extrabold">{filteredTrips.length}</strong> tiket
             </div>
 
             <div className="inline-flex items-center gap-1.5">
@@ -604,7 +604,7 @@ export function ApproverInbox({ user }: { user: Account }) {
                 type="button"
                 disabled={safeCurrentPage <= 1}
                 onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                className="inline-flex size-8 items-center justify-center rounded-lg border border-[#b8cec2] bg-white text-[#075b3d] font-bold shadow-xs hover:bg-[#075b3d] hover:text-white disabled:opacity-35 disabled:cursor-not-allowed transition"
+                className="inline-flex size-8 items-center justify-center rounded-xl border border-white/20 bg-[#0a261a] text-white font-bold shadow-sm hover:bg-[#a3e635] hover:text-[#052e16] hover:border-[#a3e635] disabled:opacity-25 disabled:cursor-not-allowed disabled:hover:bg-[#0a261a] disabled:hover:text-white disabled:hover:border-white/20 transition-all"
                 title="Halaman Sebelumnya"
               >
                 <ChevronLeft size={16} />
@@ -620,14 +620,14 @@ export function ApproverInbox({ user }: { user: Account }) {
                   const showEllipsis = prev && pageNum - prev > 1
                   return (
                     <span key={pageNum} className="inline-flex items-center gap-1">
-                      {showEllipsis && <span className="px-1 text-slate-400">…</span>}
+                      {showEllipsis && <span className="px-1 text-white/40 font-bold">…</span>}
                       <button
                         type="button"
                         onClick={() => setCurrentPage(pageNum)}
-                        className={`size-8 rounded-lg text-xs font-bold transition shadow-xs ${
+                        className={`size-8 rounded-xl text-xs font-bold transition-all shadow-sm ${
                           pageNum === safeCurrentPage
-                            ? 'bg-[#075b3d] text-white ring-2 ring-[#075b3d]/30 font-extrabold'
-                            : 'border border-[#b8cec2] bg-white text-[#1b382c] hover:bg-[#d8e8de]'
+                            ? 'bg-[#a3e635] text-[#052e16] font-black ring-2 ring-[#a3e635]/60 shadow-md shadow-[#a3e635]/30 scale-105 border-transparent'
+                            : 'border border-white/20 bg-[#0a261a] text-white hover:bg-white/15 hover:text-[#a3e635] hover:border-[#a3e635]'
                         }`}
                       >
                         {pageNum}
@@ -640,7 +640,7 @@ export function ApproverInbox({ user }: { user: Account }) {
                 type="button"
                 disabled={safeCurrentPage >= totalPages}
                 onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                className="inline-flex size-8 items-center justify-center rounded-lg border border-[#b8cec2] bg-white text-[#075b3d] font-bold shadow-xs hover:bg-[#075b3d] hover:text-white disabled:opacity-35 disabled:cursor-not-allowed transition"
+                className="inline-flex size-8 items-center justify-center rounded-xl border border-white/20 bg-[#0a261a] text-white font-bold shadow-sm hover:bg-[#a3e635] hover:text-[#052e16] hover:border-[#a3e635] disabled:opacity-25 disabled:cursor-not-allowed disabled:hover:bg-[#0a261a] disabled:hover:text-white disabled:hover:border-white/20 transition-all"
                 title="Halaman Selanjutnya"
               >
                 <ChevronRight size={16} />

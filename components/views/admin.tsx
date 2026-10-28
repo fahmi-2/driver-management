@@ -786,7 +786,7 @@ export function AdminDrivers({ user }: { user?: Account }) {
               </button>
             </div>
 
-            <form onSubmit={handleOvertimeSubmit} className="p-6 space-y-4">
+            <form onSubmit={handleOvertimeSubmit} className="p-6 space-y-4 overflow-y-auto flex-1">
               <div className="rounded-xl border border-purple-500/20 bg-purple-950/40 p-3 text-xs space-y-1.5 text-purple-200">
                 <p className="flex items-center gap-1.5 font-semibold text-purple-300">
                   <AlertCircle size={14} className="text-purple-400 shrink-0" />
@@ -887,7 +887,7 @@ export function AdminDrivers({ user }: { user?: Account }) {
               </button>
             </div>
 
-            <form onSubmit={handleConfirmLeave} className="p-6 space-y-4">
+            <form onSubmit={handleConfirmLeave} className="p-6 space-y-4 overflow-y-auto flex-1">
               {!leaveModalDriver.onLeave ? (
                 <>
                   <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 space-y-1.5">

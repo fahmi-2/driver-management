@@ -1279,7 +1279,7 @@ export function VehicleTimelineScheduler({
             </div>
 
             {/* Content Body */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+            <div className="flex-1 overflow-y-auto p-6 space-y-4 min-h-0">
               {/* VIEW MODE: DETAIL INFO */}
               {!isRescheduling && !isCanceling && (
                 <>
@@ -1562,7 +1562,7 @@ export function VehicleTimelineScheduler({
             </div>
 
             {/* Footer Buttons */}
-            <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50 px-6 py-3.5">
+            <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50 px-6 py-3.5 shrink-0">
               {!isRescheduling && !isCanceling ? (
                 <>
                   <div className="flex items-center gap-2">

@@ -804,7 +804,7 @@ export function AdminMasterDataView() {
               </button>
             </div>
 
-            <form onSubmit={handleSaveRole} className="p-6 space-y-4">
+            <form onSubmit={handleSaveRole} className="p-6 space-y-4 overflow-y-auto flex-1">
               {modalType === 'ADD_ROLE' && (
                 <div>
                   <label className="block text-xs font-semibold text-white mb-1">
@@ -888,7 +888,7 @@ export function AdminMasterDataView() {
               </button>
             </div>
 
-            <form onSubmit={handleSaveDept} className="p-6 space-y-4">
+            <form onSubmit={handleSaveDept} className="p-6 space-y-4 overflow-y-auto flex-1">
               <div>
                 <label className="block text-xs font-semibold text-white mb-1">
                   Nama Departemen <span className="text-emerald-400">*</span>
@@ -964,7 +964,7 @@ export function AdminMasterDataView() {
               </button>
             </div>
 
-            <form onSubmit={handleSaveSection} className="p-6 space-y-4">
+            <form onSubmit={handleSaveSection} className="p-6 space-y-4 overflow-y-auto flex-1">
               <div>
                 <label className="block text-xs font-semibold text-white mb-1">
                   Pilih Departemen Induk <span className="text-lime-400">*Wajib</span>
@@ -1045,7 +1045,7 @@ export function AdminMasterDataView() {
               </button>
             </div>
 
-            <form onSubmit={handleMoveSection} className="p-6 space-y-4">
+            <form onSubmit={handleMoveSection} className="p-6 space-y-4 overflow-y-auto flex-1">
               <div className="rounded-xl border border-amber-500/20 bg-amber-950/20 p-3 text-xs text-amber-200 space-y-1">
                 <p className="font-bold flex items-center gap-1.5 text-amber-300">
                   <GitBranch size={14} /> Section Dipindahkan:
@@ -1114,7 +1114,7 @@ export function AdminMasterDataView() {
               </button>
             </div>
 
-            <div className="p-6 space-y-4 text-xs">
+            <div className="p-6 space-y-4 text-xs overflow-y-auto flex-1">
               <p className="text-[#8fa99b] leading-relaxed">
                 Anda akan menonaktifkan:{' '}
                 <strong className="text-white">

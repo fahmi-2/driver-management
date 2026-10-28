@@ -337,20 +337,20 @@ export function RequesterInbox({ user }: { user: Account }) {
           </div>
 
           {/* Pagination Navigation Bar */}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-[#d8e2dc] bg-[#eef5f1] px-5 py-3.5 text-xs text-[#2d4a3e] rounded-b-2xl">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-[#0d3b26] bg-[#04160e] px-5 py-3.5 text-xs text-[#8fa99b] rounded-b-2xl">
             <div className="flex items-center gap-1.5 text-xs">
-              <span className="text-[#3b594c]">Menampilkan</span>
-              <span className="font-bold text-[#075b3d] bg-white px-2 py-0.5 rounded-md border border-[#c8d9cf] shadow-2xs">
+              <span>Menampilkan</span>
+              <strong className="font-bold text-white bg-white/10 px-2 py-0.5 rounded-md border border-white/15">
                 {filteredTrips.length === 0 ? 0 : startIndex + 1}–{endIndex}
-              </span>
-              <span className="text-[#3b594c]">dari</span>
-              <strong className="text-[#075b3d] font-bold">{filteredTrips.length}</strong>
-              <span className="text-[#3b594c]">pengajuan</span>
+              </strong>
+              <span>dari</span>
+              <strong className="text-[#a3e635] font-extrabold">{filteredTrips.length}</strong>
+              <span>pengajuan</span>
             </div>
 
             <div className="flex items-center gap-3">
-              <span className="text-xs font-semibold text-[#2d4a3e]">
-                Halaman <strong className="text-[#075b3d]">{safeCurrentPage}</strong> dari <strong className="text-[#075b3d]">{totalPages}</strong>
+              <span className="text-xs font-medium text-[#8fa99b]">
+                Halaman <strong className="text-white font-bold">{safeCurrentPage}</strong> dari <strong className="text-white font-bold">{totalPages}</strong>
               </span>
 
               <div className="inline-flex items-center gap-1.5">
@@ -358,13 +358,13 @@ export function RequesterInbox({ user }: { user: Account }) {
                   type="button"
                   disabled={safeCurrentPage <= 1}
                   onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                  className="inline-flex size-8 items-center justify-center rounded-lg border border-[#b8cec2] bg-white text-[#075b3d] font-bold shadow-xs hover:bg-[#075b3d] hover:text-white hover:border-[#075b3d] disabled:opacity-35 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:text-[#075b3d] transition-all"
+                  className="inline-flex size-8 items-center justify-center rounded-xl border border-white/20 bg-[#0a261a] text-white font-bold shadow-sm hover:bg-[#a3e635] hover:text-[#052e16] hover:border-[#a3e635] disabled:opacity-25 disabled:cursor-not-allowed disabled:hover:bg-[#0a261a] disabled:hover:text-white disabled:hover:border-white/20 transition-all"
                   title="Halaman Sebelumnya"
                 >
                   <ChevronLeft size={16} />
                 </button>
 
-                {/* Direct Page Numbers (if <= 5 pages, show all; else sliding window) */}
+                {/* Direct Page Numbers */}
                 {Array.from({ length: totalPages }, (_, i) => i + 1)
                   .filter((p) => {
                     if (totalPages <= 5) return true
@@ -380,14 +380,14 @@ export function RequesterInbox({ user }: { user: Account }) {
 
                     return (
                       <span key={pageNum} className="inline-flex items-center gap-1">
-                        {showEllipsis && <span className="px-1 font-bold text-[#648577]">…</span>}
+                        {showEllipsis && <span className="px-1 text-white/40 font-bold">…</span>}
                         <button
                           type="button"
                           onClick={() => setCurrentPage(pageNum)}
-                          className={`size-8 rounded-lg text-xs font-bold transition-all shadow-xs ${
+                          className={`size-8 rounded-xl text-xs font-bold transition-all shadow-sm ${
                             pageNum === safeCurrentPage
-                              ? 'bg-[#075b3d] text-white ring-2 ring-[#075b3d]/30 font-extrabold'
-                              : 'border border-[#b8cec2] bg-white text-[#1b382c] hover:bg-[#d8e8de] hover:border-[#075b3d]'
+                              ? 'bg-[#a3e635] text-[#052e16] font-black ring-2 ring-[#a3e635]/60 shadow-md shadow-[#a3e635]/30 scale-105 border-transparent'
+                              : 'border border-white/20 bg-[#0a261a] text-white hover:bg-white/15 hover:text-[#a3e635] hover:border-[#a3e635]'
                           }`}
                         >
                           {pageNum}
@@ -400,7 +400,7 @@ export function RequesterInbox({ user }: { user: Account }) {
                   type="button"
                   disabled={safeCurrentPage >= totalPages}
                   onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                  className="inline-flex size-8 items-center justify-center rounded-lg border border-[#b8cec2] bg-white text-[#075b3d] font-bold shadow-xs hover:bg-[#075b3d] hover:text-white hover:border-[#075b3d] disabled:opacity-35 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:text-[#075b3d] transition-all"
+                  className="inline-flex size-8 items-center justify-center rounded-xl border border-white/20 bg-[#0a261a] text-white font-bold shadow-sm hover:bg-[#a3e635] hover:text-[#052e16] hover:border-[#a3e635] disabled:opacity-25 disabled:cursor-not-allowed disabled:hover:bg-[#0a261a] disabled:hover:text-white disabled:hover:border-white/20 transition-all"
                   title="Halaman Selanjutnya"
                 >
                   <ChevronRight size={16} />

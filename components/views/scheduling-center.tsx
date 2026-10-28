@@ -534,7 +534,7 @@ export function AdminSchedulingCenter({ user }: { user: Account }) {
               </button>
             </div>
 
-            <form onSubmit={handleRejectSubmit} className="p-6 space-y-4">
+            <form onSubmit={handleRejectSubmit} className="p-6 space-y-4 overflow-y-auto flex-1 min-h-0">
               <p className="text-xs text-[#708078]">
                 Alasan penolakan ini bersifat <strong>wajib</strong> dan akan dikirimkan langsung ke inbox notifikasi pemohon ({rejectingTrip.requesterName}).
               </p>
@@ -597,7 +597,7 @@ export function AdminSchedulingCenter({ user }: { user: Account }) {
               </button>
             </div>
 
-            <form onSubmit={handleConfirmSchedule} className="p-6 space-y-4">
+            <form onSubmit={handleConfirmSchedule} className="p-6 space-y-4 overflow-y-auto flex-1 min-h-0">
               {/* Scheduled Summary Box */}
               <div className="rounded-xl border border-[#bbf7d0] bg-[#f0fdf4] p-4 text-xs space-y-3">
                 <div className="flex justify-between items-center text-[#166534] font-semibold border-b border-[#dcfce7] pb-1.5">
