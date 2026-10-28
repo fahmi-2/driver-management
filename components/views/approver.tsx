@@ -475,13 +475,13 @@ export function ApproverInbox({ user }: { user: Account }) {
 
       {/* Decision Modal (E-Sign Approval / Rejection) */}
       {decisionModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl border border-[#dce7df] overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150 overflow-y-auto">
+          <div className="w-full max-w-md rounded-2xl bg-[#081f14] text-white shadow-2xl border border-white/20 overflow-hidden my-auto max-h-[92vh] flex flex-col animate-in zoom-in-95 duration-150">
             <div
-              className={`flex items-center justify-between border-b px-6 py-4 ${
+              className={`flex items-center justify-between border-b px-6 py-4 shrink-0 ${
                 decisionModal.action === 'approve'
-                  ? 'border-[#dcfce7] bg-[#f0fdf4]'
-                  : 'border-[#fee2e2] bg-[#fef2f2]'
+                  ? 'border-emerald-500/20 bg-emerald-950/40'
+                  : 'border-rose-500/20 bg-rose-950/40'
               }`}
             >
               <div className="flex items-center gap-2.5">
@@ -493,41 +493,41 @@ export function ApproverInbox({ user }: { user: Account }) {
                   {decisionModal.action === 'approve' ? <UserCheck size={18} /> : <ShieldAlert size={18} />}
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-[#10251c]">
+                  <h3 className="text-sm font-bold text-white">
                     {decisionModal.action === 'approve'
                       ? decisionModal.type === 'dept'
                         ? 'Konfirmasi ACC SPV Departemen (Tahap 1)'
                         : 'Konfirmasi ACC Final SPV Kendaraan (Tahap 2)'
                       : 'Tolak Permohonan Kendaraan'}
                   </h3>
-                  <p className="text-[10px] text-[#708078]">
+                  <p className="text-[10px] text-[#8fa99b]">
                     Tiket: {decisionModal.trip.id} · {decisionModal.trip.destination}
                   </p>
                 </div>
               </div>
             </div>
 
-            <form onSubmit={handleDecisionSubmit} className="p-6 space-y-4">
-              <div className="rounded-xl border border-white/5 bg-[#f7faf8] p-3 text-xs space-y-1.5">
+            <form onSubmit={handleDecisionSubmit} className="p-6 space-y-4 overflow-y-auto">
+              <div className="rounded-xl border border-white/10 bg-black/40 p-3 text-xs space-y-1.5">
                 <div className="flex justify-between">
-                  <span className="text-[#708078]">Pemohon:</span>
-                  <span className="font-semibold text-[#10251c]">
+                  <span className="text-[#8fa99b]">Pemohon:</span>
+                  <span className="font-semibold text-white">
                     {decisionModal.trip.requesterName} ({decisionModal.trip.dept})
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-[#708078]">Tujuan:</span>
-                  <span className="font-semibold text-[#10251c]">{decisionModal.trip.destination}</span>
+                  <span className="text-[#8fa99b]">Tujuan:</span>
+                  <span className="font-semibold text-white">{decisionModal.trip.destination}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-[#708078]">Waktu Dinas:</span>
-                  <span className="font-semibold text-[#10251c]">
+                  <span className="text-[#8fa99b]">Waktu Dinas:</span>
+                  <span className="font-semibold text-[#bef264]">
                     {fmtDate(decisionModal.trip.date)} ({decisionModal.trip.estDeparture} WIB)
                   </span>
                 </div>
                 {decisionModal.type === 'pool' && decisionModal.trip.plate && (
-                  <div className="flex justify-between border-t border-[#edf1ee] pt-1.5 text-[#075b3d]">
-                    <span>Alokasi Armada & Driver:</span>
+                  <div className="flex justify-between border-t border-white/10 pt-1.5 text-[#bef264]">
+                    <span className="text-[#8fa99b]">Alokasi Armada & Driver:</span>
                     <span className="font-bold">
                       {decisionModal.trip.plate} (
                       {db.drivers.find((d) => d.id === decisionModal.trip.driverId)?.name || 'Driver'})
@@ -537,7 +537,7 @@ export function ApproverInbox({ user }: { user: Account }) {
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-[#66766d]">
+                <label className="text-xs font-semibold text-[#d1fae5] block">
                   {decisionModal.action === 'approve' ? 'Catatan Approver (Opsional)' : 'Alasan Penolakan (Wajib)'}
                   <textarea
                     rows={3}
@@ -548,17 +548,17 @@ export function ApproverInbox({ user }: { user: Account }) {
                         ? 'Contoh: Disetujui, harap berkendara dengan tertib...'
                         : 'Contoh: Keperluan dinas tidak mendesak / armada tidak mencukupi...'
                     }
-                    className="mt-1.5 w-full rounded-xl border border-[#dce7df] p-3 text-xs outline-none focus:border-[#075b3d]"
+                    className="mt-1.5 w-full rounded-xl border border-white/15 bg-black/50 p-3 text-xs text-white placeholder-white/30 outline-none focus:border-[#a3e635]"
                     required={decisionModal.action === 'reject'}
                   />
                 </label>
               </div>
 
-              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-[#edf1ee]">
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-white/10 shrink-0">
                 <button
                   type="button"
                   onClick={() => setDecisionModal(null)}
-                  className={`${btnGhost} !px-4 !py-2`}
+                  className="rounded-full border border-white/20 bg-white/5 px-4 py-2 text-xs font-semibold text-[#8fa99b] hover:bg-white/10 hover:text-white transition"
                 >
                   Batal
                 </button>
@@ -566,7 +566,7 @@ export function ApproverInbox({ user }: { user: Account }) {
                   type="submit"
                   className={
                     decisionModal.action === 'approve'
-                      ? `${btnPrimary} !px-6 !py-2`
+                      ? 'rounded-full bg-[#a3e635] px-6 py-2 text-xs font-bold text-[#052e16] shadow-lg shadow-[#a3e635]/20 hover:bg-[#84cc16] transition'
                       : 'rounded-full bg-[#dc2626] px-6 py-2 text-xs font-bold text-white shadow-md hover:bg-[#b91c1c] transition'
                   }
                 >
