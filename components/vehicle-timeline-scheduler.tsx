@@ -1232,8 +1232,17 @@ export function VehicleTimelineScheduler({
 
       {/* MODAL INSPECT / DETAIL PENJADWALAN */}
       {inspectingTrip && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150 overflow-y-auto">
-          <div className="relative w-full max-w-lg rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden my-auto max-h-[92vh] flex flex-col animate-in zoom-in-95 duration-150">
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150 overflow-hidden"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setInspectingTrip(null)
+              setIsRescheduling(false)
+              setIsCanceling(false)
+            }
+          }}
+        >
+          <div className="relative w-full max-w-lg rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden max-h-[88vh] flex flex-col animate-in zoom-in-95 duration-150">
             {/* Header */}
             <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50 px-6 py-4">
               <div className="flex items-center gap-3">

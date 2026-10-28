@@ -24,6 +24,7 @@ import {
   Sparkles,
   Ban,
   CheckCircle,
+  X,
 } from 'lucide-react'
 import type { Account } from '@/lib/accounts'
 import { useStore, type Trip, type OvertimeRequest, fmtDate, fmtTime, STATUS_LABEL } from '@/lib/store'
@@ -651,10 +652,15 @@ export function ApproverInbox({ user }: { user: Account }) {
 
       {/* Decision Modal (E-Sign Approval / Rejection) */}
       {decisionModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150 overflow-y-auto">
-          <div className="w-full max-w-md rounded-2xl bg-[#081f14] text-white shadow-2xl border border-white/20 overflow-hidden my-auto max-h-[92vh] flex flex-col animate-in zoom-in-95 duration-150">
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150 overflow-hidden"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setDecisionModal(null)
+          }}
+        >
+          <div className="relative w-full max-w-md rounded-2xl bg-[#081f14] text-white shadow-2xl border border-white/20 overflow-hidden max-h-[88vh] flex flex-col animate-in zoom-in-95 duration-150">
             <div
-              className={`flex items-center justify-between border-b px-6 py-4 shrink-0 ${
+              className={`flex items-center justify-between border-b px-5 py-4 shrink-0 ${
                 decisionModal.action === 'approve'
                   ? 'border-emerald-500/20 bg-emerald-950/40'
                   : 'border-rose-500/20 bg-rose-950/40'
@@ -662,7 +668,7 @@ export function ApproverInbox({ user }: { user: Account }) {
             >
               <div className="flex items-center gap-2.5">
                 <div
-                  className={`flex size-9 items-center justify-center rounded-xl text-white ${
+                  className={`flex size-9 items-center justify-center rounded-xl text-white shrink-0 ${
                     decisionModal.action === 'approve' ? 'bg-[#15803d]' : 'bg-[#dc2626]'
                   }`}
                 >
@@ -681,56 +687,66 @@ export function ApproverInbox({ user }: { user: Account }) {
                   </p>
                 </div>
               </div>
+              <button
+                type="button"
+                onClick={() => setDecisionModal(null)}
+                className="rounded-lg p-1.5 text-white/60 hover:bg-white/10 hover:text-white transition shrink-0"
+                title="Tutup"
+              >
+                <X size={18} />
+              </button>
             </div>
 
-            <form onSubmit={handleDecisionSubmit} className="p-6 space-y-4 overflow-y-auto">
-              <div className="rounded-xl border border-white/10 bg-black/40 p-3 text-xs space-y-1.5">
-                <div className="flex justify-between">
-                  <span className="text-[#8fa99b]">Pemohon:</span>
-                  <span className="font-semibold text-white">
-                    {decisionModal.trip.requesterName} ({decisionModal.trip.dept})
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-[#8fa99b]">Tujuan:</span>
-                  <span className="font-semibold text-white">{decisionModal.trip.destination}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-[#8fa99b]">Waktu Dinas:</span>
-                  <span className="font-semibold text-[#bef264]">
-                    {fmtDate(decisionModal.trip.date)} ({decisionModal.trip.estDeparture} WIB)
-                  </span>
-                </div>
-                {decisionModal.type === 'pool' && decisionModal.trip.plate && (
-                  <div className="flex justify-between border-t border-white/10 pt-1.5 text-[#bef264]">
-                    <span className="text-[#8fa99b]">Alokasi Armada & Driver:</span>
-                    <span className="font-bold">
-                      {decisionModal.trip.plate} (
-                      {db.drivers.find((d) => d.id === decisionModal.trip.driverId)?.name || 'Driver'})
+            <form onSubmit={handleDecisionSubmit} className="flex flex-col flex-1 overflow-hidden min-h-0">
+              <div className="p-5 space-y-4 overflow-y-auto flex-1 min-h-0">
+                <div className="rounded-xl border border-white/10 bg-black/40 p-3 text-xs space-y-1.5">
+                  <div className="flex justify-between">
+                    <span className="text-[#8fa99b]">Pemohon:</span>
+                    <span className="font-semibold text-white">
+                      {decisionModal.trip.requesterName} ({decisionModal.trip.dept})
                     </span>
                   </div>
-                )}
+                  <div className="flex justify-between">
+                    <span className="text-[#8fa99b]">Tujuan:</span>
+                    <span className="font-semibold text-white">{decisionModal.trip.destination}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[#8fa99b]">Waktu Dinas:</span>
+                    <span className="font-semibold text-[#bef264]">
+                      {fmtDate(decisionModal.trip.date)} ({decisionModal.trip.estDeparture} WIB)
+                    </span>
+                  </div>
+                  {decisionModal.type === 'pool' && decisionModal.trip.plate && (
+                    <div className="flex justify-between border-t border-white/10 pt-1.5 text-[#bef264]">
+                      <span className="text-[#8fa99b]">Alokasi Armada & Driver:</span>
+                      <span className="font-bold">
+                        {decisionModal.trip.plate} (
+                        {db.drivers.find((d) => d.id === decisionModal.trip.driverId)?.name || 'Driver'})
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-[#d1fae5] block">
+                    {decisionModal.action === 'approve' ? 'Catatan Approver (Opsional)' : 'Alasan Penolakan (Wajib)'}
+                    <textarea
+                      rows={3}
+                      value={note}
+                      onChange={(e) => setNote(e.target.value)}
+                      placeholder={
+                        decisionModal.action === 'approve'
+                          ? 'Contoh: Disetujui, harap berkendara dengan tertib...'
+                          : 'Contoh: Keperluan dinas tidak mendesak / armada tidak mencukupi...'
+                      }
+                      className="mt-1.5 w-full rounded-xl border border-white/15 bg-black/50 p-3 text-xs text-white placeholder-white/30 outline-none focus:border-[#a3e635]"
+                      required={decisionModal.action === 'reject'}
+                    />
+                  </label>
+                </div>
               </div>
 
-              <div>
-                <label className="text-xs font-semibold text-[#d1fae5] block">
-                  {decisionModal.action === 'approve' ? 'Catatan Approver (Opsional)' : 'Alasan Penolakan (Wajib)'}
-                  <textarea
-                    rows={3}
-                    value={note}
-                    onChange={(e) => setNote(e.target.value)}
-                    placeholder={
-                      decisionModal.action === 'approve'
-                        ? 'Contoh: Disetujui, harap berkendara dengan tertib...'
-                        : 'Contoh: Keperluan dinas tidak mendesak / armada tidak mencukupi...'
-                    }
-                    className="mt-1.5 w-full rounded-xl border border-white/15 bg-black/50 p-3 text-xs text-white placeholder-white/30 outline-none focus:border-[#a3e635]"
-                    required={decisionModal.action === 'reject'}
-                  />
-                </label>
-              </div>
-
-              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-white/10 shrink-0">
+              <div className="flex items-center justify-end gap-2.5 p-4 border-t border-white/10 shrink-0 bg-black/20">
                 <button
                   type="button"
                   onClick={() => setDecisionModal(null)}

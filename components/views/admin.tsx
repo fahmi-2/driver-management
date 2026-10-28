@@ -580,8 +580,16 @@ export function AdminDrivers({ user }: { user?: Account }) {
 
       {/* Modal Tambah / Edit Sopir */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150 overflow-y-auto">
-          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl border border-[#dce7df] my-auto max-h-[92vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-150">
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150 overflow-hidden"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowModal(false)
+              setEditingDriver(null)
+            }
+          }}
+        >
+          <div className="relative w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl border border-[#dce7df] max-h-[88vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between border-b border-[#edf1ee] pb-4">
               <div className="flex items-center gap-2.5">
                 <div className="flex size-9 items-center justify-center rounded-xl bg-[#dff5e9] text-[#075b3d]">
@@ -758,8 +766,13 @@ export function AdminDrivers({ user }: { user?: Account }) {
 
       {/* POP-UP REQUEST OVERTIME (LEMBUR) - FORM UI UNGU */}
       {overtimeDriver && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150 overflow-y-auto">
-          <div className="w-full max-w-md rounded-2xl bg-[#1e1333] text-white shadow-2xl border border-purple-500/30 overflow-hidden my-auto max-h-[92vh] flex flex-col animate-in zoom-in-95 duration-150">
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150 overflow-hidden"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setOvertimeDriver(null)
+          }}
+        >
+          <div className="relative w-full max-w-md rounded-2xl bg-[#1e1333] text-white shadow-2xl border border-purple-500/30 overflow-hidden max-h-[88vh] flex flex-col animate-in zoom-in-95 duration-150">
             {/* Header Form Ungu */}
             <div className="flex items-center justify-between border-b border-purple-500/20 bg-gradient-to-r from-purple-900 to-indigo-900 px-6 py-4">
               <div className="flex items-center gap-2.5">
@@ -858,8 +871,13 @@ export function AdminDrivers({ user }: { user?: Account }) {
 
       {/* POP-UP STATUS CUTI & PENGGANTIAN NAMA SEMENTARA */}
       {leaveModalDriver && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150 overflow-y-auto">
-          <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl border border-[#dce7df] overflow-hidden my-auto max-h-[92vh] flex flex-col animate-in zoom-in-95 duration-150">
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150 overflow-hidden"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setLeaveModalDriver(null)
+          }}
+        >
+          <div className="relative w-full max-w-md rounded-2xl bg-white shadow-2xl border border-[#dce7df] overflow-hidden max-h-[88vh] flex flex-col animate-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between border-b border-[#edf1ee] bg-[#f7faf8] px-6 py-4">
               <div className="flex items-center gap-2.5">
                 <div className="flex size-9 items-center justify-center rounded-xl bg-amber-500/20 text-amber-700">

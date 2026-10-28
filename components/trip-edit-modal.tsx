@@ -115,8 +115,13 @@ export function TripEditModal({ trip, isOpen, onClose, onSuccess }: TripEditModa
   // Strict check: User only allowed to edit if status is WAITING_SPV
   if (trip.status !== 'WAITING_SPV') {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150 overflow-y-auto">
-        <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl border border-red-200 space-y-4 my-auto max-h-[92vh] overflow-y-auto animate-in zoom-in-95 duration-150">
+      <div 
+        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150 overflow-hidden"
+        onClick={(e) => {
+          if (e.target === e.currentTarget) onClose()
+        }}
+      >
+        <div className="relative w-full max-w-md rounded-2xl bg-[#081f14] p-6 shadow-2xl border border-red-500/30 text-white space-y-4 max-h-[88vh] flex flex-col overflow-y-auto animate-in zoom-in-95 duration-150">
           <div className="flex items-center gap-3 text-red-600">
             <AlertCircle size={24} />
             <h3 className="font-bold text-base text-slate-800">Dokumen Terkunci</h3>
@@ -255,8 +260,13 @@ export function TripEditModal({ trip, isOpen, onClose, onSuccess }: TripEditModa
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150 overflow-y-auto">
-      <div className="w-full max-w-2xl rounded-2xl bg-[#081f14] text-white shadow-2xl border border-white/15 overflow-hidden my-auto max-h-[92vh] flex flex-col animate-in zoom-in-95 duration-150">
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150 overflow-hidden"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
+    >
+      <div className="relative w-full max-w-2xl rounded-2xl bg-[#081f14] text-white shadow-2xl border border-white/15 overflow-hidden max-h-[88vh] flex flex-col animate-in zoom-in-95 duration-150">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-white/10 bg-[#075b3d] px-6 py-4 text-white shrink-0">
           <div className="flex items-center gap-2.5">

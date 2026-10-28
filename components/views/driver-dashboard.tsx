@@ -824,8 +824,13 @@ export function DriverDashboard({ user }: DriverDashboardProps) {
 
       {/* POPUP MODAL: REASON FOR DELAY (ALASAN KETERLAMBATAN) */}
       {delayModalTripId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm animate-in fade-in duration-150 overflow-y-auto">
-          <div className="w-full max-w-lg rounded-2xl border border-amber-500/40 bg-[#0f1712] p-6 text-white shadow-2xl space-y-4 my-auto max-h-[92vh] flex flex-col overflow-y-auto animate-in zoom-in-95 duration-150">
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm animate-in fade-in duration-150 overflow-hidden"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setDelayModalTripId(null)
+          }}
+        >
+          <div className="relative w-full max-w-lg rounded-2xl border border-amber-500/40 bg-[#0f1712] p-6 text-white shadow-2xl space-y-4 max-h-[88vh] flex flex-col overflow-y-auto animate-in zoom-in-95 duration-150">
             <div className="flex items-center gap-2.5 text-amber-400">
               <AlertTriangle className="h-6 w-6 shrink-0" />
               <div>
@@ -894,8 +899,13 @@ export function DriverDashboard({ user }: DriverDashboardProps) {
 
       {/* POPUP MODAL: LAPORAN PENANGGUHAN LEMBUR (TOLERANSI 15 MENIT) */}
       {showOtReportModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm animate-in fade-in duration-150 overflow-y-auto">
-          <div className="w-full max-w-lg rounded-2xl border border-rose-500/50 bg-[#160b14] p-6 text-white shadow-2xl space-y-4 my-auto max-h-[92vh] flex flex-col overflow-y-auto animate-in zoom-in-95 duration-150">
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm animate-in fade-in duration-150 overflow-hidden"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowOtReportModal(false)
+          }}
+        >
+          <div className="relative w-full max-w-lg rounded-2xl border border-rose-500/50 bg-[#160b14] p-6 text-white shadow-2xl space-y-4 max-h-[88vh] flex flex-col overflow-y-auto animate-in zoom-in-95 duration-150">
             <div className="flex items-center gap-2.5 text-rose-400">
               <AlertTriangle className="h-6 w-6 shrink-0" />
               <div>

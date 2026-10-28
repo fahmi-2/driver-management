@@ -146,8 +146,13 @@ export function CouponPending({ user }: { user: Account }) {
 
       {/* Pop-up Modal Input Nomor PR Manual */}
       {prModalTrip && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm animate-in fade-in duration-150 overflow-y-auto">
-          <div className="w-full max-w-md rounded-2xl border border-white/15 bg-gradient-to-b from-[#0a2318] to-[#04120c] p-6 text-white shadow-2xl space-y-5 my-auto max-h-[92vh] flex flex-col overflow-y-auto animate-in zoom-in-95 duration-150">
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm animate-in fade-in duration-150 overflow-hidden"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setPrModalTrip(null)
+          }}
+        >
+          <div className="relative w-full max-w-md rounded-2xl border border-white/15 bg-gradient-to-b from-[#0a2318] to-[#04120c] p-6 text-white shadow-2xl space-y-5 max-h-[88vh] flex flex-col overflow-y-auto animate-in zoom-in-95 duration-150">
             <div className="flex items-start justify-between border-b border-white/10 pb-4">
               <div>
                 <span className="rounded-md bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-300 border border-emerald-500/30">
@@ -229,8 +234,13 @@ export function CouponPending({ user }: { user: Account }) {
 
       {/* Modal Detail Tiket Kupon (Nama, NIK, Tujuan, Jam Berangkat, Jam Kembali) */}
       {selectedTicket && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm animate-in fade-in duration-150 overflow-y-auto">
-          <div className="w-full max-w-md rounded-2xl border border-white/15 bg-gradient-to-b from-[#0a2318] to-[#04120c] p-6 text-white shadow-2xl space-y-4 my-auto max-h-[92vh] flex flex-col overflow-y-auto animate-in zoom-in-95 duration-150">
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm animate-in fade-in duration-150 overflow-hidden"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setSelectedTicket(null)
+          }}
+        >
+          <div className="relative w-full max-w-md rounded-2xl border border-white/15 bg-gradient-to-b from-[#0a2318] to-[#04120c] p-6 text-white shadow-2xl space-y-4 max-h-[88vh] flex flex-col overflow-y-auto animate-in zoom-in-95 duration-150">
             <div className="flex items-start justify-between border-b border-white/10 pb-3">
               <div>
                 <span className="rounded-md bg-[#a3e635] px-2 py-0.5 text-[10px] font-extrabold text-[#052e16]">
@@ -330,8 +340,13 @@ export function CouponHistory() {
 
       {/* Modal Detail Tiket Kupon (Nama, NIK, Tujuan, Jam Berangkat, Jam Kembali) */}
       {selectedTicket && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm animate-in fade-in duration-150 overflow-y-auto">
-          <div className="w-full max-w-md rounded-2xl border border-white/15 bg-gradient-to-b from-[#0a2318] to-[#04120c] p-6 text-white shadow-2xl space-y-4 my-auto max-h-[92vh] flex flex-col overflow-y-auto animate-in zoom-in-95 duration-150">
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm animate-in fade-in duration-150 overflow-hidden"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setSelectedTicket(null)
+          }}
+        >
+          <div className="relative w-full max-w-md rounded-2xl border border-white/15 bg-gradient-to-b from-[#0a2318] to-[#04120c] p-6 text-white shadow-2xl space-y-4 max-h-[88vh] flex flex-col overflow-y-auto animate-in zoom-in-95 duration-150">
             <div className="flex items-start justify-between border-b border-white/10 pb-3">
               <div>
                 <span className="rounded-md bg-sky-500/20 text-sky-300 border border-sky-500/40 px-2 py-0.5 text-[10px] font-extrabold font-mono">
