@@ -121,7 +121,7 @@ function Badge({ role, id, user }: { role: Role; id: string; user?: Account }) {
       const isTargetedApprover = (userEmail && (t.approverEmail?.toLowerCase() === userEmail || t.spvEmail?.toLowerCase() === userEmail)) ||
         (userName && t.spvName && t.spvName.toUpperCase().includes(userName))
 
-      if (isPoolSpv) return t.status === 'WAITING_POOL_SPV' || (t.status === 'WAITING_SPV' && (t.dept === user?.dept || isTargetedApprover))
+      if (isPoolSpv) return t.status === 'WAITING_POOL_SPV' || t.status === 'WAITING_SPV'
       return t.status === 'WAITING_SPV' && (t.dept === user?.dept || isTargetedApprover)
     }).length
     return pending ? <span className="rounded-md bg-amber-500 px-1.5 py-0.5 text-[9px] font-bold text-black">{pending}</span> : null

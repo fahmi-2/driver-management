@@ -439,7 +439,7 @@ export function DriverDashboard({ user }: DriverDashboardProps) {
                   type="button"
                   onClick={() => {
                     clockInDriver(matchedDriver.id)
-                    notify(`Absensi HADIR berhasil tercatat pada ${new Date().toLocaleTimeString('id-ID')} WIB`)
+                    notify(`Absensi HADIR berhasil tercatat pada ${fmtTime(new Date().toISOString())} WIB`)
                   }}
                   className="w-full flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white font-bold text-sm shadow-lg shadow-emerald-900/40 transition active:scale-[.98]"
                 >
@@ -453,7 +453,7 @@ export function DriverDashboard({ user }: DriverDashboardProps) {
                   type="button"
                   onClick={() => {
                     clockOutDriver(matchedDriver.id)
-                    notify(`Absensi PULANG berhasil tercatat pada ${new Date().toLocaleTimeString('id-ID')} WIB`)
+                    notify(`Absensi PULANG berhasil tercatat pada ${fmtTime(new Date().toISOString())} WIB`)
                   }}
                   className="w-full flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl font-bold text-sm shadow-lg transition active:scale-[.98] bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white shadow-blue-900/40"
                 >
@@ -708,7 +708,7 @@ export function DriverDashboard({ user }: DriverDashboardProps) {
                       type="button"
                       onClick={() => {
                         startDriverTrip(trip.id)
-                        notify(`Perjalanan ${trip.plate} dimulai oleh Driver pada ${new Date().toLocaleTimeString('id-ID')} WIB`)
+                        notify(`Perjalanan ${trip.plate} dimulai oleh Driver pada ${fmtTime(new Date().toISOString())} WIB`)
                       }}
                       className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white font-bold text-xs shadow-md shadow-emerald-900/30 transition active:scale-[.98]"
                     >

@@ -101,7 +101,7 @@ export function SecurityGate({ user }: { user: Account }) {
                         id={`go-${t.id}`}
                         onClick={() => {
                           gateGo(t.id, user.username)
-                          notify(`${t.plate} BERANGKAT ${new Date().toLocaleTimeString('id-ID')}`)
+                          notify(`${t.plate} BERANGKAT ${fmtTime(new Date().toISOString())} WIB`)
                         }}
                         className="mt-4 flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-[#075b3d] text-base font-bold text-white shadow-lg shadow-[#075b3d]/25 transition active:scale-[.98]"
                       >

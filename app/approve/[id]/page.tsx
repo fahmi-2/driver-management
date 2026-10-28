@@ -24,8 +24,14 @@ function Approve() {
   const trip = db.trips.find((t) => t.id === id)
 
   // Otentikasi: Tautan email tidak lagi menyetujui secara instan tanpa login,
-  // melainkan mengarahkan atasan untuk login akun ber-role Approver
-  const isApproverLoggedIn = currentUser && (currentUser.role === 'approver' || currentUser.role === 'admin' || currentUser.role === 'admin_lobby')
+  // melainkan mengarahkan atasan untuk login akun ber-role Approver / Approver Pool / Admin
+  const isApproverLoggedIn = currentUser && (
+    currentUser.role === 'approver' ||
+    currentUser.role === 'approver_pool' ||
+    currentUser.role === 'admin' ||
+    currentUser.role === 'admin_lobby' ||
+    currentUser.username === 'hayu.p'
+  )
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-[#e9eeeb] p-4 text-[#10251c]">

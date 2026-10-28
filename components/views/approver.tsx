@@ -52,9 +52,10 @@ export function ApproverInbox({ user }: { user: Account }) {
       (userName && t.spvName && t.spvName.toUpperCase().includes(userName))
 
     if (isPoolSpv) {
-      // SPV Kendaraan / Pool GA bisa review Tahap 2 (WAITING_POOL_SPV)
-      // dan juga pengajuan departemennya sendiri atau yang ditujukan kepadanya di Tahap 1 (WAITING_SPV)
-      return t.status === 'WAITING_POOL_SPV' || (t.status === 'WAITING_SPV' && (t.dept === user.dept || isTargetedApprover))
+      // SPV Kendaraan (Tahap 2):
+      // Karena double-job / otoritas approver kendaraan, bisa approve Tahap 2 (WAITING_POOL_SPV)
+      // dan juga semua pengajuan Tahap 1 (WAITING_SPV)
+      return t.status === 'WAITING_POOL_SPV' || t.status === 'WAITING_SPV'
     }
     // SPV Departemen (Tahap 1):
     // 1. Pengajuan berstatus WAITING_SPV milik departemennya atau ditujukan spesifik kepadanya
@@ -73,7 +74,7 @@ export function ApproverInbox({ user }: { user: Account }) {
       (userName && t.spvName && t.spvName.toUpperCase().includes(userName))
 
     if (isPoolSpv) {
-      return t.poolSpvAt || ((t.dept === user.dept || isTargetedApprover) && t.spvAt)
+      return Boolean(t.poolSpvAt || t.spvAt)
     }
     return (t.dept === user.dept || isTargetedApprover) && (t.spvAt || t.status === 'DONE' || t.status === 'READY')
   })
@@ -197,12 +198,12 @@ export function ApproverInbox({ user }: { user: Account }) {
             <div className="flex items-center gap-2">
               <span className="font-bold text-white text-[13px]">{user.name}</span>
               <span className="rounded bg-[#a3e635]/20 text-[#bef264] px-2 py-0.5 text-[10px] font-extrabold border border-[#a3e635]/30">
-                {isPoolSpv ? 'Otoritas: SPV Kendaraan (Tahap 2 Final)' : `Otoritas: SPV ${user.dept} (Tahap 1)`}
+                {isPoolSpv ? 'Otoritas: SPV Kendaraan (Tahap 1 & 2 Double Job)' : `Otoritas: SPV ${user.dept} (Tahap 1)`}
               </span>
             </div>
             <p className="mt-0.5 text-[11px] text-[#93a097]">
               {isPoolSpv
-                ? 'Memverifikasi alokasi armada yang telah dipetakan oleh Admin Utama sebelum tugas diterbitkan ke Driver.'
+                ? 'Dapat menyetujui E-Sign Tahap 1 (Departemen/Double Job) dan ACC Final Tahap 2 (Alokasi Armada & Driver).'
                 : `Memvalidasi permohonan dinas karyawan di lingkungan departemen ${user.dept}.`}
             </p>
           </div>
