@@ -265,84 +265,117 @@ button:not(:disabled):active { transform: scale(.97); }
 /* cards: general elevation */
 section.rounded-2xl { border: 1px solid var(--line); box-shadow: 0 24px 50px -26px rgba(0,0,0,.85), inset 0 1px 0 rgba(255,255,255,.05) !important; }
 /* ========================================================
-   ISOLASI TIMELINE KALENDER (MODE TERANG DENGAN FONT GELAP)
+   ISOLASI TIMELINE KALENDER & LIGHT MODAL (MODE TERANG DENGAN FONT GELAP)
    ======================================================== */
 .timeline-calendar-wrapper,
-.timeline-calendar-wrapper * {
+.timeline-calendar-wrapper *,
+.light-modal-scope,
+.light-modal-scope * {
   box-sizing: border-box;
 }
 
-.timeline-calendar-wrapper {
+.timeline-calendar-wrapper,
+.light-modal-scope {
   background: #ffffff !important;
   color: #0f172a !important;
   border-color: #cbd5e1 !important;
   box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.25) !important;
 }
 
-.timeline-calendar-wrapper .bg-white {
+.timeline-calendar-wrapper .bg-white,
+.light-modal-scope .bg-white,
+.light-modal-scope.bg-white {
   background: #ffffff !important;
 }
 
-.timeline-calendar-wrapper .bg-slate-50 {
+.timeline-calendar-wrapper .bg-slate-50,
+.light-modal-scope .bg-slate-50,
+.light-modal-scope.bg-slate-50 {
   background: #f8fafc !important;
 }
 
-.timeline-calendar-wrapper .bg-slate-100 {
+.timeline-calendar-wrapper .bg-slate-100,
+.light-modal-scope .bg-slate-100,
+.light-modal-scope.bg-slate-100 {
   background: #f1f5f9 !important;
 }
 
-.timeline-calendar-wrapper .border-slate-200 {
+.timeline-calendar-wrapper .border-slate-200,
+.light-modal-scope .border-slate-200 {
   border-color: #e2e8f0 !important;
 }
 
-.timeline-calendar-wrapper .border-slate-300 {
+.timeline-calendar-wrapper .border-slate-300,
+.light-modal-scope .border-slate-300 {
   border-color: #cbd5e1 !important;
 }
 
-.timeline-calendar-wrapper .divide-slate-200 > :not(:last-child) {
+.timeline-calendar-wrapper .divide-slate-200 > :not(:last-child),
+.light-modal-scope .divide-slate-200 > :not(:last-child) {
   border-color: #e2e8f0 !important;
 }
 
-/* Force dark contrast font on all text elements inside calendar */
-.timeline-calendar-wrapper .text-slate-900 {
+/* Force dark contrast font on all text elements inside calendar & light modal */
+.timeline-calendar-wrapper .text-slate-900,
+.light-modal-scope .text-slate-900 {
   color: #0f172a !important;
 }
 
-.timeline-calendar-wrapper .text-slate-800 {
+.timeline-calendar-wrapper .text-slate-800,
+.light-modal-scope .text-slate-800 {
   color: #1e293b !important;
 }
 
-.timeline-calendar-wrapper .text-slate-700 {
+.timeline-calendar-wrapper .text-slate-700,
+.light-modal-scope .text-slate-700 {
   color: #334155 !important;
 }
 
-.timeline-calendar-wrapper .text-slate-600 {
+.timeline-calendar-wrapper .text-slate-600,
+.light-modal-scope .text-slate-600 {
   color: #475569 !important;
 }
 
-.timeline-calendar-wrapper .text-slate-500 {
+.timeline-calendar-wrapper .text-slate-500,
+.light-modal-scope .text-slate-500 {
+  color: #64748b !important;
+}
+
+.timeline-calendar-wrapper .text-slate-400,
+.light-modal-scope .text-slate-400 {
   color: #64748b !important;
 }
 
 .timeline-calendar-wrapper .text-emerald-700,
 .timeline-calendar-wrapper .text-emerald-800,
-.timeline-calendar-wrapper .text-emerald-900 {
+.timeline-calendar-wrapper .text-emerald-900,
+.light-modal-scope .text-emerald-700,
+.light-modal-scope .text-emerald-800,
+.light-modal-scope .text-emerald-900 {
   color: #065f46 !important;
 }
 
 .timeline-calendar-wrapper .text-purple-700,
-.timeline-calendar-wrapper .text-purple-800 {
+.timeline-calendar-wrapper .text-purple-800,
+.light-modal-scope .text-purple-700,
+.light-modal-scope .text-purple-800 {
   color: #6b21a8 !important;
 }
 
 .timeline-calendar-wrapper .hover\:bg-slate-50:hover,
 .timeline-calendar-wrapper tr:hover,
-.timeline-calendar-wrapper .group\/row:hover .group-hover\/row\:bg-slate-50 {
+.timeline-calendar-wrapper .group\/row:hover .group-hover\/row\:bg-slate-50,
+.light-modal-scope .hover\:bg-slate-50:hover,
+.light-modal-scope .hover\:bg-slate-100:hover,
+.light-modal-scope .hover\:bg-slate-200:hover {
   background-color: #f1f5f9 !important;
 }
 
 .timeline-calendar-wrapper input,
-.timeline-calendar-wrapper select {
+.timeline-calendar-wrapper select,
+.light-modal-scope input,
+.light-modal-scope select,
+.light-modal-scope textarea {
   background: #ffffff !important;
   color: #0f172a !important;
   border-color: #cbd5e1 !important;

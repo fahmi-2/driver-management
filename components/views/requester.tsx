@@ -21,6 +21,7 @@ import {
 import { SmtpSettingsModal } from '../smtp-settings-modal'
 import { TripEditModal } from '../trip-edit-modal'
 import { ModalPortal } from '../modal-portal'
+import { TimeInput24h } from '../time-input-24h'
 import {
   DEPARTMENTS,
   DEPARTMENT_APPROVERS,
@@ -797,10 +798,9 @@ export function RequesterForm({ user }: { user: Account }) {
 
               <label className="text-xs font-semibold text-[#8fa99b]">
                 Estimasi Jam Berangkat
-                <input
-                  type="time"
+                <TimeInput24h
                   value={f.estDeparture}
-                  onChange={(e) => setF({ ...f, estDeparture: e.target.value })}
+                  onChange={(val) => setF({ ...f, estDeparture: val })}
                   className={inputCls}
                   required
                 />
@@ -808,10 +808,9 @@ export function RequesterForm({ user }: { user: Account }) {
 
               <label className="text-xs font-semibold text-[#8fa99b]">
                 Estimasi Jam Kembali
-                <input
-                  type="time"
+                <TimeInput24h
                   value={f.estReturn}
-                  onChange={(e) => setF({ ...f, estReturn: e.target.value })}
+                  onChange={(val) => setF({ ...f, estReturn: val })}
                   className={inputCls}
                   required
                 />

@@ -7,6 +7,7 @@ import { COUPON_LABEL, STATUS_LABEL, driverState, fmtDate, fmtDur, fmtTime, useS
 import { Card, Empty, PageHeader, Pill, btnGhost, btnPrimary, couponTone, inputCls, tdCls, thCls, tripTone, useToast } from '../ui-bits'
 import { WorkloadCard } from './dashboard'
 import { ModalPortal } from '../modal-portal'
+import { TimeInput24h } from '../time-input-24h'
 
 function AssignRow({ trip }: { trip: Trip }) {
   const { db, assignTrip } = useStore()
@@ -803,10 +804,9 @@ export function AdminDrivers({ user }: { user?: Account }) {
                   <label className="block text-[11px] font-semibold text-purple-200 mb-1">
                     Start OT <span className="text-purple-400">*Wajib</span>
                   </label>
-                  <input
-                    type="time"
+                  <TimeInput24h
                     value={otForm.startOT}
-                    onChange={(e) => setOtForm({ ...otForm, startOT: e.target.value })}
+                    onChange={(val) => setOtForm({ ...otForm, startOT: val })}
                     className="w-full rounded-xl border border-purple-500/30 bg-black/40 px-3 py-2 text-xs font-mono font-bold text-white outline-none focus:border-purple-400 focus:ring-1 focus:ring-purple-400"
                     required
                   />
@@ -816,10 +816,9 @@ export function AdminDrivers({ user }: { user?: Account }) {
                   <label className="block text-[11px] font-semibold text-purple-200 mb-1">
                     End OT <span className="text-purple-400">*Wajib</span>
                   </label>
-                  <input
-                    type="time"
+                  <TimeInput24h
                     value={otForm.endOT}
-                    onChange={(e) => setOtForm({ ...otForm, endOT: e.target.value })}
+                    onChange={(val) => setOtForm({ ...otForm, endOT: val })}
                     className="w-full rounded-xl border border-purple-500/30 bg-black/40 px-3 py-2 text-xs font-mono font-bold text-white outline-none focus:border-purple-400 focus:ring-1 focus:ring-purple-400"
                     required
                   />

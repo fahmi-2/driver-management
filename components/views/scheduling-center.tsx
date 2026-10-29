@@ -36,6 +36,7 @@ import { Card, PageHeader, Pill, btnGhost, btnPrimary, inputCls, useToast } from
 import { VehicleTimelineScheduler, type TimelineSelection } from '../vehicle-timeline-scheduler'
 import { DestinationAutocomplete } from '../destination-autocomplete'
 import { ModalPortal } from '../modal-portal'
+import { TimeInput24h } from '../time-input-24h'
 
 export function AdminSchedulingCenter({ user }: { user: Account }) {
   const { db, scheduleTrip, rejectTrip, directBooking } = useStore()
@@ -642,15 +643,14 @@ export function AdminSchedulingCenter({ user }: { user: Account }) {
                     <label className="block text-[11px] font-semibold text-[#166534] mb-1">
                       Jam Berangkat / Mulai
                     </label>
-                    <input
-                      type="time"
+                    <TimeInput24h
                       value={confirmModalData.selection.startTime}
-                      onChange={(e) =>
+                      onChange={(val) =>
                         setConfirmModalData({
                           ...confirmModalData,
                           selection: {
                             ...confirmModalData.selection,
-                            startTime: e.target.value,
+                            startTime: val,
                           },
                         })
                       }
@@ -662,15 +662,14 @@ export function AdminSchedulingCenter({ user }: { user: Account }) {
                     <label className="block text-[11px] font-semibold text-[#166534] mb-1">
                       Jam Kembali / Selesai
                     </label>
-                    <input
-                      type="time"
+                    <TimeInput24h
                       value={confirmModalData.selection.endTime}
-                      onChange={(e) =>
+                      onChange={(val) =>
                         setConfirmModalData({
                           ...confirmModalData,
                           selection: {
                             ...confirmModalData.selection,
-                            endTime: e.target.value,
+                            endTime: val,
                           },
                         })
                       }
@@ -801,15 +800,14 @@ export function AdminSchedulingCenter({ user }: { user: Account }) {
                     <label className="block text-[11px] font-semibold text-[#8fa99b] mb-1">
                       Jam Berangkat / Mulai <span className="text-[#a3e635]">*</span>
                     </label>
-                    <input
-                      type="time"
+                    <TimeInput24h
                       value={directBookingData.selection.startTime}
-                      onChange={(e) =>
+                      onChange={(val) =>
                         setDirectBookingData({
                           ...directBookingData,
                           selection: {
                             ...directBookingData.selection,
-                            startTime: e.target.value,
+                            startTime: val,
                           },
                         })
                       }
@@ -821,15 +819,14 @@ export function AdminSchedulingCenter({ user }: { user: Account }) {
                     <label className="block text-[11px] font-semibold text-[#8fa99b] mb-1">
                       Jam Kembali / Selesai <span className="text-[#a3e635]">*</span>
                     </label>
-                    <input
-                      type="time"
+                    <TimeInput24h
                       value={directBookingData.selection.endTime}
-                      onChange={(e) =>
+                      onChange={(val) =>
                         setDirectBookingData({
                           ...directBookingData,
                           selection: {
                             ...directBookingData.selection,
-                            endTime: e.target.value,
+                            endTime: val,
                           },
                         })
                       }

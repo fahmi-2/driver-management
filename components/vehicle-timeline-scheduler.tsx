@@ -28,6 +28,7 @@ import { useStore, ymd, fmtDate, fmtTime, STATUS_LABEL } from '@/lib/store'
 import type { Account } from '@/lib/accounts'
 import { Pill, btnPrimary, btnGhost, inputCls, useToast } from './ui-bits'
 import { ModalPortal } from './modal-portal'
+import { TimeInput24h } from './time-input-24h'
 
 export type TimelineViewMode = 'daily' | 'weekly' | 'monthly'
 
@@ -1240,9 +1241,9 @@ export function VehicleTimelineScheduler({
             setIsCanceling(false)
           }}
         >
-          <div className="relative w-full max-w-lg rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden max-h-[88vh] flex flex-col animate-in zoom-in-95 duration-150">
+          <div className="light-modal-scope relative w-full max-w-lg rounded-2xl bg-white shadow-2xl border border-slate-300 overflow-hidden max-h-[88vh] flex flex-col animate-in zoom-in-95 duration-150 text-slate-800">
             {/* Header */}
-            <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50 px-6 py-4">
+            <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-6 py-4 shrink-0">
               <div className="flex items-center gap-3">
                 <div className="flex size-10 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-sm">
                   <CalendarDays size={20} />
@@ -1261,7 +1262,7 @@ export function VehicleTimelineScheduler({
                     </span>
                   </div>
                   <p className="text-xs text-slate-500">
-                    Status: <strong className="text-slate-700">{STATUS_LABEL[inspectingTrip.status] || inspectingTrip.status}</strong>
+                    Status: <strong className="text-slate-800">{STATUS_LABEL[inspectingTrip.status] || inspectingTrip.status}</strong>
                   </p>
                 </div>
               </div>
@@ -1279,12 +1280,12 @@ export function VehicleTimelineScheduler({
             </div>
 
             {/* Content Body */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-4 min-h-0">
+            <div className="flex-1 overflow-y-auto p-6 space-y-4 min-h-0 bg-white">
               {/* VIEW MODE: DETAIL INFO */}
               {!isRescheduling && !isCanceling && (
                 <>
                   {/* Status Banner */}
-                  <div className={`rounded-xl p-3 border text-xs flex items-start gap-2.5 ${
+                  <div className={`rounded-xl p-3.5 border text-xs flex items-start gap-2.5 ${
                     inspectingTrip.status === 'WAITING_POOL_SPV'
                       ? 'bg-amber-50 border-amber-200 text-amber-900'
                       : inspectingTrip.status === 'READY'
@@ -1293,11 +1294,11 @@ export function VehicleTimelineScheduler({
                       ? 'bg-blue-50 border-blue-200 text-blue-900'
                       : 'bg-slate-50 border-slate-200 text-slate-800'
                   }`}>
-                    <Info size={16} className="shrink-0 mt-0.5" />
+                    <Info size={16} className="shrink-0 mt-0.5 text-amber-600" />
                     <div className="space-y-0.5 leading-relaxed">
                       <p className="font-bold">
                         {inspectingTrip.status === 'WAITING_POOL_SPV'
-                          ? 'Menunggu Persetujuan Tahap 2 (SPV Kendaraan - Pak Hayu)'
+                          ? 'Menunggu Persetujuan Tahap 2 (SPV Kendaraan – Pak Hayu)'
                           : inspectingTrip.status === 'READY'
                           ? 'Telah Disetujui Tahap 2 (Siap Berangkat)'
                           : inspectingTrip.status === 'ON_TRIP'
@@ -1306,7 +1307,7 @@ export function VehicleTimelineScheduler({
                           ? 'Perjalanan Telah Selesai'
                           : `Status: ${STATUS_LABEL[inspectingTrip.status] || inspectingTrip.status}`}
                       </p>
-                      <p className="text-[11px] opacity-80">
+                      <p className="text-[11px] text-amber-800/90 font-medium">
                         {isAdmin
                           ? 'Sebagai Admin, Anda dapat melakukan Reschedule atau Membatalkan (Hapus) penjadwalan ini.'
                           : 'Informasi detail jadwal armada dan supir.'}
@@ -1316,8 +1317,8 @@ export function VehicleTimelineScheduler({
 
                   {/* Trip Details Grid */}
                   <div className="grid grid-cols-2 gap-3 text-xs">
-                    <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3.5 shadow-2xs">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
                         Kendaraan &amp; Plat
                       </span>
                       <p className="font-mono font-bold text-slate-900 text-sm">
@@ -1330,8 +1331,8 @@ export function VehicleTimelineScheduler({
                       )}
                     </div>
 
-                    <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3.5 shadow-2xs">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
                         Driver Ditugaskan
                       </span>
                       <p className="font-bold text-slate-900 text-sm">
@@ -1339,8 +1340,8 @@ export function VehicleTimelineScheduler({
                       </p>
                     </div>
 
-                    <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3.5 shadow-2xs">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
                         Tanggal &amp; Waktu Rencana
                       </span>
                       <p className="font-semibold text-slate-900">
@@ -1351,44 +1352,44 @@ export function VehicleTimelineScheduler({
                       </p>
                     </div>
 
-                    <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3.5 shadow-2xs">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
                         Pemohon &amp; Dept
                       </span>
                       <p className="font-bold text-slate-900">{inspectingTrip.requesterName}</p>
-                      <p className="text-slate-500 text-[11px]">{inspectingTrip.dept || '—'}</p>
+                      <p className="text-slate-600 text-[11px] font-medium">{inspectingTrip.dept || '—'}</p>
                     </div>
                   </div>
 
                   {/* Route & Purpose */}
-                  <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3.5 space-y-2 text-xs">
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-2.5 text-xs shadow-2xs">
                     <div>
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
                         Rute Perjalanan
                       </span>
                       <div className="flex items-center gap-2 font-medium text-slate-800">
                         <MapPin size={14} className="text-emerald-600 shrink-0" />
-                        <span>{inspectingTrip.origin || 'PT. JAI'}</span>
+                        <span className="text-slate-700">{inspectingTrip.origin || 'PT. JAI'}</span>
                         <span className="text-slate-400">➔</span>
                         <strong className="text-slate-900">{inspectingTrip.destination}</strong>
                       </div>
                     </div>
 
                     <div>
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
                         Keperluan / Tujuan
                       </span>
-                      <p className="text-slate-800 font-medium">
+                      <p className="text-slate-900 font-semibold">
                         {inspectingTrip.purpose || '—'}
                       </p>
                     </div>
 
                     {inspectingTrip.adminNote && (
                       <div className="pt-2 border-t border-slate-200">
-                        <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider block mb-0.5">
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
                           Catatan Admin
                         </span>
-                        <p className="text-emerald-950 bg-emerald-50 p-2 rounded-lg text-[11px]">
+                        <p className="text-slate-800 bg-white border border-slate-200 p-2.5 rounded-lg text-xs leading-relaxed font-medium">
                           {inspectingTrip.adminNote}
                         </p>
                       </div>
@@ -1473,11 +1474,10 @@ export function VehicleTimelineScheduler({
                       <label className="text-xs font-bold text-slate-700 block mb-1">
                         Jam Berangkat (Start) <span className="text-red-500">*</span>
                       </label>
-                      <input
-                        type="time"
+                      <TimeInput24h
                         required
                         value={rescheduleData.estDeparture}
-                        onChange={(e) => setRescheduleData({ ...rescheduleData, estDeparture: e.target.value })}
+                        onChange={(val) => setRescheduleData({ ...rescheduleData, estDeparture: val })}
                         className="w-full h-9 rounded-lg border border-slate-300 bg-white px-3 text-xs font-mono font-bold text-slate-800 outline-none focus:border-emerald-600"
                       />
                     </div>
@@ -1486,10 +1486,9 @@ export function VehicleTimelineScheduler({
                       <label className="text-xs font-bold text-slate-700 block mb-1">
                         Jam Selesai (Return)
                       </label>
-                      <input
-                        type="time"
+                      <TimeInput24h
                         value={rescheduleData.estReturn}
-                        onChange={(e) => setRescheduleData({ ...rescheduleData, estReturn: e.target.value })}
+                        onChange={(val) => setRescheduleData({ ...rescheduleData, estReturn: val })}
                         className="w-full h-9 rounded-lg border border-slate-300 bg-white px-3 text-xs font-mono font-bold text-slate-800 outline-none focus:border-emerald-600"
                       />
                     </div>
@@ -1562,7 +1561,7 @@ export function VehicleTimelineScheduler({
             </div>
 
             {/* Footer Buttons */}
-            <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50 px-6 py-3.5 shrink-0">
+            <div className="flex items-center justify-between border-t border-slate-200 bg-slate-50 px-6 py-3.5 shrink-0">
               {!isRescheduling && !isCanceling ? (
                 <>
                   <div className="flex items-center gap-2">
@@ -1590,7 +1589,7 @@ export function VehicleTimelineScheduler({
                   <button
                     type="button"
                     onClick={() => setInspectingTrip(null)}
-                    className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 transition"
+                    className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition"
                   >
                     Tutup
                   </button>

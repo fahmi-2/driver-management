@@ -27,6 +27,7 @@ import { useStore, type Trip, type Passenger, type Category, ymd } from '@/lib/s
 import { btnGhost, btnPrimary, inputCls, useToast } from './ui-bits'
 import { DestinationAutocomplete } from './destination-autocomplete'
 import { ModalPortal } from './modal-portal'
+import { TimeInput24h } from './time-input-24h'
 
 interface TripEditModalProps {
   trip: Trip | null
@@ -537,11 +538,10 @@ export function TripEditModal({ trip, isOpen, onClose, onSuccess }: TripEditModa
               <label className="text-[11px] font-semibold text-[#8fa99b] block mb-1">
                 Estimasi Jam Berangkat <span className="text-[#a3e635]">*</span>
               </label>
-              <input
-                type="time"
+              <TimeInput24h
                 required
                 value={estDeparture}
-                onChange={(e) => setEstDeparture(e.target.value)}
+                onChange={(val) => setEstDeparture(val)}
                 className={inputCls}
               />
             </div>
@@ -549,11 +549,10 @@ export function TripEditModal({ trip, isOpen, onClose, onSuccess }: TripEditModa
               <label className="text-[11px] font-semibold text-[#8fa99b] block mb-1">
                 Estimasi Jam Kembali <span className="text-[#a3e635]">*</span>
               </label>
-              <input
-                type="time"
+              <TimeInput24h
                 required
                 value={estReturn}
-                onChange={(e) => setEstReturn(e.target.value)}
+                onChange={(val) => setEstReturn(val)}
                 className={inputCls}
               />
             </div>
