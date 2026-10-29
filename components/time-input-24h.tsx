@@ -97,15 +97,26 @@ export function TimeInput24h({
     onChange(formatted)
   }
 
-  const handleSelectTime = (h: number, m: number) => {
+  const handleSelectHour = (h: number) => {
+    const formatted = `${String(h).padStart(2, '0')}:${curM}`
+    onChange(formatted)
+  }
+
+  const handleSelectMinute = (m: number) => {
+    const formatted = `${curH}:${String(m).padStart(2, '0')}`
+    onChange(formatted)
+    setIsOpen(false)
+  }
+
+  const handleSelectPreset = (h: number, m: number) => {
     const formatted = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
     onChange(formatted)
     setIsOpen(false)
   }
 
-  // Quick preset hours (05:00 - 23:00)
+  // Hours (00 - 23) and Minutes (00 - 59)
   const hours = Array.from({ length: 24 }, (_, i) => i)
-  const minutes = [0, 15, 30, 45]
+  const minutes = Array.from({ length: 60 }, (_, i) => i)
 
   return (
     <div ref={containerRef} className="relative inline-block w-full">
@@ -159,7 +170,7 @@ export function TimeInput24h({
             {/* Hour column */}
             <div>
               <span className="text-[10px] font-bold text-white/50 uppercase block mb-1">Jam (00-23)</span>
-              <div className="h-40 overflow-y-auto space-y-1 pr-1 custom-scroll">
+              <div className="h-44 overflow-y-auto space-y-0.5 pr-1 custom-scroll">
                 {hours.map((h) => {
                   const strH = String(h).padStart(2, '0')
                   const isSel = strH === curH
@@ -167,14 +178,14 @@ export function TimeInput24h({
                     <button
                       key={h}
                       type="button"
-                      onClick={() => handleSelectTime(h, parseInt(curM, 10))}
+                      onClick={() => handleSelectHour(h)}
                       className={`w-full text-left px-2 py-1 rounded text-xs font-mono font-bold transition flex items-center justify-between ${
                         isSel
                           ? 'bg-[#a3e635] text-[#052e16]'
                           : 'text-white/80 hover:bg-white/10 hover:text-white'
                       }`}
                     >
-                      <span>{strH}:00</span>
+                      <span>{strH}</span>
                       {isSel && <span className="text-[9px]">●</span>}
                     </button>
                   )
@@ -184,8 +195,8 @@ export function TimeInput24h({
 
             {/* Minute column */}
             <div>
-              <span className="text-[10px] font-bold text-white/50 uppercase block mb-1">Menit</span>
-              <div className="h-40 overflow-y-auto space-y-1 pr-1 custom-scroll">
+              <span className="text-[10px] font-bold text-white/50 uppercase block mb-1">Menit (00-59)</span>
+              <div className="h-44 overflow-y-auto space-y-0.5 pr-1 custom-scroll">
                 {minutes.map((m) => {
                   const strM = String(m).padStart(2, '0')
                   const isSel = strM === curM
@@ -193,7 +204,7 @@ export function TimeInput24h({
                     <button
                       key={m}
                       type="button"
-                      onClick={() => handleSelectTime(parseInt(curH, 10), m)}
+                      onClick={() => handleSelectMinute(m)}
                       className={`w-full text-left px-2 py-1 rounded text-xs font-mono font-bold transition flex items-center justify-between ${
                         isSel
                           ? 'bg-[#a3e635] text-[#052e16]'
@@ -213,28 +224,28 @@ export function TimeInput24h({
           <div className="mt-2.5 pt-2 border-t border-white/10 flex items-center justify-between gap-1">
             <button
               type="button"
-              onClick={() => handleSelectTime(8, 0)}
+              onClick={() => handleSelectPreset(8, 0)}
               className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-white/10 hover:bg-white/20 text-white/90"
             >
               08:00
             </button>
             <button
               type="button"
-              onClick={() => handleSelectTime(12, 0)}
+              onClick={() => handleSelectPreset(12, 0)}
               className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-white/10 hover:bg-white/20 text-white/90"
             >
               12:00
             </button>
             <button
               type="button"
-              onClick={() => handleSelectTime(13, 0)}
+              onClick={() => handleSelectPreset(13, 0)}
               className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-white/10 hover:bg-white/20 text-white/90"
             >
               13:00
             </button>
             <button
               type="button"
-              onClick={() => handleSelectTime(17, 0)}
+              onClick={() => handleSelectPreset(17, 0)}
               className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-white/10 hover:bg-white/20 text-white/90"
             >
               17:00
