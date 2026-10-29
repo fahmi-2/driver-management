@@ -210,7 +210,24 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
     const currentDepts = dynamicDepts.length > 0 ? dynamicDepts.map((d) => d.name) : DEPARTMENTS
     const curDept = acc.dept || currentDepts[0] || 'PGA'
     const secList = getSectionsByDept(curDept)
-    const curSection = acc.section && secList.includes(acc.section) ? acc.section : secList[0] || ''
+
+    // Pertahankan section yang sudah ada pada akun:
+    // Jika acc.section sudah ada, rapikan dengan pemisah ' / ', tanpa di-reset paksa ke secList[0]
+    let initialSection = acc.section || ''
+    if (initialSection) {
+      const parsed = parseSections(initialSection)
+      // Cocokkan kembali dengan casing asli dari secList jika ada yang cocok
+      const matchedList = parsed.map((p) => {
+        const found = secList.find((s) => s.toUpperCase() === p)
+        return found || p
+      })
+      if (matchedList.length > 0) {
+        initialSection = matchedList.join(' / ')
+      }
+    } else if (secList.length > 0) {
+      initialSection = secList[0]
+    }
+
     setFormData({
       username: acc.username,
       password: acc.password,
@@ -218,7 +235,7 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
       email: acc.email || '',
       role: acc.role,
       dept: curDept,
-      section: curSection,
+      section: initialSection,
       nik: acc.nik || '',
       title: acc.title || '',
       driverId: acc.driverId || '',
@@ -943,12 +960,23 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
                         Section Utama
                       </label>
                       <select
-                        value={parseSections(formData.section)[0] || formData.section || ''}
+                        value={(() => {
+                          const first = parseSections(formData.section)[0] || ''
+                          if (!first) return ''
+                          const secList = getSectionsByDept(formData.dept)
+                          const matched = secList.find((s) => s.toUpperCase() === first.toUpperCase())
+                          return matched || first
+                        })()}
                         onChange={(e) => {
                           const picked = e.target.value
                           const currentArr = parseSections(formData.section)
-                          const others = currentArr.filter((s, idx) => idx > 0 && s !== picked)
-                          const merged = [picked, ...others].filter(Boolean).join(' / ')
+                          const secList = getSectionsByDept(formData.dept)
+                          // Replace the first element or add it
+                          const targetUpper = picked.toUpperCase()
+                          const others = currentArr
+                            .filter((s) => s !== targetUpper)
+                            .map((s) => secList.find((x) => x.toUpperCase() === s) || s)
+                          const merged = picked ? [picked, ...others].join(' / ') : others.join(' / ')
                           setFormData({ ...formData, section: merged })
                         }}
                         className="h-10 w-full rounded-xl border border-[#dce7df] bg-[#fafcfb] px-3 text-xs font-semibold text-[#10251c] focus:border-[#075b3d] focus:outline-none"
