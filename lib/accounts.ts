@@ -305,17 +305,16 @@ export const DEPARTMENTS = Array.from(new Set(ORG_MATRIX.map((m) => m.dept)))
 
 // Fungsi bantu mendapatkan daftar departemen dinamis (menggabungkan master data aktif)
 export function getDynamicDepartments(): { id: string; name: string }[] {
-  if (typeof window === 'undefined') {
-    return DEPARTMENTS.map((d) => ({ id: d, name: d }))
+  if (typeof window !== 'undefined') {
+    try {
+      const raw = window.localStorage.getItem('ff_master_depts_v1')
+      if (raw) {
+        const parsed: any[] = JSON.parse(raw)
+        const active = parsed.filter((d) => !d.is_deleted)
+        if (active.length > 0) return active.map((d) => ({ id: d.id, name: d.name }))
+      }
+    } catch {}
   }
-  try {
-    const raw = window.localStorage.getItem('ff_master_depts_v1')
-    if (raw) {
-      const parsed: any[] = JSON.parse(raw)
-      const active = parsed.filter((d) => !d.is_deleted)
-      if (active.length > 0) return active.map((d) => ({ id: d.id, name: d.name }))
-    }
-  } catch {}
   return DEPARTMENTS.map((d) => ({ id: `dept_${d.toLowerCase().replace(/[^a-z0-9]/g, '_')}`, name: d }))
 }
 
@@ -339,7 +338,7 @@ export function matchesSection(accSection?: string, targetSection?: string): boo
   )
 }
 
-// Fungsi bantu mendapatkan daftar section per departemen (dinamis, dipisah 1 per 1)
+// Fungsi bantu mendapatkan daftar section per departemen (dinamis 1 per 1 dari master data / localStorage, fallback ke ORG_MATRIX)
 export function getSectionsByDept(dept: string): string[] {
   if (typeof window !== 'undefined') {
     try {
@@ -349,12 +348,13 @@ export function getSectionsByDept(dept: string): string[] {
         const depts: any[] = JSON.parse(rawDepts)
         const secs: any[] = JSON.parse(rawSecs)
         const targetDept = depts.find(
-          (d) => d.id === dept || d.name.toUpperCase() === dept.toUpperCase()
+          (d) => d.id === dept || d.name?.toUpperCase() === dept?.toUpperCase()
         )
         if (targetDept) {
           const matched = secs
             .filter((s) => s.department_id === targetDept.id && !s.is_deleted)
-            .map((s) => s.name)
+            .map((s) => s.name?.trim())
+            .filter(Boolean)
           if (matched.length > 0) return Array.from(new Set(matched))
         }
       }
@@ -372,11 +372,25 @@ export function getSectionsByDept(dept: string): string[] {
 export function getManagerBySection(dept: string, section?: string): { name: string; email: string } {
   const allAcc = getAllAccounts()
   const matchedMatrix = ORG_MATRIX.find(
-    (m) => m.dept === dept && (!section || matchesSection(m.section, section))
+    (m) => m.dept.toUpperCase() === dept.toUpperCase() && (!section || matchesSection(m.section, section))
   )
   const expectedManagerName = matchedMatrix?.managerName?.toUpperCase()
 
-  // Prioritas 1: Cari akun terdaftar yang namanya cocok dengan manajer matriks (misal CAHYO ADI NUGROHO)
+  // Prioritas 1: Cari akun terdaftar di database yang punya title/role Manager & section cocok
+  const liveMgrBySection = allAcc.find(
+    (a) =>
+      a.dept?.toUpperCase() === dept.toUpperCase() &&
+      (a.role === 'approver_manager' || (a.role === 'approver' && a.title && a.title.toLowerCase().includes('manager'))) &&
+      (!section || matchesSection(a.section, section))
+  )
+  if (liveMgrBySection) {
+    return {
+      name: `${liveMgrBySection.name} (Manager)`,
+      email: liveMgrBySection.email || '',
+    }
+  }
+
+  // Prioritas 2: Cari akun terdaftar yang namanya cocok dengan manajer matriks (misal CAHYO ADI NUGROHO)
   if (expectedManagerName) {
     const accByName = allAcc.find(
       (a) =>
@@ -391,24 +405,10 @@ export function getManagerBySection(dept: string, section?: string): { name: str
     }
   }
 
-  // Prioritas 2: Cari akun approver yang bertugas di departemen ini (role approver_manager atau title Manager) & cocok sectionnya
-  const accByDeptManager = allAcc.find(
-    (a) =>
-      a.dept === dept &&
-      (a.role === 'approver_manager' || (a.role === 'approver' && a.title && a.title.toLowerCase().includes('manager'))) &&
-      (!section || matchesSection(a.section, section))
-  )
-  if (accByDeptManager) {
-    return {
-      name: `${accByDeptManager.name} (Manager)`,
-      email: accByDeptManager.email || '',
-    }
-  }
-
-  // Prioritas 3: Cari akun approver manapun di departemen ini yang role approver_manager atau memiliki title Manager
+  // Prioritas 3: Cari akun approver manapun di departemen ini yang role approver_manager atau title Manager
   const anyDeptManager = allAcc.find(
     (a) =>
-      a.dept === dept &&
+      a.dept?.toUpperCase() === dept.toUpperCase() &&
       (a.role === 'approver_manager' || (a.role === 'approver' && a.title && a.title.toLowerCase().includes('manager')))
   )
   if (anyDeptManager) {
@@ -418,7 +418,7 @@ export function getManagerBySection(dept: string, section?: string): { name: str
     }
   }
 
-  // Fallback terakhir: jika belum ada akun yang dibuat/disimpan sama sekali, gunakan data default ORG_MATRIX
+  // Fallback terakhir: jika belum ada akun di database, gunakan data default ORG_MATRIX
   if (matchedMatrix && matchedMatrix.managerName) {
     return {
       name: `${matchedMatrix.managerName} (Manager)`,
@@ -435,13 +435,10 @@ export function getManagerBySection(dept: string, section?: string): { name: str
 // Fungsi bantu mendapatkan approver (Utama: Manajer, Opsi: SSPV) berdasarkan Section & Dept
 export function getApproversBySection(dept: string, section?: string): { name: string; email: string; role: string }[] {
   const allAcc = getAllAccounts()
-  const matching = ORG_MATRIX.filter(
-    (m) => m.dept === dept && (!section || matchesSection(m.section, section))
-  )
   const approvers: { name: string; email: string; role: string }[] = []
   const seen = new Set<string>()
 
-  // 1. Manager: Ambil dari getManagerBySection (mengikuti email database terupdate)
+  // 1. Manager: Ambil dari getManagerBySection (mengikuti akun database terupdate)
   const dynamicMgr = getManagerBySection(dept, section)
   if (dynamicMgr.name && !seen.has(dynamicMgr.name)) {
     seen.add(dynamicMgr.name)
@@ -452,27 +449,53 @@ export function getApproversBySection(dept: string, section?: string): { name: s
     })
   }
 
-  // 2. SSPV: Cek akun database dulu, lalu fallback matriks
-  matching.forEach((m) => {
-    if (m.sspvName) {
-      const sspvUpper = m.sspvName.toUpperCase()
-      const liveSspvAcc = allAcc.find(
-        (a) =>
-          (a.role === 'approver' || a.role === 'approver_pool') &&
-          (a.name.toUpperCase().includes(sspvUpper) || sspvUpper.includes(a.name.toUpperCase()))
-      )
-      const sspvEmail = liveSspvAcc?.email || m.sspvEmail
-      const sspvNameLabel = `${m.sspvName} (SSPV)`
-      if (!seen.has(sspvNameLabel)) {
-        seen.add(sspvNameLabel)
-        approvers.push({
-          name: sspvNameLabel,
-          email: sspvEmail,
-          role: 'SSPV',
-        })
-      }
+  // 2. SSPV: Cek akun database langsung (role approver & title SSPV & section cocok)
+  const liveSspvs = allAcc.filter(
+    (a) =>
+      a.dept?.toUpperCase() === dept.toUpperCase() &&
+      (a.role === 'approver' || a.role === 'approver_pool') &&
+      (!a.title || !a.title.toLowerCase().includes('manager')) &&
+      (!section || matchesSection(a.section, section))
+  )
+
+  liveSspvs.forEach((a) => {
+    const sspvNameLabel = `${a.name} (SSPV)`
+    if (!seen.has(sspvNameLabel)) {
+      seen.add(sspvNameLabel)
+      approvers.push({
+        name: sspvNameLabel,
+        email: a.email || '',
+        role: 'SSPV',
+      })
     }
   })
+
+  // 3. Fallback matriks organisasi jika belum ada akun database SSPV
+  if (approvers.length <= 1) {
+    const matching = ORG_MATRIX.filter(
+      (m) => m.dept.toUpperCase() === dept.toUpperCase() && (!section || matchesSection(m.section, section))
+    )
+    matching.forEach((m) => {
+      if (m.sspvName) {
+        const sspvUpper = m.sspvName.toUpperCase()
+        const liveSspvAcc = allAcc.find(
+          (a) =>
+            (a.role === 'approver' || a.role === 'approver_pool') &&
+            (a.name.toUpperCase().includes(sspvUpper) || sspvUpper.includes(a.name.toUpperCase()))
+        )
+        const sspvEmail = liveSspvAcc?.email || m.sspvEmail
+        const sspvNameLabel = `${m.sspvName} (SSPV)`
+        if (!seen.has(sspvNameLabel)) {
+          seen.add(sspvNameLabel)
+          approvers.push({
+            name: sspvNameLabel,
+            email: sspvEmail,
+            role: 'SSPV',
+          })
+        }
+      }
+    })
+  }
 
   return approvers
 }
@@ -484,7 +507,7 @@ export function getSspvBySection(dept: string, section?: string): { name: string
   // Prioritas 1: Cari akun terdaftar di database yang punya title SSPV dan section cocok
   const liveSspvBySection = allAcc.find(
     (a) =>
-      a.dept === dept &&
+      a.dept?.toUpperCase() === dept.toUpperCase() &&
       (a.role === 'approver' || a.role === 'approver_pool') &&
       a.title &&
       a.title.toLowerCase().includes('sspv') &&
@@ -497,9 +520,24 @@ export function getSspvBySection(dept: string, section?: string): { name: string
     }
   }
 
-  // Prioritas 2: Cari dari matriks organisasi resmi
+  // Prioritas 2: Cari akun approver non-manager apapun di departemen ini yang cocok sectionnya
+  const liveSspvMatchSec = allAcc.find(
+    (a) =>
+      a.dept?.toUpperCase() === dept.toUpperCase() &&
+      (a.role === 'approver' || a.role === 'approver_pool') &&
+      (!a.title || !a.title.toLowerCase().includes('manager')) &&
+      (!section || matchesSection(a.section, section))
+  )
+  if (liveSspvMatchSec) {
+    return {
+      name: `${liveSspvMatchSec.name} (SSPV)`,
+      email: liveSspvMatchSec.email || '',
+    }
+  }
+
+  // Prioritas 3: Cari dari matriks organisasi resmi
   const matching = ORG_MATRIX.filter(
-    (m) => m.dept === dept && (!section || matchesSection(m.section, section))
+    (m) => m.dept.toUpperCase() === dept.toUpperCase() && (!section || matchesSection(m.section, section))
   )
 
   for (const m of matching) {
@@ -517,10 +555,10 @@ export function getSspvBySection(dept: string, section?: string): { name: string
     }
   }
 
-  // Fallback: cari akun approver dengan title SSPV di departemen ini
+  // Fallback 4: cari akun approver dengan title SSPV di departemen ini
   const fallbackSspv = allAcc.find(
     (a) =>
-      a.dept === dept &&
+      a.dept?.toUpperCase() === dept.toUpperCase() &&
       (a.role === 'approver' || a.role === 'approver_pool') &&
       (!a.title || !a.title.toLowerCase().includes('manager'))
   )

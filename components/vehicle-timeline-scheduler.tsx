@@ -239,16 +239,18 @@ export function VehicleTimelineScheduler({
   }, [vehicles, searchFilter, statusFilter])
 
   // --- TIME COLUMNS CONFIGURATION ---
-  // Daily: 24 Hours (00:00 to 24:00, 24 1-hour columns or 48 30-min columns)
-  // We use 24 hours with 1-hour primary segments (24 cols)
+  // Daily: 48 kolom per 30 menit (00:00 s/d 23:30) agar slot lebih longgar dan teks blok terbaca jelas
   const dailyColumns = useMemo(() => {
     const cols = []
-    for (let h = 0; h < 24; h++) {
+    for (let slot = 0; slot < 48; slot++) {
+      const h = Math.floor(slot / 2)
+      const m = (slot % 2) * 30
       cols.push({
-        index: h,
-        label: `${String(h).padStart(2, '0')}:00`,
-        startMin: h * 60,
-        endMin: (h + 1) * 60,
+        index: slot,
+        label: `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`,
+        startMin: slot * 30,
+        endMin: (slot + 1) * 30,
+        isHourStart: m === 0,
       })
     }
     return cols
@@ -544,12 +546,20 @@ export function VehicleTimelineScheduler({
     let targetDate = currentDate
 
     if (viewMode === 'daily') {
-      startTime = `${String(minUnit).padStart(2, '0')}:00`
-      // Setiap kolom berlabel "HH:00" adalah rentang 1 jam penuh dari HH:00 hingga (HH+1):00.
-      // - Klik 1 kolom (misal kolom 01:00) => durasi 1 jam: 01:00 s/d 02:00.
-      // - Drag dari kolom 01:00 s/d kolom 02:00 => mencakup jam 01:00 s/d 03:00 (seluruh slot jam 02 dilewati).
-      const endHour = Math.min(24, maxUnit + 1)
-      endTime = endHour >= 24 ? '23:59' : `${String(endHour).padStart(2, '0')}:00`
+      // Setiap unit adalah 30 menit
+      const startTotalMins = minUnit * 30
+      const endTotalMins = (maxUnit + 1) * 30
+      const sH = Math.floor(startTotalMins / 60)
+      const sM = startTotalMins % 60
+      startTime = `${String(sH).padStart(2, '0')}:${String(sM).padStart(2, '0')}`
+
+      if (endTotalMins >= 1440) {
+        endTime = '23:59'
+      } else {
+        const eH = Math.floor(endTotalMins / 60)
+        const eM = endTotalMins % 60
+        endTime = `${String(eH).padStart(2, '0')}:${String(eM).padStart(2, '0')}`
+      }
     } else if (viewMode === 'weekly') {
       targetDate = weeklyColumns[minUnit]?.date || currentDate
       startTime = selectedPendingTrip?.estDeparture || '08:00'
@@ -685,6 +695,16 @@ export function VehicleTimelineScheduler({
     }
   }, [currentDate, viewMode, weeklyColumns])
 
+  // Horizontal scroll handler untuk navigasi grid waktu (tersedia di bagian atas dan bawah)
+  const handleScrollGrid = (direction: 'left' | 'right') => {
+    if (!scrollContainerRef.current) return
+    const scrollAmount = 350
+    scrollContainerRef.current.scrollBy({
+      left: direction === 'left' ? -scrollAmount : scrollAmount,
+      behavior: 'smooth',
+    })
+  }
+
   return (
     <div className="timeline-calendar-wrapper relative select-none rounded-2xl border border-slate-300 bg-white p-5 shadow-xl text-slate-800">
       {/* Top Bar: Title, Mode Indicator, View Mode Switcher, Date Nav */}
@@ -788,30 +808,55 @@ export function VehicleTimelineScheduler({
           </select>
         </div>
 
-        {/* Legend */}
-        <div className="flex flex-wrap items-center gap-3 text-[11px] font-semibold text-slate-700">
-          <span className="flex items-center gap-1.5">
-            <span className="size-3 rounded bg-[#2563eb] border border-blue-700 shadow-xs" />
-            <span>Rencana (Solid Plan)</span>
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="size-3 rounded bg-emerald-500/50 border-2 border-emerald-500 backdrop-blur-xs" />
-            <span>Realisasi (Actual Transparan)</span>
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="size-3 rounded bg-amber-500/40 border-2 border-dashed border-amber-500" />
-            <span>Actual Terlambat</span>
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="size-3 rounded bg-slate-800 border-2 border-dashed border-red-500" />
-            <span>Mobil Default Terblokir (Mobil Lain)</span>
-          </span>
-          {isInteractive && (
+        {/* Legend & Top Scroll Buttons */}
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3 text-[11px] font-semibold text-slate-700">
             <span className="flex items-center gap-1.5">
-              <span className="size-3 rounded border border-blue-500 bg-blue-100" />
-              <span>Drag Seleksi</span>
+              <span className="size-3 rounded bg-[#2563eb] border border-blue-700 shadow-xs" />
+              <span>Rencana (Solid Plan)</span>
             </span>
-          )}
+            <span className="flex items-center gap-1.5">
+              <span className="size-3 rounded bg-emerald-500/50 border-2 border-emerald-500 backdrop-blur-xs" />
+              <span>Realisasi (Actual Transparan)</span>
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="size-3 rounded bg-amber-500/40 border-2 border-dashed border-amber-500" />
+              <span>Actual Terlambat</span>
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="size-3 rounded bg-slate-800 border-2 border-dashed border-red-500" />
+              <span>Mobil Default Terblokir (Mobil Lain)</span>
+            </span>
+            {isInteractive && (
+              <span className="flex items-center gap-1.5">
+                <span className="size-3 rounded border border-blue-500 bg-blue-100" />
+                <span>Drag Seleksi</span>
+              </span>
+            )}
+          </div>
+
+          {/* Tombol Scroll Waktu BAGIAN ATAS */}
+          <div className="flex items-center gap-1.5 rounded-xl border border-slate-300 bg-slate-100 p-1 shadow-inner">
+            <button
+              type="button"
+              onClick={() => handleScrollGrid('left')}
+              className="flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-[11px] font-bold text-slate-700 hover:bg-slate-50 hover:text-slate-900 shadow-xs transition"
+              title="Geser waktu ke kiri"
+            >
+              <ChevronLeft size={13} />
+              <span>Kiri</span>
+            </button>
+            <span className="text-[10px] text-slate-500 font-semibold px-1">Geser Jam</span>
+            <button
+              type="button"
+              onClick={() => handleScrollGrid('right')}
+              className="flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-[11px] font-bold text-slate-700 hover:bg-slate-50 hover:text-slate-900 shadow-xs transition"
+              title="Geser waktu ke kanan"
+            >
+              <span>Kanan</span>
+              <ChevronRight size={13} />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -833,11 +878,13 @@ export function VehicleTimelineScheduler({
                   dailyColumns.map((col) => (
                     <div
                       key={col.index}
-                      className={`w-16 shrink-0 text-center font-mono text-[11px] border-l border-slate-300 py-3 first:border-l-0 ${
-                        col.index % 2 === 0 ? 'bg-slate-100/90 text-slate-900 font-extrabold' : 'bg-slate-50 text-slate-700 font-bold'
+                      className={`w-[76px] shrink-0 text-center font-mono text-[11px] border-l border-slate-300 py-2.5 first:border-l-0 ${
+                        col.isHourStart
+                          ? 'bg-slate-100 text-slate-900 font-extrabold'
+                          : 'bg-slate-50/80 text-slate-600 font-medium'
                       }`}
                     >
-                      <span>
+                      <span className={col.isHourStart ? 'text-slate-900' : 'text-slate-500 text-[10px]'}>
                         {col.label}
                       </span>
                     </div>
@@ -903,7 +950,7 @@ export function VehicleTimelineScheduler({
                       ? weeklyColumns.length
                       : monthlyColumns.length
 
-                  const unitWidthPx = viewMode === 'daily' ? 64 : viewMode === 'weekly' ? 144 : 48
+                  const unitWidthPx = viewMode === 'daily' ? 76 : viewMode === 'weekly' ? 144 : 48
                   const rowGridWidthPx = totalUnits * unitWidthPx
 
                   return (
@@ -1126,7 +1173,15 @@ export function VehicleTimelineScheduler({
                         {/* Drag Selection Overlay Feedback */}
                         {isVehicleDragging && dragMinUnit !== null && dragMaxUnit !== null && (() => {
                           const spanUnits = dragMaxUnit - dragMinUnit + 1
-                          const endUnitDisplay = dragMaxUnit + 1
+
+                          const startTotalMins = dragMinUnit * 30
+                          const endTotalMins = (dragMaxUnit + 1) * 30
+                          const sH = Math.floor(startTotalMins / 60)
+                          const sM = startTotalMins % 60
+                          const eH = Math.min(24, Math.floor(endTotalMins / 60))
+                          const eM = endTotalMins >= 1440 ? 0 : endTotalMins % 60
+
+                          const timeRangeText = `${String(sH).padStart(2, '0')}:${String(sM).padStart(2, '0')} – ${String(eH).padStart(2, '0')}:${String(eM).padStart(2, '0')}`
 
                           return (
                             <div
@@ -1138,7 +1193,7 @@ export function VehicleTimelineScheduler({
                             >
                               <span className="text-[10px] font-bold tracking-tight px-1.5 py-0.5 rounded bg-white/90 shadow-xs whitespace-nowrap">
                                 {viewMode === 'daily'
-                                  ? `${String(dragMinUnit).padStart(2, '0')}:00 – ${String(endUnitDisplay >= 24 ? 24 : endUnitDisplay).padStart(2, '0')}:00`
+                                  ? timeRangeText
                                   : `${spanUnits} Periode Terpilih`}
                               </span>
                             </div>
@@ -1151,6 +1206,34 @@ export function VehicleTimelineScheduler({
               )}
             </div>
           </div>
+        </div>
+
+        {/* Tombol Scroll Waktu BAGIAN BAWAH */}
+        <div className="flex items-center justify-between border-t border-slate-200 bg-slate-50/90 px-4 py-2.5">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => handleScrollGrid('left')}
+              className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 shadow-xs hover:bg-slate-100 hover:text-slate-900 transition active:scale-95"
+            >
+              <ChevronLeft size={14} />
+              <span>Geser Kiri</span>
+            </button>
+            <span className="text-[11px] font-semibold text-slate-500">
+              Navigasi Rentang Waktu (30 Menit)
+            </span>
+            <button
+              type="button"
+              onClick={() => handleScrollGrid('right')}
+              className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 shadow-xs hover:bg-slate-100 hover:text-slate-900 transition active:scale-95"
+            >
+              <span>Geser Kanan</span>
+              <ChevronRight size={14} />
+            </button>
+          </div>
+          <span className="text-[10px] text-slate-400 italic">
+            Tips: Anda juga dapat scroll horizontal langsung menggunakan mouse atau touchpad
+          </span>
         </div>
       </div>
 
