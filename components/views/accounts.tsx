@@ -972,49 +972,57 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
                       </span>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 max-h-40 overflow-y-auto">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 max-h-48 overflow-y-auto">
                       {getSectionsByDept(formData.dept).map((sec) => {
                         const currentArr = parseSections(formData.section)
                         const isChecked = currentArr.includes(sec.toUpperCase())
+                        
+                        const handleToggle = () => {
+                          const target = sec.toUpperCase()
+                          let newArr: string[]
+                          if (isChecked) {
+                            newArr = currentArr.filter((s) => s.toUpperCase() !== target)
+                          } else {
+                            newArr = [...currentArr, sec]
+                          }
+                          setFormData({
+                            ...formData,
+                            section: newArr.join(' / '),
+                          })
+                        }
+
                         return (
-                          <label
+                          <div
                             key={sec}
-                            className={`flex items-center gap-2 rounded-lg border p-2 text-xs font-medium cursor-pointer transition ${
+                            onClick={handleToggle}
+                            className={`flex items-center gap-2.5 rounded-xl border p-2.5 text-xs select-none cursor-pointer transition shadow-2xs ${
                               isChecked
-                                ? 'border-[#075b3d] bg-[#eef8f3] text-[#075b3d] font-bold'
-                                : 'border-[#e2ece5] bg-white text-[#10251c] hover:bg-[#f4f7f5]'
+                                ? 'border-[#a3e635] bg-[#a3e635]/15 text-[#bef264] font-bold ring-1 ring-[#a3e635]/30'
+                                : 'border-white/10 bg-black/20 text-slate-300 hover:border-[#a3e635]/40 hover:bg-white/5'
                             }`}
                           >
-                            <input
-                              type="checkbox"
-                              checked={isChecked}
-                              onChange={(e) => {
-                                let newArr = [...currentArr]
-                                const target = sec.toUpperCase()
-                                if (e.target.checked) {
-                                  if (!newArr.includes(target)) newArr.push(sec)
-                                } else {
-                                  newArr = newArr.filter((s) => s.toUpperCase() !== target)
-                                }
-                                setFormData({
-                                  ...formData,
-                                  section: newArr.join(' / '),
-                                })
-                              }}
-                              className="size-4 rounded border-[#dce7df] text-[#075b3d] focus:ring-[#075b3d]"
-                            />
-                            <span className="truncate" title={sec}>{sec}</span>
-                          </label>
+                            <div
+                              className={`flex size-4 shrink-0 items-center justify-center rounded border transition ${
+                                isChecked
+                                  ? 'border-[#a3e635] bg-[#a3e635] text-[#052e16]'
+                                  : 'border-white/30 bg-black/30'
+                              }`}
+                            >
+                              {isChecked && <Check size={12} strokeWidth={3.5} />}
+                            </div>
+                            <span className="truncate flex-1" title={sec}>{sec}</span>
+                          </div>
                         )
                       })}
                     </div>
 
                     {formData.section ? (
-                      <p className="text-[10px] text-[#075b3d] font-semibold pt-1">
-                        Terpilih: <span className="font-mono">{formData.section}</span>
+                      <p className="text-[11px] text-[#bef264] font-bold pt-1.5 flex items-center gap-1.5">
+                        <Check size={13} className="text-[#a3e635] shrink-0" />
+                        Terpilih: <span className="font-mono text-white bg-black/30 px-2 py-0.5 rounded border border-white/10">{formData.section}</span>
                       </p>
                     ) : (
-                      <p className="text-[10px] text-[#93a097] italic pt-1">
+                      <p className="text-[10px] text-slate-400 italic pt-1">
                         (Belum ada section yang dipilih - akun mencakup seluruh departemen)
                       </p>
                     )}
