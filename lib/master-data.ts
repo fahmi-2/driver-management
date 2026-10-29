@@ -37,6 +37,7 @@ export function getInitialRoles(): MasterRole[] {
   const roles: Role[] = [
     'requester',
     'approver',
+    'approver_manager',
     'approver_pool',
     'admin',
     'admin_lobby',
@@ -63,7 +64,7 @@ export function getInitialDepartments(): MasterDepartment[] {
   }))
 }
 
-// Default seed sections dengan foreign key department_id
+// Default seed sections dengan foreign key department_id (disimpan satu per satu)
 export function getInitialSections(depts = getInitialDepartments()): MasterSection[] {
   const sections: MasterSection[] = []
   const seen = new Set<string>()
@@ -71,16 +72,21 @@ export function getInitialSections(depts = getInitialDepartments()): MasterSecti
   ORG_MATRIX.forEach((m) => {
     const deptObj = depts.find((d) => d.name.toUpperCase() === m.dept.toUpperCase())
     const deptId = deptObj ? deptObj.id : `dept_${m.dept.toLowerCase().replace(/[^a-z0-9]/g, '_')}`
-    const key = `${deptId}_${m.section}`
-    if (!seen.has(key)) {
-      seen.add(key)
-      sections.push({
-        id: `sec_${Math.random().toString(36).substr(2, 9)}`,
-        name: m.section,
-        department_id: deptId,
-        is_deleted: false,
-      })
-    }
+    
+    // Pecah jika masih ada koma atau gunakan langsung satu per satu
+    const secParts = m.section.split(',').map((s) => s.trim()).filter(Boolean)
+    secParts.forEach((secName) => {
+      const key = `${deptId}_${secName.toUpperCase()}`
+      if (!seen.has(key)) {
+        seen.add(key)
+        sections.push({
+          id: `sec_${Math.random().toString(36).substr(2, 9)}`,
+          name: secName,
+          department_id: deptId,
+          is_deleted: false,
+        })
+      }
+    })
   })
 
   return sections

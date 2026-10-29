@@ -240,8 +240,8 @@ export const DEFAULT_GUIDANCES: Record<Role, RoleGuidance> = {
   },
   approver: {
     role: 'approver',
-    title: 'Panduan Persetujuan SPV/Manager (Approver Tahap 1)',
-    description: 'Panduan verifikasi dan E-Sign persetujuan permohonan dinas anggota departemen.',
+    title: 'Panduan Persetujuan SSPV (Approver Tahap 1)',
+    description: 'Panduan verifikasi dan E-Sign persetujuan permohonan dinas anggota section (Golongan 1, 2, 3).',
     autoPlayInterval: 6,
     slides: [
       {
@@ -252,7 +252,7 @@ export const DEFAULT_GUIDANCES: Record<Role, RoleGuidance> = {
         accentColor: '#f59e0b',
         illustrationType: 'shield',
         uiContextType: 'approver_inbox',
-        content: 'Sebagai atasan departemen, Anda memegang tanggung jawab memvalidasi urgensi perjalanan dinas staf Anda.',
+        content: 'Sebagai SSPV Section, Anda memegang tanggung jawab memvalidasi urgensi perjalanan dinas staf Anda.',
         points: [
           'Periksa detail keperluan, rute tujuan, jam dinas, dan daftar anggota tim.',
           'Klik "Setujui (Approve)" untuk membubuhkan E-Sign digital.',
@@ -285,6 +285,43 @@ export const DEFAULT_GUIDANCES: Record<Role, RoleGuidance> = {
         points: [
           'Melihat unit yang sedang beroperasi di luar pabrik.',
           'Melihat jadwal pemakaian kendaraan di hari-hari mendatang.',
+        ],
+      },
+    ],
+  },
+  approver_manager: {
+    role: 'approver_manager',
+    title: 'Panduan Persetujuan Manager (Approver Tahap 1)',
+    description: 'Panduan verifikasi dan E-Sign persetujuan permohonan dinas tingkat departemen & Golongan 4.',
+    autoPlayInterval: 6,
+    slides: [
+      {
+        id: 'appm-1',
+        title: 'Inbox Persetujuan Manager (E-Sign)',
+        subtitle: 'Otorisasi Tingkat Manager Departemen',
+        badge: 'SLIDE 1 · MANAGER APPROVAL',
+        accentColor: '#3b82f6',
+        illustrationType: 'shield',
+        uiContextType: 'approver_inbox',
+        content: 'Sebagai Manager Departemen, Anda memvalidasi permohonan dinas langsung dari staf Golongan 4 maupun kebutuhan dinas strategis departemen.',
+        points: [
+          'Menerima pengajuan permohonan dinas Golongan 4 secara langsung.',
+          'Memberikan persetujuan E-Sign digital resmi tingkat Manager.',
+          'Tiket otomatis berlanjut ke tahap alokasi armada oleh Pool GA.',
+        ],
+      },
+      {
+        id: 'appm-2',
+        title: 'Kebijakan Operasional Departemen',
+        subtitle: 'Pengawasan Efektivitas Mobilitas Tim',
+        badge: 'SLIDE 2 · POLICY & REJECTION',
+        accentColor: '#ef4444',
+        illustrationType: 'check',
+        uiContextType: 'approver_inbox',
+        content: 'Manager memiliki wewenang penuh untuk menolak atau meminta revisi pengajuan bila agenda dapat diefisiensikan.',
+        points: [
+          'Gunakan tombol "Tolak" disertai catatan arahan untuk revisi pengajuan.',
+          'Pantau riwayat putusan persetujuan departemen di tab Riwayat Putusan.',
         ],
       },
     ],

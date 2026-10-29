@@ -247,13 +247,19 @@ export function ApproverInbox({ user }: { user: Account }) {
             <div className="flex items-center gap-2">
               <span className="font-bold text-white text-[13px]">{user.name}</span>
               <span className="rounded bg-[#a3e635]/20 text-[#bef264] px-2 py-0.5 text-[10px] font-extrabold border border-[#a3e635]/30">
-                {isPoolSpv ? 'Otoritas: SPV Kendaraan (Tahap 1 & 2 Double Job)' : `Otoritas: SPV ${user.dept} (Tahap 1)`}
+                {isPoolSpv
+                  ? 'Otoritas: SPV Kendaraan (Tahap 1 & 2 Double Job)'
+                  : user.role === 'approver_manager'
+                  ? `Otoritas: Manager ${user.dept} (Tahap 1)`
+                  : `Otoritas: SSPV ${user.dept} (Tahap 1)`}
               </span>
             </div>
             <p className="mt-0.5 text-[11px] text-[#93a097]">
               {isPoolSpv
                 ? 'Dapat menyetujui E-Sign Tahap 1 (Departemen/Double Job) dan ACC Final Tahap 2 (Alokasi Armada & Driver).'
-                : `Memvalidasi permohonan dinas karyawan di lingkungan departemen ${user.dept}.`}
+                : user.role === 'approver_manager'
+                ? `Memvalidasi permohonan dinas tingkat Manager departemen ${user.dept} (Golongan 4 & Khusus).`
+                : `Memvalidasi permohonan dinas anggota section di lingkungan departemen ${user.dept} (Golongan 1, 2, 3).`}
             </p>
           </div>
         </div>
@@ -568,7 +574,11 @@ export function ApproverInbox({ user }: { user: Account }) {
                             className="flex items-center gap-1 rounded-xl bg-[#075b3d] px-4 py-1.5 text-xs font-bold text-white shadow-md hover:bg-[#064d33] transition"
                           >
                             <CheckCircle2 size={14} />
-                            {isStage1 ? 'ACC SPV Dept (Tahap 1)' : 'ACC Final SPV Kendaraan'}
+                            {isStage1
+                              ? user.role === 'approver_manager'
+                                ? 'ACC Manager Dept (Tahap 1)'
+                                : 'ACC SSPV Dept (Tahap 1)'
+                              : 'ACC Final SPV Kendaraan'}
                           </button>
                         </div>
                       )}

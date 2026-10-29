@@ -27,6 +27,7 @@ function Approve() {
   // melainkan mengarahkan atasan untuk login akun ber-role Approver / Approver Pool / Admin
   const isApproverLoggedIn = currentUser && (
     currentUser.role === 'approver' ||
+    currentUser.role === 'approver_manager' ||
     currentUser.role === 'approver_pool' ||
     currentUser.role === 'admin' ||
     currentUser.role === 'admin_lobby' ||

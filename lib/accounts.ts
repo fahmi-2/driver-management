@@ -1,4 +1,4 @@
-export type Role = 'requester' | 'approver' | 'approver_pool' | 'admin' | 'admin_lobby' | 'driver' | 'security' | 'coupon'
+export type Role = 'requester' | 'approver' | 'approver_manager' | 'approver_pool' | 'admin' | 'admin_lobby' | 'driver' | 'security' | 'coupon'
 
 // Golongan karyawan (1, 2, 3 → SSPV Section, 4 → Manager Departemen)
 export type Golongan = 1 | 2 | 3 | 4
@@ -28,14 +28,38 @@ export type Account = {
   avatar?: string
 }
 
-// Master Matriks Struktur Organisasi PT. JAI (Dept, Section, Manager, SSPV, Admin/Requester)
+// Master Matriks Struktur Organisasi PT. JAI (Dept, Section 1-per-1, Manager, SSPV, Admin/Requester)
 export const ORG_MATRIX = [
   // 1. PGA
   {
     dept: 'PGA',
     managerName: 'CAHYO ADI NUGROHO',
     managerEmail: 'cahyo@jai.co.id',
-    section: 'GAGS, STATIONARY & UTILITY, INTERPRETER',
+    section: 'GAGS',
+    sspvName: 'HAYU PRASETYO UTOMO',
+    sspvEmail: 'hayu.p@jai.co.id',
+    adminNames: [
+      { name: 'DEWI PURNAMA S.', email: 'gags7@jai.co.id', username: 'dewi.p' },
+      { name: 'RICHA FEBRIANI', email: 'gags4@jai.co.id', username: 'richa.f' },
+    ],
+  },
+  {
+    dept: 'PGA',
+    managerName: 'CAHYO ADI NUGROHO',
+    managerEmail: 'cahyo@jai.co.id',
+    section: 'STATIONARY & UTILITY',
+    sspvName: 'HAYU PRASETYO UTOMO',
+    sspvEmail: 'hayu.p@jai.co.id',
+    adminNames: [
+      { name: 'DEWI PURNAMA S.', email: 'gags7@jai.co.id', username: 'dewi.p' },
+      { name: 'RICHA FEBRIANI', email: 'gags4@jai.co.id', username: 'richa.f' },
+    ],
+  },
+  {
+    dept: 'PGA',
+    managerName: 'CAHYO ADI NUGROHO',
+    managerEmail: 'cahyo@jai.co.id',
+    section: 'INTERPRETER',
     sspvName: 'HAYU PRASETYO UTOMO',
     sspvEmail: 'hayu.p@jai.co.id',
     adminNames: [
@@ -59,7 +83,31 @@ export const ORG_MATRIX = [
     dept: 'PGA',
     managerName: 'EVIS METHAWAN',
     managerEmail: 'evis.m@jai.co.id',
-    section: 'SHE, QSA, PURCHASE',
+    section: 'SHE',
+    sspvName: 'AGUNG INDRAYANA',
+    sspvEmail: 'agung.i@jai.co.id',
+    adminNames: [
+      { name: 'EKA ANGGRAENI', email: 'gags3@jai.co.id', username: 'eka.a' },
+      { name: 'ANITA NUR KUMALA', email: 'gags6@jai.co.id', username: 'anita.k' },
+    ],
+  },
+  {
+    dept: 'PGA',
+    managerName: 'EVIS METHAWAN',
+    managerEmail: 'evis.m@jai.co.id',
+    section: 'QSA',
+    sspvName: 'AGUNG INDRAYANA',
+    sspvEmail: 'agung.i@jai.co.id',
+    adminNames: [
+      { name: 'EKA ANGGRAENI', email: 'gags3@jai.co.id', username: 'eka.a' },
+      { name: 'ANITA NUR KUMALA', email: 'gags6@jai.co.id', username: 'anita.k' },
+    ],
+  },
+  {
+    dept: 'PGA',
+    managerName: 'EVIS METHAWAN',
+    managerEmail: 'evis.m@jai.co.id',
+    section: 'PURCHASE',
     sspvName: 'AGUNG INDRAYANA',
     sspvEmail: 'agung.i@jai.co.id',
     adminNames: [
@@ -271,7 +319,27 @@ export function getDynamicDepartments(): { id: string; name: string }[] {
   return DEPARTMENTS.map((d) => ({ id: `dept_${d.toLowerCase().replace(/[^a-z0-9]/g, '_')}`, name: d }))
 }
 
-// Fungsi bantu mendapatkan daftar section per departemen (dinamis)
+// Helper: Parse sections string into normalized individual uppercase strings
+export function parseSections(str?: string): string[] {
+  if (!str) return []
+  return str
+    .split(/[,/]/)
+    .map((s) => s.trim().toUpperCase())
+    .filter(Boolean)
+}
+
+// Helper: Check if an account's section matches a target section
+export function matchesSection(accSection?: string, targetSection?: string): boolean {
+  if (!accSection || !targetSection) return true
+  const accList = parseSections(accSection)
+  const target = targetSection.trim().toUpperCase()
+  return (
+    accList.includes(target) ||
+    accList.some((s) => target.includes(s) || s.includes(target))
+  )
+}
+
+// Fungsi bantu mendapatkan daftar section per departemen (dinamis, dipisah 1 per 1)
 export function getSectionsByDept(dept: string): string[] {
   if (typeof window !== 'undefined') {
     try {
@@ -287,26 +355,32 @@ export function getSectionsByDept(dept: string): string[] {
           const matched = secs
             .filter((s) => s.department_id === targetDept.id && !s.is_deleted)
             .map((s) => s.name)
-          if (matched.length > 0) return matched
+          if (matched.length > 0) return Array.from(new Set(matched))
         }
       }
     } catch {}
   }
-  return Array.from(new Set(ORG_MATRIX.filter((m) => m.dept.toUpperCase() === dept.toUpperCase()).map((m) => m.section)))
+  return Array.from(
+    new Set(
+      ORG_MATRIX.filter((m) => m.dept.toUpperCase() === dept.toUpperCase()).map((m) => m.section)
+    )
+  )
 }
 
 // Fungsi bantu mendapatkan data Manajer resmi berdasarkan Section & Dept
 // Prioritas 1: Langsung ambil profil & email yang TERDAFTAR di database akun (termasuk hasil editan user)
 export function getManagerBySection(dept: string, section?: string): { name: string; email: string } {
   const allAcc = getAllAccounts()
-  const matchedMatrix = ORG_MATRIX.find((m) => m.dept === dept && (!section || m.section === section))
+  const matchedMatrix = ORG_MATRIX.find(
+    (m) => m.dept === dept && (!section || matchesSection(m.section, section))
+  )
   const expectedManagerName = matchedMatrix?.managerName?.toUpperCase()
 
   // Prioritas 1: Cari akun terdaftar yang namanya cocok dengan manajer matriks (misal CAHYO ADI NUGROHO)
   if (expectedManagerName) {
     const accByName = allAcc.find(
       (a) =>
-        (a.role === 'approver' || a.role === 'admin' || a.role === 'approver_pool') &&
+        (a.role === 'approver_manager' || a.role === 'approver' || a.role === 'admin' || a.role === 'approver_pool') &&
         (a.name.toUpperCase().includes(expectedManagerName) || expectedManagerName.includes(a.name.toUpperCase()))
     )
     if (accByName) {
@@ -317,13 +391,12 @@ export function getManagerBySection(dept: string, section?: string): { name: str
     }
   }
 
-  // Prioritas 2: Cari akun approver yang bertugas di departemen ini dan title/jabatannya Manager
+  // Prioritas 2: Cari akun approver yang bertugas di departemen ini (role approver_manager atau title Manager) & cocok sectionnya
   const accByDeptManager = allAcc.find(
     (a) =>
       a.dept === dept &&
-      a.role === 'approver' &&
-      a.title &&
-      a.title.toLowerCase().includes('manager')
+      (a.role === 'approver_manager' || (a.role === 'approver' && a.title && a.title.toLowerCase().includes('manager'))) &&
+      (!section || matchesSection(a.section, section))
   )
   if (accByDeptManager) {
     return {
@@ -332,12 +405,16 @@ export function getManagerBySection(dept: string, section?: string): { name: str
     }
   }
 
-  // Prioritas 3: Cari akun approver apapun di departemen ini
-  const anyDeptApprover = allAcc.find((a) => a.dept === dept && a.role === 'approver')
-  if (anyDeptApprover) {
+  // Prioritas 3: Cari akun approver manapun di departemen ini yang role approver_manager atau memiliki title Manager
+  const anyDeptManager = allAcc.find(
+    (a) =>
+      a.dept === dept &&
+      (a.role === 'approver_manager' || (a.role === 'approver' && a.title && a.title.toLowerCase().includes('manager')))
+  )
+  if (anyDeptManager) {
     return {
-      name: `${anyDeptApprover.name} (Manager)`,
-      email: anyDeptApprover.email || '',
+      name: `${anyDeptManager.name} (Manager)`,
+      email: anyDeptManager.email || '',
     }
   }
 
@@ -358,7 +435,9 @@ export function getManagerBySection(dept: string, section?: string): { name: str
 // Fungsi bantu mendapatkan approver (Utama: Manajer, Opsi: SSPV) berdasarkan Section & Dept
 export function getApproversBySection(dept: string, section?: string): { name: string; email: string; role: string }[] {
   const allAcc = getAllAccounts()
-  const matching = ORG_MATRIX.filter((m) => m.dept === dept && (!section || m.section === section))
+  const matching = ORG_MATRIX.filter(
+    (m) => m.dept === dept && (!section || matchesSection(m.section, section))
+  )
   const approvers: { name: string; email: string; role: string }[] = []
   const seen = new Set<string>()
 
@@ -401,7 +480,27 @@ export function getApproversBySection(dept: string, section?: string): { name: s
 // Mendapatkan SSPV berdasarkan Section & Dept (Prioritas: akun database → fallback matriks)
 export function getSspvBySection(dept: string, section?: string): { name: string; email: string } {
   const allAcc = getAllAccounts()
-  const matching = ORG_MATRIX.filter((m) => m.dept === dept && (!section || m.section === section))
+  
+  // Prioritas 1: Cari akun terdaftar di database yang punya title SSPV dan section cocok
+  const liveSspvBySection = allAcc.find(
+    (a) =>
+      a.dept === dept &&
+      (a.role === 'approver' || a.role === 'approver_pool') &&
+      a.title &&
+      a.title.toLowerCase().includes('sspv') &&
+      (!section || matchesSection(a.section, section))
+  )
+  if (liveSspvBySection) {
+    return {
+      name: `${liveSspvBySection.name} (SSPV)`,
+      email: liveSspvBySection.email || '',
+    }
+  }
+
+  // Prioritas 2: Cari dari matriks organisasi resmi
+  const matching = ORG_MATRIX.filter(
+    (m) => m.dept === dept && (!section || matchesSection(m.section, section))
+  )
 
   for (const m of matching) {
     if (m.sspvName) {
@@ -420,7 +519,10 @@ export function getSspvBySection(dept: string, section?: string): { name: string
 
   // Fallback: cari akun approver dengan title SSPV di departemen ini
   const fallbackSspv = allAcc.find(
-    (a) => a.dept === dept && a.role === 'approver' && a.title && a.title.toLowerCase().includes('sspv')
+    (a) =>
+      a.dept === dept &&
+      (a.role === 'approver' || a.role === 'approver_pool') &&
+      (!a.title || !a.title.toLowerCase().includes('manager'))
   )
   if (fallbackSspv) {
     return {
@@ -516,7 +618,7 @@ export const ACCOUNTS: Account[] = [
     password: 'app123',
     name: 'CAHYO ADI NUGROHO',
     email: 'cahyo@jai.co.id',
-    role: 'approver',
+    role: 'approver_manager',
     dept: 'PGA',
     title: 'Manager PGA',
   },
@@ -525,7 +627,7 @@ export const ACCOUNTS: Account[] = [
     password: 'app123',
     name: 'EVIS METHAWAN',
     email: 'evis.m@jai.co.id',
-    role: 'approver',
+    role: 'approver_manager',
     dept: 'PGA',
     section: 'SHE, QSA, PURCHASE',
     title: 'Manager PGA (SHE, QSA, Purchase)',
@@ -535,7 +637,7 @@ export const ACCOUNTS: Account[] = [
     password: 'app123',
     name: 'DEDY HARIAWAN',
     email: 'dedy.h@jai.co.id',
-    role: 'approver',
+    role: 'approver_manager',
     dept: 'FATP-EXIM',
     section: 'FATP & EXIM',
     title: 'Manager FATP-EXIM',
@@ -545,7 +647,7 @@ export const ACCOUNTS: Account[] = [
     password: 'app123',
     name: 'KHOLIQ IMAM WAHYUDI',
     email: 'kholiq@jai.co.id',
-    role: 'approver',
+    role: 'approver_manager',
     dept: 'QA',
     section: 'QA',
     title: 'Manager QA',
@@ -555,7 +657,7 @@ export const ACCOUNTS: Account[] = [
     password: 'app123',
     name: 'ROBERTUS EDY P.',
     email: 'robertus.e@jai.co.id',
-    role: 'approver',
+    role: 'approver_manager',
     dept: 'PRODUKSI',
     title: 'Manager PRODUKSI',
   },
@@ -564,7 +666,7 @@ export const ACCOUNTS: Account[] = [
     password: 'app123',
     name: 'DEDI KURNIAWAN PERBAWA',
     email: 'dedi.k@jai.co.id',
-    role: 'approver',
+    role: 'approver_manager',
     dept: 'PPIC',
     title: 'Manager PPIC',
   },
@@ -573,7 +675,7 @@ export const ACCOUNTS: Account[] = [
     password: 'app123',
     name: 'TEGUH WICAKSONO',
     email: 'teguh.w@jai.co.id',
-    role: 'approver',
+    role: 'approver_manager',
     dept: 'PP - NYS',
     title: 'Manager PP - NYS',
   },
@@ -582,7 +684,7 @@ export const ACCOUNTS: Account[] = [
     password: 'app123',
     name: 'RATNA ADI YUNIAR',
     email: 'adi.y@jai.co.id',
-    role: 'approver',
+    role: 'approver_manager',
     dept: 'ME',
     title: 'Manager ME',
   },
@@ -1034,7 +1136,8 @@ export const ACCOUNTS: Account[] = [
 
 export const ROLE_LABEL: Record<Role, string> = {
   requester: 'Requester (Pemohon)',
-  approver: 'Approver SSPV / Manager (Tahap 1)',
+  approver: 'Approver SSPV (Tahap 1)',
+  approver_manager: 'Approver Manager (Tahap 1)',
   approver_pool: 'Approver SPV Kendaraan (Tahap 2)',
   admin: 'Super Admin (Pool GA)',
   admin_lobby: 'Admin Lobby Frontdesk',

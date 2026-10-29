@@ -42,6 +42,11 @@ const NAV: Record<Role, NavItem[]> = {
     { id: 'dashboard', label: 'Dashboard Armada', icon: LayoutDashboard },
     { id: 'guidance', label: 'Panduan / Guidance', icon: Presentation },
   ],
+  approver_manager: [
+    { id: 'approvals', label: 'Inbox Persetujuan Manager (E-Sign)', icon: Inbox },
+    { id: 'dashboard', label: 'Dashboard Armada', icon: LayoutDashboard },
+    { id: 'guidance', label: 'Panduan / Guidance', icon: Presentation },
+  ],
   approver_pool: [
     { id: 'approvals', label: 'Inbox Approval SPV Kendaraan', icon: Inbox },
     { id: 'dashboard', label: 'Dashboard Armada', icon: LayoutDashboard },
@@ -112,7 +117,7 @@ const NAV: Record<Role, NavItem[]> = {
 
 function Badge({ role, id, user }: { role: Role; id: string; user?: Account }) {
   const { db } = useStore()
-  if ((role === 'approver' || role === 'approver_pool') && id === 'approvals') {
+  if ((role === 'approver' || role === 'approver_manager' || role === 'approver_pool') && id === 'approvals') {
     const isPoolSpv = role === 'approver_pool' || user?.username === 'spv_pool' || user?.dept === 'HR & GA'
     const userEmail = user?.email?.trim().toLowerCase()
     const userName = user?.name?.trim().toUpperCase()
@@ -139,14 +144,14 @@ function Shell({ user, onLogout }: { user: Account; onLogout: () => void }) {
   const [currentUser, setCurrentUser] = useState<Account>(user)
   const [profileModalOpen, setProfileModalOpen] = useState(false)
   const nav = NAV[currentUser.role] || NAV.requester
-  const isApproverRole = currentUser.role === 'approver' || currentUser.role === 'approver_pool'
+  const isApproverRole = currentUser.role === 'approver' || currentUser.role === 'approver_manager' || currentUser.role === 'approver_pool'
   const [page, setPage] = useState(isApproverRole ? 'approvals' : 'dashboard')
   const [open, setOpen] = useState(false)
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null)
 
   useEffect(() => {
     setCurrentUser(user)
-    if (user.role === 'approver' || user.role === 'approver_pool') setPage('approvals')
+    if (user.role === 'approver' || user.role === 'approver_manager' || user.role === 'approver_pool') setPage('approvals')
   }, [user])
 
   useEffect(() => {

@@ -30,6 +30,8 @@ import {
   DEPARTMENTS,
   getDynamicDepartments,
   getSectionsByDept,
+  parseSections,
+  matchesSection,
   getAllAccounts,
   resetToDefaultAccounts,
   addAccount,
@@ -237,7 +239,7 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
       return
     }
 
-    const isOrgRole = ['requester', 'approver', 'approver_pool'].includes(formData.role)
+    const isOrgRole = ['requester', 'approver', 'approver_manager', 'approver_pool'].includes(formData.role)
     const cleanEmail = formData.email.trim() || undefined
     if (editingAccount) {
       const res = updateAccount(editingAccount.username, {
@@ -444,7 +446,8 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
             >
               <option value="ALL">Semua Peran (Role)</option>
               <option value="requester">Requester (Pemohon)</option>
-              <option value="approver">Approver SPV Departemen (Tahap 1)</option>
+              <option value="approver">Approver SSPV (Tahap 1)</option>
+              <option value="approver_manager">Approver Manager (Tahap 1)</option>
               <option value="approver_pool">Approver SPV Kendaraan (Tahap 2)</option>
               <option value="admin">Super Admin (Pool GA)</option>
               <option value="admin_lobby">Admin Lobby Frontdesk</option>
@@ -538,6 +541,8 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
                                 ? 'bg-teal-100 text-teal-800 border border-teal-300'
                                 : acc.role === 'approver_pool'
                                 ? 'bg-orange-100 text-orange-900 border border-orange-300'
+                                : acc.role === 'approver_manager'
+                                ? 'bg-blue-100 text-blue-900 border border-blue-300'
                                 : acc.role === 'approver'
                                 ? 'bg-amber-100 text-amber-800 border border-amber-200'
                                 : acc.role === 'driver'
@@ -878,7 +883,8 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
                     ) : (
                       <>
                         <option value="requester">Requester (Pemohon)</option>
-                        <option value="approver">Approver SPV Departemen (Tahap 1)</option>
+                        <option value="approver">Approver SSPV (Tahap 1)</option>
+                        <option value="approver_manager">Approver Manager (Tahap 1)</option>
                         <option value="approver_pool">Approver SPV Kendaraan (Tahap 2)</option>
                         <option value="admin">Super Admin (Pool GA)</option>
                         <option value="admin_lobby">Admin Lobby Frontdesk</option>
@@ -905,45 +911,113 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
                 </div>
               </div>
 
-              {/* Department & Section (if requester or approver / approver_pool) */}
-              {['requester', 'approver', 'approver_pool'].includes(formData.role) && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[11px] font-bold text-[#10251c] mb-1">
-                      Departemen / Divisi
-                    </label>
-                    <select
-                      value={formData.dept}
-                      onChange={(e) => {
-                        const newDept = e.target.value
-                        const availableSecs = getSectionsByDept(newDept)
-                        setFormData({
-                          ...formData,
-                          dept: newDept,
-                          section: availableSecs[0] || '',
-                        })
-                      }}
-                      className="h-10 w-full rounded-xl border border-[#dce7df] bg-[#fafcfb] px-3 text-xs font-semibold text-[#10251c] focus:border-[#075b3d] focus:outline-none"
-                    >
-                      {(dynamicDepts.length > 0 ? dynamicDepts.map((d) => d.name) : DEPARTMENTS).map((dept) => (
-                        <option key={dept} value={dept}>{dept}</option>
-                      ))}
-                    </select>
+              {/* Department & Section (if requester or approver / approver_manager / approver_pool) */}
+              {['requester', 'approver', 'approver_manager', 'approver_pool'].includes(formData.role) && (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[11px] font-bold text-[#10251c] mb-1">
+                        Departemen / Divisi <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        value={formData.dept}
+                        onChange={(e) => {
+                          const newDept = e.target.value
+                          const availableSecs = getSectionsByDept(newDept)
+                          setFormData({
+                            ...formData,
+                            dept: newDept,
+                            section: availableSecs[0] || '',
+                          })
+                        }}
+                        className="h-10 w-full rounded-xl border border-[#dce7df] bg-[#fafcfb] px-3 text-xs font-semibold text-[#10251c] focus:border-[#075b3d] focus:outline-none"
+                      >
+                        {(dynamicDepts.length > 0 ? dynamicDepts.map((d) => d.name) : DEPARTMENTS).map((dept) => (
+                          <option key={dept} value={dept}>{dept}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-[#10251c] mb-1">
+                        Section Utama
+                      </label>
+                      <select
+                        value={parseSections(formData.section)[0] || formData.section || ''}
+                        onChange={(e) => {
+                          const picked = e.target.value
+                          const currentArr = parseSections(formData.section)
+                          const others = currentArr.filter((s, idx) => idx > 0 && s !== picked)
+                          const merged = [picked, ...others].filter(Boolean).join(' / ')
+                          setFormData({ ...formData, section: merged })
+                        }}
+                        className="h-10 w-full rounded-xl border border-[#dce7df] bg-[#fafcfb] px-3 text-xs font-semibold text-[#10251c] focus:border-[#075b3d] focus:outline-none"
+                      >
+                        <option value="">-- Tanpa Section / Seluruh Dept --</option>
+                        {getSectionsByDept(formData.dept).map((sec) => (
+                          <option key={sec} value={sec}>{sec}</option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
 
-                  <div>
-                    <label className="block text-[11px] font-bold text-[#10251c] mb-1">
-                      Section (Bagian)
-                    </label>
-                    <select
-                      value={formData.section}
-                      onChange={(e) => setFormData({ ...formData, section: e.target.value })}
-                      className="h-10 w-full rounded-xl border border-[#dce7df] bg-[#fafcfb] px-3 text-xs font-semibold text-[#10251c] focus:border-[#075b3d] focus:outline-none"
-                    >
-                      {getSectionsByDept(formData.dept).map((sec) => (
-                        <option key={sec} value={sec}>{sec}</option>
-                      ))}
-                    </select>
+                  {/* Multi-Section Selector (Untuk Manager / SSPV yang membawahi double section) */}
+                  <div className="rounded-xl border border-[#dce7df] bg-[#f8faf9] p-3.5 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-[11px] font-bold text-[#10251c]">
+                        Cakupan Section / Bagian (Bisa Pilih Lebih Dari 1)
+                      </label>
+                      <span className="text-[10px] text-[#62736b] font-medium">
+                        Centang section yang dipegang
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 max-h-40 overflow-y-auto">
+                      {getSectionsByDept(formData.dept).map((sec) => {
+                        const currentArr = parseSections(formData.section)
+                        const isChecked = currentArr.includes(sec.toUpperCase())
+                        return (
+                          <label
+                            key={sec}
+                            className={`flex items-center gap-2 rounded-lg border p-2 text-xs font-medium cursor-pointer transition ${
+                              isChecked
+                                ? 'border-[#075b3d] bg-[#eef8f3] text-[#075b3d] font-bold'
+                                : 'border-[#e2ece5] bg-white text-[#10251c] hover:bg-[#f4f7f5]'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={(e) => {
+                                let newArr = [...currentArr]
+                                const target = sec.toUpperCase()
+                                if (e.target.checked) {
+                                  if (!newArr.includes(target)) newArr.push(sec)
+                                } else {
+                                  newArr = newArr.filter((s) => s.toUpperCase() !== target)
+                                }
+                                setFormData({
+                                  ...formData,
+                                  section: newArr.join(' / '),
+                                })
+                              }}
+                              className="size-4 rounded border-[#dce7df] text-[#075b3d] focus:ring-[#075b3d]"
+                            />
+                            <span className="truncate" title={sec}>{sec}</span>
+                          </label>
+                        )
+                      })}
+                    </div>
+
+                    {formData.section ? (
+                      <p className="text-[10px] text-[#075b3d] font-semibold pt-1">
+                        Terpilih: <span className="font-mono">{formData.section}</span>
+                      </p>
+                    ) : (
+                      <p className="text-[10px] text-[#93a097] italic pt-1">
+                        (Belum ada section yang dipilih - akun mencakup seluruh departemen)
+                      </p>
+                    )}
                   </div>
                 </div>
               )}
