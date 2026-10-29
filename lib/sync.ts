@@ -7,19 +7,26 @@ export async function fetchAccountsFromSupabase(): Promise<Account[] | null> {
   try {
     const { data, error } = await supabase.from('accounts').select('*')
     if (error || !data) return null
-    return data.map((row: any) => ({
-      username: row.username,
-      password: row.password_hash,
-      name: row.name,
-      email: row.email,
-      role: row.role,
-      dept: row.department_name,
-      section: row.section_name,
-      nik: row.nik,
-      driverId: row.driver_id,
-      title: row.title,
-      avatar: row.avatar_url,
-    }))
+    return data.map((row: any) => {
+      // Map 'approver' kembali ke 'approver_manager' jika title akun mengandung Manager
+      let appRole: any = row.role
+      if (appRole === 'approver' && row.title && row.title.toLowerCase().includes('manager')) {
+        appRole = 'approver_manager'
+      }
+      return {
+        username: row.username,
+        password: row.password_hash,
+        name: row.name,
+        email: row.email,
+        role: appRole,
+        dept: row.department_name,
+        section: row.section_name,
+        nik: row.nik,
+        driverId: row.driver_id,
+        title: row.title,
+        avatar: row.avatar_url,
+      }
+    })
   } catch (err) {
     console.error('Error fetching accounts from Supabase:', err)
     return null
@@ -28,13 +35,18 @@ export async function fetchAccountsFromSupabase(): Promise<Account[] | null> {
 
 export async function upsertAccountToSupabase(acc: Account): Promise<boolean> {
   try {
+    // Supabase enum `user_role` memiliki nilai: 'requester', 'approver', 'approver_pool', 'admin', 'driver', 'security', 'coupon'
+    // 'approver_manager' disimpan sebagai 'approver' di level Supabase database enum agar tidak melanggar enum constraint,
+    // sedangkan title / jabatan tetap membedakannya sebagai Manager.
+    const dbRole = acc.role === 'approver_manager' ? 'approver' : acc.role
+
     const { error } = await supabase.from('accounts').upsert({
       username: acc.username,
       password_hash: acc.password,
       name: acc.name,
       email: acc.email || null,
       nik: acc.nik || null,
-      role: acc.role,
+      role: dbRole,
       department_name: acc.dept || null,
       section_name: acc.section || null,
       driver_id: acc.driverId || null,

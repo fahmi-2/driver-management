@@ -12,8 +12,10 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE TYPE user_role AS ENUM (
     'requester',
     'approver',
+    'approver_manager',
     'approver_pool',
     'admin',
+    'admin_lobby',
     'driver',
     'security',
     'coupon'
