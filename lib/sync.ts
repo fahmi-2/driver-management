@@ -91,6 +91,8 @@ export async function fetchVehiclesFromSupabase(): Promise<Vehicle[] | null> {
       status: v.status,
       category: v.category,
       dedicatedUser: v.dedicated_user,
+      fuelEfficiency: v.fuel_efficiency !== undefined && v.fuel_efficiency !== null ? Number(v.fuel_efficiency) : undefined,
+      fuelType: v.fuel_type || undefined,
     }))
   } catch (err) {
     console.error('Error fetching vehicles from Supabase:', err)
@@ -100,7 +102,8 @@ export async function fetchVehiclesFromSupabase(): Promise<Vehicle[] | null> {
 
 export async function upsertVehicleToSupabase(v: Vehicle): Promise<{ success: boolean; error?: string }> {
   try {
-    const { error } = await supabase.from('vehicles').upsert({
+    // Siapkan payload dasar yang dijamin ada di skema SQL
+    const payload: any = {
       plate: v.plate,
       type: v.type,
       capacity: v.capacity || 7,
@@ -108,8 +111,34 @@ export async function upsertVehicleToSupabase(v: Vehicle): Promise<{ success: bo
       category: v.category || 'Mobil Operasional',
       dedicated_user: v.dedicatedUser || null,
       updated_at: new Date().toISOString(),
-    })
+    }
+    // Jika kolom baru didukung Supabase, kirimkan juga
+    if (v.fuelEfficiency !== undefined) {
+      payload.fuel_efficiency = v.fuelEfficiency
+    }
+    if (v.fuelType !== undefined) {
+      payload.fuel_type = v.fuelType
+    }
+
+    const { error } = await supabase.from('vehicles').upsert(payload)
     if (error) {
+      // Jika kolom fuel_efficiency/fuel_type belum ada di tabel Supabase PostgreSQL user, fallback simpan tanpa kolom tersebut
+      if (error.message.includes('fuel_efficiency') || error.message.includes('fuel_type') || error.message.includes('column')) {
+        const { error: fallbackErr } = await supabase.from('vehicles').upsert({
+          plate: v.plate,
+          type: v.type,
+          capacity: v.capacity || 7,
+          status: v.status || 'Active',
+          category: v.category || 'Mobil Operasional',
+          dedicated_user: v.dedicatedUser || null,
+          updated_at: new Date().toISOString(),
+        })
+        if (fallbackErr) {
+          console.error('Failed to upsert vehicle fallback to Supabase:', fallbackErr)
+          return { success: false, error: fallbackErr.message }
+        }
+        return { success: true }
+      }
       console.error('Failed to upsert vehicle to Supabase:', error)
       return { success: false, error: error.message }
     }

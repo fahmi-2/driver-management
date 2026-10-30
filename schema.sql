@@ -82,6 +82,8 @@ CREATE TABLE vehicles (
     status vehicle_status NOT NULL DEFAULT 'Active',
     category vehicle_category NOT NULL DEFAULT 'Mobil Operasional',
     dedicated_user VARCHAR(150), -- Keterangan pemilik / pengguna khusus (Mobil Expat: Fujiyoshi, Isoda, dll.)
+    fuel_efficiency NUMERIC(5, 2) DEFAULT 11.00, -- Rasio efisiensi BBM (km per 1 liter: Avanza 11, Zenix 15, Hybrid 20, Diesel 9)
+    fuel_type VARCHAR(50) DEFAULT 'Bensin', -- Jenis bahan bakar: Bensin, Diesel, Hybrid
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );

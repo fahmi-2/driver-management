@@ -22,6 +22,7 @@ export type Driver = {
 }
 export type VehicleCategory = 'Mobil Operasional' | 'Mobil Expat' | 'Mobil Sewa'
 export type VehicleStatus = 'Active' | 'Maintenance'
+export type FuelType = 'Bensin' | 'Diesel' | 'Hybrid'
 export type Vehicle = {
   plate: string
   type: string
@@ -29,6 +30,39 @@ export type Vehicle = {
   category?: VehicleCategory
   capacity?: number
   dedicatedUser?: string
+  fuelEfficiency?: number // km per 1 liter bensin/solar
+  fuelType?: FuelType | string
+}
+
+// Kamus rasio konsumsi BBM default berdasarkan tipe/model kendaraan (km per 1 liter)
+export function getDefaultFuelEfficiency(type?: string): number {
+  if (!type) return 11
+  const t = type.toUpperCase()
+  if (t.includes('HYBRID')) return 20 // Zenix Hybrid: 20 km / 1 liter
+  if (t.includes('DIESEL')) return 9 // Diesel: 9 km / 1 liter
+  if (t.includes('ZENIX')) return 15 // Zenix: 15 km / 1 liter
+  if (t.includes('AVANZA')) return 11 // Avanza: 11 km / 1 liter
+  if (t.includes('REBORN')) return 11 // Innova Reborn Bensin default 11 atau Reborn Diesel 9
+  return 11 // Default 11 km / 1 liter
+}
+
+// Menghitung estimasi liter BBM terpakai berdasarkan jarak tempuh KM dan kendaraan
+export function calculateEstimatedFuel(distanceKm?: number, vehicle?: Vehicle | null): {
+  liters: number
+  efficiency: number
+  formatted: string
+} {
+  const km = distanceKm && distanceKm > 0 ? distanceKm : 0
+  const efficiency = vehicle?.fuelEfficiency && vehicle.fuelEfficiency > 0
+    ? vehicle.fuelEfficiency
+    : getDefaultFuelEfficiency(vehicle?.type)
+
+  const liters = km > 0 && efficiency > 0 ? Number((km / efficiency).toFixed(1)) : 0
+  return {
+    liters,
+    efficiency,
+    formatted: km > 0 ? `${liters} Liter (~${efficiency} km/L)` : '—',
+  }
 }
 
 export type Passenger = {
@@ -306,15 +340,15 @@ function seed(): DB {
     ],
     vehicles: [
       // Kategori Mobil Expat (Dedicated User: Fujiyoshi, Isoda, Kato, Tateishi)
-      { plate: 'W 1318 TI', type: 'INNOVA ZENIX HITAM', status: 'Active', category: 'Mobil Expat', capacity: 7, dedicatedUser: 'FUJIYOSHI' },
-      { plate: 'W 1156 QY', type: 'INNOVA REBORN SILVER', status: 'Active', category: 'Mobil Expat', capacity: 7, dedicatedUser: 'ISODA' },
-      { plate: 'W 1460 NE', type: 'INNOVA REBORN HITAM', status: 'Active', category: 'Mobil Expat', capacity: 7, dedicatedUser: 'KATO' },
-      { plate: 'L 1005 DBU', type: 'INNOVA ZENIX HITAM', status: 'Active', category: 'Mobil Expat', capacity: 7, dedicatedUser: 'TATEISHI' },
+      { plate: 'W 1318 TI', type: 'INNOVA ZENIX HITAM', status: 'Active', category: 'Mobil Expat', capacity: 7, dedicatedUser: 'FUJIYOSHI', fuelEfficiency: 15, fuelType: 'Bensin' },
+      { plate: 'W 1156 QY', type: 'INNOVA REBORN SILVER', status: 'Active', category: 'Mobil Expat', capacity: 7, dedicatedUser: 'ISODA', fuelEfficiency: 11, fuelType: 'Bensin' },
+      { plate: 'W 1460 NE', type: 'INNOVA REBORN HITAM', status: 'Active', category: 'Mobil Expat', capacity: 7, dedicatedUser: 'KATO', fuelEfficiency: 11, fuelType: 'Bensin' },
+      { plate: 'L 1005 DBU', type: 'INNOVA ZENIX HITAM', status: 'Active', category: 'Mobil Expat', capacity: 7, dedicatedUser: 'TATEISHI', fuelEfficiency: 15, fuelType: 'Bensin' },
       // Kategori Mobil Operasional (User: Operational)
-      { plate: 'W 1458 NE', type: 'AVANZA PUTIH', status: 'Active', category: 'Mobil Operasional', capacity: 7, dedicatedUser: 'OPERATIONAL' },
-      { plate: 'L 1508 DBR', type: 'AVANZA PUTIH', status: 'Active', category: 'Mobil Operasional', capacity: 7, dedicatedUser: 'OPERATIONAL' },
-      { plate: 'L 1910 DAS', type: 'AVANZA PUTIH', status: 'Active', category: 'Mobil Operasional', capacity: 7, dedicatedUser: 'OPERATIONAL' },
-      { plate: 'W 1459 NE', type: 'AVANZA PUTIH', status: 'Active', category: 'Mobil Operasional', capacity: 7, dedicatedUser: 'OPERATIONAL' },
+      { plate: 'W 1458 NE', type: 'AVANZA PUTIH', status: 'Active', category: 'Mobil Operasional', capacity: 7, dedicatedUser: 'OPERATIONAL', fuelEfficiency: 11, fuelType: 'Bensin' },
+      { plate: 'L 1508 DBR', type: 'AVANZA PUTIH', status: 'Active', category: 'Mobil Operasional', capacity: 7, dedicatedUser: 'OPERATIONAL', fuelEfficiency: 11, fuelType: 'Bensin' },
+      { plate: 'L 1910 DAS', type: 'AVANZA PUTIH', status: 'Active', category: 'Mobil Operasional', capacity: 7, dedicatedUser: 'OPERATIONAL', fuelEfficiency: 11, fuelType: 'Bensin' },
+      { plate: 'W 1459 NE', type: 'AVANZA PUTIH', status: 'Active', category: 'Mobil Operasional', capacity: 7, dedicatedUser: 'OPERATIONAL', fuelEfficiency: 11, fuelType: 'Bensin' },
     ],
     trips: [],
   }
@@ -437,6 +471,8 @@ function sanitizeDB(rawDb: any): DB {
   const vehicles = (Array.isArray(rawDb.vehicles) && rawDb.vehicles.length > 0 ? rawDb.vehicles : seeded.vehicles).map((v: any) => ({
     ...v,
     status: v.status || 'Active',
+    fuelEfficiency: typeof v.fuelEfficiency === 'number' && v.fuelEfficiency > 0 ? v.fuelEfficiency : getDefaultFuelEfficiency(v.type),
+    fuelType: v.fuelType || (v.type?.toUpperCase().includes('DIESEL') ? 'Diesel' : v.type?.toUpperCase().includes('HYBRID') ? 'Hybrid' : 'Bensin'),
   }))
   const trips = (Array.isArray(rawDb.trips) ? rawDb.trips : []).map((t: any) => ({
     ...t,

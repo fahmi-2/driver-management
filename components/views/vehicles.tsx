@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Plus, Trash2, Edit3, Truck, AlertTriangle, CheckCircle, Search, Wrench, ShieldCheck, X, ChevronLeft, ChevronRight } from 'lucide-react'
-import { useStore, type Vehicle, type VehicleStatus } from '@/lib/store'
+import { Plus, Trash2, Edit3, Truck, AlertTriangle, CheckCircle, Search, Wrench, ShieldCheck, X, ChevronLeft, ChevronRight, Fuel } from 'lucide-react'
+import { useStore, type Vehicle, type VehicleStatus, getDefaultFuelEfficiency } from '@/lib/store'
 import { Card, PageHeader, Pill, btnGhost, btnPrimary, inputCls, useToast } from '../ui-bits'
 import { ModalPortal } from '../modal-portal'
 
@@ -25,16 +25,28 @@ export function AdminVehicles() {
     status: 'Active' as VehicleStatus,
     category: 'Mobil Operasional' as any,
     dedicatedUser: '',
+    fuelEfficiency: 11,
+    fuelType: 'Bensin',
   })
 
   const openAddModal = () => {
     setEditingPlate(null)
-    setFormData({ plate: '', type: '', capacity: 7, status: 'Active', category: 'Mobil Operasional', dedicatedUser: '' })
+    setFormData({
+      plate: '',
+      type: '',
+      capacity: 7,
+      status: 'Active',
+      category: 'Mobil Operasional',
+      dedicatedUser: '',
+      fuelEfficiency: 11,
+      fuelType: 'Bensin',
+    })
     setIsModalOpen(true)
   }
 
   const openEditModal = (v: Vehicle) => {
     setEditingPlate(v.plate)
+    const defaultEff = v.fuelEfficiency && v.fuelEfficiency > 0 ? v.fuelEfficiency : getDefaultFuelEfficiency(v.type)
     setFormData({
       plate: v.plate,
       type: v.type,
@@ -42,6 +54,8 @@ export function AdminVehicles() {
       status: v.status || 'Active',
       category: v.category || 'Mobil Operasional',
       dedicatedUser: v.dedicatedUser || '',
+      fuelEfficiency: defaultEff,
+      fuelType: v.fuelType || (v.type?.toUpperCase().includes('DIESEL') ? 'Diesel' : v.type?.toUpperCase().includes('HYBRID') ? 'Hybrid' : 'Bensin'),
     })
     setIsModalOpen(true)
   }
@@ -59,6 +73,8 @@ export function AdminVehicles() {
         status: formData.status,
         category: formData.category,
         dedicatedUser: formData.dedicatedUser.trim() || undefined,
+        fuelEfficiency: Number(formData.fuelEfficiency) || getDefaultFuelEfficiency(formData.type),
+        fuelType: formData.fuelType,
       })
       if (!res.success) {
         alert(`Gagal memperbarui kendaraan di database: ${res.error || 'Terjadi kesalahan'}`)
@@ -77,6 +93,8 @@ export function AdminVehicles() {
         status: formData.status,
         category: formData.category,
         dedicatedUser: formData.dedicatedUser.trim() || undefined,
+        fuelEfficiency: Number(formData.fuelEfficiency) || getDefaultFuelEfficiency(formData.type),
+        fuelType: formData.fuelType,
       })
       if (!res.success) {
         alert(`Gagal menambahkan kendaraan ke database: ${res.error || 'Terjadi kesalahan'}`)
@@ -203,6 +221,7 @@ export function AdminVehicles() {
                 <th className="px-5 py-3.5">No. Polisi (Plat)</th>
                 <th className="px-5 py-3.5">Nama / Tipe Kendaraan</th>
                 <th className="px-5 py-3.5">Kategori &amp; Pemilik</th>
+                <th className="px-5 py-3.5">Konsumsi BBM</th>
                 <th className="px-5 py-3.5">Kapasitas</th>
                 <th className="px-5 py-3.5">Status Operasional</th>
                 <th className="px-5 py-3.5">Status Penugasan</th>
@@ -212,7 +231,7 @@ export function AdminVehicles() {
             <tbody className="divide-y divide-[#edf1ee]">
               {filteredVehicles.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-8 text-center text-xs font-semibold text-[#62736b]">
+                  <td colSpan={8} className="py-8 text-center text-xs font-semibold text-[#62736b]">
                     Tidak ada kendaraan yang ditemukan.
                   </td>
                 </tr>
@@ -222,6 +241,7 @@ export function AdminVehicles() {
                   const activeTrip = db.trips.find(
                     (t) => t.plate === v.plate && (t.status === 'READY' || t.status === 'ON_TRIP')
                   )
+                  const eff = v.fuelEfficiency && v.fuelEfficiency > 0 ? v.fuelEfficiency : getDefaultFuelEfficiency(v.type)
 
                   return (
                     <tr key={v.plate} className="hover:bg-white/5 transition">
@@ -246,6 +266,17 @@ export function AdminVehicles() {
                             </span>
                           )}
                         </div>
+                      </td>
+                      <td className="px-5 py-3.5">
+                        <div className="flex items-center gap-1.5">
+                          <Fuel size={13} className="text-amber-400 shrink-0" />
+                          <span className="rounded-md bg-amber-950/60 text-amber-300 px-2 py-0.5 text-[11px] font-mono font-extrabold border border-amber-500/30 whitespace-nowrap">
+                            {eff} km / 1 L
+                          </span>
+                        </div>
+                        <span className="text-[10px] text-slate-400 font-medium block mt-0.5">
+                          {v.fuelType || (v.type.toUpperCase().includes('DIESEL') ? 'Diesel' : v.type.toUpperCase().includes('HYBRID') ? 'Hybrid' : 'Bensin')}
+                        </span>
                       </td>
                       <td className="px-5 py-3.5 font-extrabold text-xs">
                         <span className="rounded-md bg-emerald-950/70 text-emerald-300 px-2 py-0.5 border border-emerald-500/30">
@@ -383,8 +414,17 @@ export function AdminVehicles() {
                   <input
                     type="text"
                     value={formData.type}
-                    onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                    placeholder="Contoh: Toyota Avanza"
+                    onChange={(e) => {
+                      const newType = e.target.value
+                      setFormData((prev) => ({
+                        ...prev,
+                        type: newType,
+                        // Otomatis sesuaikan rasio default saat nama tipe berganti jika belum diubah manual
+                        fuelEfficiency: getDefaultFuelEfficiency(newType),
+                        fuelType: newType.toUpperCase().includes('DIESEL') ? 'Diesel' : newType.toUpperCase().includes('HYBRID') ? 'Hybrid' : 'Bensin',
+                      }))
+                    }}
+                    placeholder="Contoh: Toyota Avanza, Innova Zenix"
                     className={inputCls}
                     required
                   />
@@ -403,6 +443,87 @@ export function AdminVehicles() {
                     required
                   />
                 </label>
+              </div>
+
+              {/* Konfigurasi Alokasi Konsumsi BBM */}
+              <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3.5 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-amber-800">
+                    <Fuel size={14} className="text-amber-600" />
+                    <span>Kamus &amp; Rasio Konsumsi BBM</span>
+                  </div>
+                  <span className="text-[10px] text-amber-700/80 font-medium">Berdasarkan Tipe Armada</span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 pt-1">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                      Efisiensi (km per 1 Liter)
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        step="0.5"
+                        min="1"
+                        max="50"
+                        value={formData.fuelEfficiency}
+                        onChange={(e) => setFormData({ ...formData, fuelEfficiency: parseFloat(e.target.value) || 11 })}
+                        className="w-full h-9 rounded-lg border border-slate-300 bg-white px-3 pr-16 text-xs font-mono font-bold text-slate-800 outline-none focus:border-emerald-600"
+                        required
+                      />
+                      <span className="absolute right-2.5 top-2 text-[10px] font-bold text-slate-400 pointer-events-none">
+                        km / L
+                      </span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                      Jenis Bahan Bakar
+                    </label>
+                    <select
+                      value={formData.fuelType}
+                      onChange={(e) => setFormData({ ...formData, fuelType: e.target.value })}
+                      className="w-full h-9 rounded-lg border border-slate-300 bg-white px-3 text-xs font-bold text-slate-800 outline-none focus:border-emerald-600"
+                    >
+                      <option value="Bensin">Bensin (Pertalite / Pertamax)</option>
+                      <option value="Diesel">Diesel (Solar / Dexlite)</option>
+                      <option value="Hybrid">Hybrid (Bensin + EV)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-1.5 pt-1 text-[10px]">
+                  <span className="text-slate-500 font-semibold mr-1">Rekomendasi Cepat:</span>
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, fuelEfficiency: 11, fuelType: 'Bensin' })}
+                    className="px-2 py-0.5 rounded bg-white border border-slate-200 text-slate-700 hover:border-amber-400 hover:bg-amber-50 font-bold"
+                  >
+                    Avanza (11 km/L)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, fuelEfficiency: 15, fuelType: 'Bensin' })}
+                    className="px-2 py-0.5 rounded bg-white border border-slate-200 text-slate-700 hover:border-amber-400 hover:bg-amber-50 font-bold"
+                  >
+                    Zenix (15 km/L)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, fuelEfficiency: 20, fuelType: 'Hybrid' })}
+                    className="px-2 py-0.5 rounded bg-white border border-slate-200 text-slate-700 hover:border-amber-400 hover:bg-amber-50 font-bold"
+                  >
+                    Zenix Hybrid (20 km/L)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, fuelEfficiency: 9, fuelType: 'Diesel' })}
+                    className="px-2 py-0.5 rounded bg-white border border-slate-200 text-slate-700 hover:border-amber-400 hover:bg-amber-50 font-bold"
+                  >
+                    Diesel (9 km/L)
+                  </button>
+                </div>
               </div>
 
               <div>

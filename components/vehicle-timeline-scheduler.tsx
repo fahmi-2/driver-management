@@ -22,9 +22,10 @@ import {
   AlertTriangle,
   Send,
   MapPin,
+  Fuel,
 } from 'lucide-react'
 import type { Trip, Vehicle } from '@/lib/store'
-import { useStore, ymd, fmtDate, fmtTime, STATUS_LABEL } from '@/lib/store'
+import { useStore, ymd, fmtDate, fmtTime, STATUS_LABEL, calculateEstimatedFuel } from '@/lib/store'
 import type { Account } from '@/lib/accounts'
 import { Pill, btnPrimary, btnGhost, inputCls, useToast } from './ui-bits'
 import { ModalPortal } from './modal-portal'
@@ -1300,9 +1301,21 @@ export function VehicleTimelineScheduler({
               </div>
             )}
 
-            {hoveredTrip.plate && (
-              <p><span className="text-[#93a097]">Kendaraan:</span> <span className="font-bold text-slate-800">{hoveredTrip.plate}</span></p>
-            )}
+            {hoveredTrip.plate && (() => {
+              const vObj = db.vehicles.find((v) => v.plate.toUpperCase() === hoveredTrip.plate?.toUpperCase())
+              const fCalc = calculateEstimatedFuel(hoveredTrip.distance_km, vObj)
+              return (
+                <div className="space-y-0.5">
+                  <p><span className="text-[#93a097]">Kendaraan:</span> <span className="font-bold text-slate-800">{hoveredTrip.plate}</span> {vObj?.type ? `(${vObj.type})` : ''}</p>
+                  {hoveredTrip.distance_km ? (
+                    <p className="text-[10px] text-amber-700 font-bold flex items-center gap-1">
+                      <Fuel size={11} className="text-amber-600" />
+                      Est. BBM: {fCalc.liters} Liter ({hoveredTrip.distance_km} KM @ {fCalc.efficiency} km/L)
+                    </p>
+                  ) : null}
+                </div>
+              )
+            })()}
             {hoveredTrip.driverId && (
               <p><span className="text-[#93a097]">Supir Ditugaskan:</span> <span className="font-bold text-slate-800">{db.drivers.find(d => d.id === hoveredTrip.driverId)?.name || hoveredTrip.driverId}</span></p>
             )}
@@ -1404,14 +1417,49 @@ export function VehicleTimelineScheduler({
                       <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
                         Kendaraan &amp; Plat
                       </span>
-                      <p className="font-mono font-bold text-slate-900 text-sm">
-                        {inspectingTrip.plate || inspectingTrip.otherVehicleName || '—'}
-                      </p>
-                      {inspectingTrip.isOtherVehicle && (
-                        <span className="inline-block mt-1 text-[9px] font-bold text-purple-700 bg-purple-100 px-1.5 py-0.5 rounded">
-                          Mobil Luar / Rental
-                        </span>
-                      )}
+                      {(() => {
+                        const targetPlate = inspectingTrip.plate || inspectingTrip.otherVehicleName
+                        const matchedVehicle = targetPlate ? db.vehicles.find((v) => v.plate.toUpperCase() === targetPlate.toUpperCase()) : null
+                        const vehicleType = matchedVehicle?.type || (inspectingTrip.isOtherVehicle ? (inspectingTrip.otherVehicleName || 'Mobil Luar') : null)
+                        const fuelCalc = calculateEstimatedFuel(inspectingTrip.distance_km, matchedVehicle)
+
+                        return (
+                          <div>
+                            <div className="flex items-baseline gap-2">
+                              <p className="font-mono font-black text-slate-900 text-sm">
+                                {targetPlate || '—'}
+                              </p>
+                              {vehicleType && (
+                                <span className="text-[11px] font-bold text-emerald-800">
+                                  {vehicleType}
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Informasi Estimasi Jarak & Konsumsi BBM */}
+                            <div className="mt-2 pt-2 border-t border-slate-200/80 flex flex-wrap items-center gap-1.5 text-[10px]">
+                              <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-900 border border-amber-300/80 px-2 py-0.5 rounded-md font-bold">
+                                <Fuel size={12} className="text-amber-600 shrink-0" />
+                                Est. BBM: {fuelCalc.liters > 0 ? `${fuelCalc.liters} Liter` : '—'}
+                              </span>
+                              {inspectingTrip.distance_km ? (
+                                <span className="bg-slate-200/70 text-slate-700 px-1.5 py-0.5 rounded font-mono font-semibold">
+                                  {inspectingTrip.distance_km} KM
+                                </span>
+                              ) : null}
+                              <span className="text-slate-500 font-medium">
+                                (~{fuelCalc.efficiency} km/L)
+                              </span>
+                            </div>
+
+                            {inspectingTrip.isOtherVehicle && (
+                              <span className="inline-block mt-1.5 text-[9px] font-bold text-purple-700 bg-purple-100 px-1.5 py-0.5 rounded">
+                                Mobil Luar / Rental
+                              </span>
+                            )}
+                          </div>
+                        )
+                      })()}
                     </div>
 
                     <div className="rounded-xl border border-slate-200 bg-slate-50 p-3.5 shadow-2xs">

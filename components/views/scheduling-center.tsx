@@ -19,7 +19,8 @@ import {
   Plus,
   Trash2,
   Users,
-  AlertCircle
+  AlertCircle,
+  Fuel,
 } from 'lucide-react'
 import {
   DEPARTMENTS,
@@ -31,7 +32,7 @@ import {
   type Account,
   type Golongan,
 } from '@/lib/accounts'
-import { useStore, type Trip, type Driver, type Vehicle, type Passenger, type Category, fmtDate, fmtTime, driverState, vehicleState, ymd } from '@/lib/store'
+import { useStore, type Trip, type Driver, type Vehicle, type Passenger, type Category, fmtDate, fmtTime, driverState, vehicleState, ymd, calculateEstimatedFuel } from '@/lib/store'
 import { Card, PageHeader, Pill, btnGhost, btnPrimary, inputCls, useToast } from '../ui-bits'
 import { VehicleTimelineScheduler, type TimelineSelection } from '../vehicle-timeline-scheduler'
 import { DestinationAutocomplete } from '../destination-autocomplete'
@@ -624,10 +625,30 @@ export function AdminSchedulingCenter({ user }: { user: Account }) {
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-[11px] text-[#15803d]">
                   <div>
-                    <span className="text-[#86efac]">Armada:</span>
-                    <p className="font-bold text-[#14532d] text-sm font-mono">
-                      {confirmModalData.selection.selectedVehiclePlate}
-                    </p>
+                    <span className="text-[#86efac]">Armada &amp; Model:</span>
+                    {(() => {
+                      const selPlate = confirmModalData.selection.selectedVehiclePlate
+                      const matchedVeh = db.vehicles.find((v) => v.plate.toUpperCase() === selPlate.toUpperCase())
+                      const fuelInfo = calculateEstimatedFuel(confirmModalData.trip.distance_km, matchedVeh)
+                      return (
+                        <div>
+                          <p className="font-bold text-[#14532d] text-sm font-mono">
+                            {selPlate}
+                          </p>
+                          {matchedVeh?.type && (
+                            <p className="text-[10px] font-bold text-emerald-800">
+                              {matchedVeh.type}
+                            </p>
+                          )}
+                          {confirmModalData.trip.distance_km ? (
+                            <div className="mt-1 flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-100/70 border border-amber-300 px-1.5 py-0.5 rounded">
+                              <Fuel size={11} className="text-amber-700 shrink-0" />
+                              <span>Est. BBM: {fuelInfo.liters} L ({confirmModalData.trip.distance_km} KM)</span>
+                            </div>
+                          ) : null}
+                        </div>
+                      )
+                    })()}
                   </div>
                   <div>
                     <span className="text-[#86efac]">Tujuan & Tamu:</span>
