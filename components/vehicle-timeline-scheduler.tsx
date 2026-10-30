@@ -23,6 +23,7 @@ import {
   Send,
   MapPin,
   Fuel,
+  Navigation,
 } from 'lucide-react'
 import type { Trip, Vehicle } from '@/lib/store'
 import { useStore, ymd, fmtDate, fmtTime, STATUS_LABEL, calculateEstimatedFuel } from '@/lib/store'
@@ -30,6 +31,7 @@ import type { Account } from '@/lib/accounts'
 import { Pill, btnPrimary, btnGhost, inputCls, useToast } from './ui-bits'
 import { ModalPortal } from './modal-portal'
 import { TimeInput24h } from './time-input-24h'
+import { TripRouteMap } from './route-map'
 
 export type TimelineViewMode = 'daily' | 'weekly' | 'monthly'
 
@@ -1493,16 +1495,59 @@ export function VehicleTimelineScheduler({
                   </div>
 
                   {/* Route & Purpose */}
-                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-2.5 text-xs shadow-2xs">
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3 text-xs shadow-2xs">
                     <div>
-                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
-                        Rute Perjalanan
-                      </span>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                          Rute Perjalanan
+                        </span>
+                        {inspectingTrip.distance_km ? (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-extrabold text-emerald-800 bg-emerald-100/90 border border-emerald-300 px-2 py-0.5 rounded-md">
+                            <Navigation size={12} className="text-emerald-700" />
+                            Total: {inspectingTrip.distance_km} KM {inspectingTrip.returnToOrigin !== false ? 'PP' : '(Sekali Jalan)'}
+                          </span>
+                        ) : null}
+                      </div>
+
                       <div className="flex items-center gap-2 font-medium text-slate-800">
                         <MapPin size={14} className="text-emerald-600 shrink-0" />
                         <span className="text-slate-700">{inspectingTrip.origin || 'PT. JAI'}</span>
                         <span className="text-slate-400">➔</span>
                         <strong className="text-slate-900">{inspectingTrip.destination}</strong>
+                      </div>
+
+                      {/* Detail Multi-Drop Destinations jika lebih dari 1 */}
+                      {Array.isArray(inspectingTrip.destinations) && inspectingTrip.destinations.length > 1 && (
+                        <div className="mt-2 pl-5 space-y-1 border-l-2 border-emerald-300">
+                          {inspectingTrip.destinations.map((dest, idx) => (
+                            <p key={idx} className="text-[11px] text-slate-600 flex items-center gap-1.5">
+                              <span className="size-1.5 rounded-full bg-emerald-500" />
+                              <span>Titik {idx + 1}: <strong>{dest}</strong></span>
+                            </p>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Preview Rute Map Interaktif Leaflet */}
+                    <div className="pt-2 border-t border-slate-200">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-[11px] font-bold text-slate-700 flex items-center gap-1.5">
+                          <MapPin size={13} className="text-emerald-700" />
+                          Visualisasi Peta Rute &amp; Lintasan
+                        </span>
+                        {inspectingTrip.estimated_duration_minutes ? (
+                          <span className="text-[10px] font-semibold text-slate-500">
+                            Est. Waktu: ~{inspectingTrip.estimated_duration_minutes} Menit
+                          </span>
+                        ) : null}
+                      </div>
+                      <div className="rounded-xl overflow-hidden border border-slate-300 shadow-inner">
+                        <TripRouteMap
+                          destinations={inspectingTrip.destinations}
+                          destination={inspectingTrip.destination}
+                          height={220}
+                        />
                       </div>
                     </div>
 
