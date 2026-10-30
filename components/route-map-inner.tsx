@@ -17,17 +17,29 @@ const pin = (text: string, bg: string, fg: string) =>
     html: `<div style="width:26px;height:26px;border-radius:9999px;background:${bg};color:${fg};border:2px solid #fff;box-shadow:0 1px 6px rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;font:700 12px system-ui">${text}</div>`,
   })
 
-function FitBounds({ points, line }: { points: MapPoint[]; line: [number, number][] }) {
+function FitBounds({
+  points,
+  line,
+  focusPoint,
+}: {
+  points: MapPoint[]
+  line: [number, number][]
+  focusPoint?: MapPoint | null
+}) {
   const map = useMap()
   useEffect(() => {
     // container bisa tersembunyi/berubah ukuran saat mount
     const t = setTimeout(() => {
       map.invalidateSize()
+      if (focusPoint && focusPoint.lat && focusPoint.lng) {
+        map.flyTo([focusPoint.lat, focusPoint.lng], 15, { duration: 0.8 })
+        return
+      }
       const pts: [number, number][] = line.length > 1 ? line : points.map((p) => [p.lat, p.lng])
       if (pts.length > 0) map.fitBounds(L.latLngBounds(pts), { padding: [28, 28], maxZoom: 15 })
     }, 80)
     return () => clearTimeout(t)
-  }, [map, points, line])
+  }, [map, points, line, focusPoint])
   return null
 }
 
@@ -35,10 +47,12 @@ export default function RouteMapInner({
   points,
   line,
   height = 280,
+  focusPoint,
 }: {
   points: MapPoint[]
   line: [number, number][]
   height?: number
+  focusPoint?: MapPoint | null
 }) {
   const center: [number, number] = points[0] ? [points[0].lat, points[0].lng] : [-7.55, 112.7]
   return (
@@ -58,7 +72,7 @@ export default function RouteMapInner({
             <Popup>{p.label}</Popup>
           </Marker>
         ))}
-        <FitBounds points={points} line={line} />
+        <FitBounds points={points} line={line} focusPoint={focusPoint} />
       </MapContainer>
     </div>
   )

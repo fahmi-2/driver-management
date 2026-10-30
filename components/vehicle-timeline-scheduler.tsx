@@ -119,6 +119,7 @@ export function VehicleTimelineScheduler({
 
   // Inspect Modal State
   const [inspectingTrip, setInspectingTrip] = useState<Trip | null>(null)
+  const [selectedMapPointIndex, setSelectedMapPointIndex] = useState<number | null>(null)
   const [isRescheduling, setIsRescheduling] = useState(false)
   const [isCanceling, setIsCanceling] = useState(false)
   const [cancelReason, setCancelReason] = useState('')
@@ -148,6 +149,7 @@ export function VehicleTimelineScheduler({
   // Handle open inspect modal
   const handleOpenInspect = (trip: Trip) => {
     setInspectingTrip(trip)
+    setSelectedMapPointIndex(null)
     setIsRescheduling(false)
     setIsCanceling(false)
     setCancelReason('')
@@ -1497,9 +1499,9 @@ export function VehicleTimelineScheduler({
                   {/* Route & Purpose */}
                   <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3 text-xs shadow-2xs">
                     <div>
-                      <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center justify-between mb-2">
                         <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
-                          Rute Perjalanan
+                          Rute Perjalanan &amp; Titik Singgah
                         </span>
                         {inspectingTrip.distance_km ? (
                           <span className="inline-flex items-center gap-1 text-[11px] font-extrabold text-emerald-800 bg-emerald-100/90 border border-emerald-300 px-2 py-0.5 rounded-md">
@@ -1509,24 +1511,84 @@ export function VehicleTimelineScheduler({
                         ) : null}
                       </div>
 
-                      <div className="flex items-center gap-2 font-medium text-slate-800">
-                        <MapPin size={14} className="text-emerald-600 shrink-0" />
-                        <span className="text-slate-700">{inspectingTrip.origin || 'PT. JAI'}</span>
-                        <span className="text-slate-400">➔</span>
-                        <strong className="text-slate-900">{inspectingTrip.destination}</strong>
-                      </div>
+                      {/* Daftar Titik Berurutan: Titik 1, Titik 2, dst. (Bisa diklik untuk fokus di peta) */}
+                      {(() => {
+                        const rawDestList = Array.isArray(inspectingTrip.destinations) && inspectingTrip.destinations.length > 0
+                          ? inspectingTrip.destinations.filter(Boolean)
+                          : inspectingTrip.destination
+                          ? [inspectingTrip.destination]
+                          : []
 
-                      {/* Detail Multi-Drop Destinations jika lebih dari 1 */}
-                      {Array.isArray(inspectingTrip.destinations) && inspectingTrip.destinations.length > 1 && (
-                        <div className="mt-2 pl-5 space-y-1 border-l-2 border-emerald-300">
-                          {inspectingTrip.destinations.map((dest, idx) => (
-                            <p key={idx} className="text-[11px] text-slate-600 flex items-center gap-1.5">
-                              <span className="size-1.5 rounded-full bg-emerald-500" />
-                              <span>Titik {idx + 1}: <strong>{dest}</strong></span>
-                            </p>
-                          ))}
-                        </div>
-                      )}
+                        const originName = inspectingTrip.origin || 'PT. JAI'
+
+                        return (
+                          <div className="space-y-1.5">
+                            {/* Titik Asal / Start */}
+                            <button
+                              type="button"
+                              onClick={() => setSelectedMapPointIndex(selectedMapPointIndex === 0 ? null : 0)}
+                              className={`w-full text-left rounded-lg p-2 transition flex items-start gap-2 border ${
+                                selectedMapPointIndex === 0
+                                  ? 'bg-emerald-100 border-emerald-400 text-emerald-950 shadow-xs'
+                                  : 'bg-white border-slate-200 text-slate-700 hover:border-emerald-300 hover:bg-emerald-50/50'
+                              }`}
+                            >
+                              <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-[#a3e635] text-[10px] font-black text-[#052e16] shadow-2xs mt-0.5">
+                                ★
+                              </span>
+                              <div className="flex-1 min-w-0">
+                                <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wide block">
+                                  Titik Awal (Origin)
+                                </span>
+                                <p className="font-semibold text-slate-900 leading-snug">{originName}</p>
+                              </div>
+                              <span className={`text-[10px] font-semibold shrink-0 self-center px-1.5 py-0.5 rounded ${
+                                selectedMapPointIndex === 0
+                                  ? 'bg-emerald-200 text-emerald-900'
+                                  : 'text-slate-400'
+                              }`}>
+                                {selectedMapPointIndex === 0 ? 'Fokus Aktif (Klik utk reset)' : 'Klik untuk lihat'}
+                              </span>
+                            </button>
+
+                            {/* Titik Tujuan: Titik 1, Titik 2, dst */}
+                            {rawDestList.map((dest, idx) => {
+                              const pointIdx = idx + 1
+                              const isSelected = selectedMapPointIndex === pointIdx
+
+                              return (
+                                <button
+                                  key={idx}
+                                  type="button"
+                                  onClick={() => setSelectedMapPointIndex(isSelected ? null : pointIdx)}
+                                  className={`w-full text-left rounded-lg p-2 transition flex items-start gap-2 border ${
+                                    isSelected
+                                      ? 'bg-blue-50 border-blue-400 text-blue-950 shadow-xs'
+                                      : 'bg-white border-slate-200 text-slate-700 hover:border-blue-300 hover:bg-slate-50'
+                                  }`}
+                                >
+                                  <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-[#2563eb] text-[10px] font-black text-white shadow-2xs mt-0.5">
+                                    {pointIdx}
+                                  </span>
+                                  <div className="flex-1 min-w-0">
+                                    <span className="text-[10px] font-bold text-blue-700 uppercase tracking-wide block">
+                                      Titik {pointIdx}
+                                    </span>
+                                    <p className="font-semibold text-slate-900 leading-snug">{dest}</p>
+                                  </div>
+                                  <span className={`text-[10px] font-semibold shrink-0 self-center px-1.5 py-0.5 rounded ${
+                                    isSelected
+                                      ? 'bg-blue-200 text-blue-900'
+                                      : 'text-slate-400'
+                                  }`}>
+                                    {isSelected ? 'Fokus Aktif (Klik utk reset)' : 'Klik untuk lihat'}
+                                  </span>
+                                </button>
+                              )
+                            })}
+                          </div>
+                        )
+                      })()}
                     </div>
 
                     {/* Preview Rute Map Interaktif Leaflet */}
@@ -1547,6 +1609,7 @@ export function VehicleTimelineScheduler({
                           destinations={inspectingTrip.destinations}
                           destination={inspectingTrip.destination}
                           height={220}
+                          focusPointIndex={selectedMapPointIndex}
                         />
                       </div>
                     </div>

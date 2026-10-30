@@ -50,10 +50,12 @@ export function TripRouteMap({
   destinations,
   destination,
   height = 260,
+  focusPointIndex,
 }: {
   destinations?: any
   destination?: string
   height?: number
+  focusPointIndex?: number | null // 0: Origin PT. JAI, 1: Titik 1, 2: Titik 2, dst.
 }) {
   const list = normalizeDestinations(destinations, destination)
   const key = list.join('|')
@@ -95,10 +97,21 @@ export function TripRouteMap({
     )
   }
 
+  const allPoints = [ORIGIN_POINT, ...state.places]
+  const targetFocus =
+    typeof focusPointIndex === 'number' && focusPointIndex >= 0 && focusPointIndex < allPoints.length
+      ? allPoints[focusPointIndex]
+      : null
+
   return (
     <MapErrorBoundary>
       <div className="space-y-1.5">
-        <RouteMap points={[ORIGIN_POINT, ...state.places]} line={state.route?.line ?? []} height={height} />
+        <RouteMap
+          points={allPoints}
+          line={state.route?.line ?? []}
+          height={height}
+          focusPoint={targetFocus}
+        />
         {state.route && (
           <p className="flex items-center gap-1.5 text-[10px] text-[#8fa99b]">
             <MapIcon size={11} className="text-[#a3e635]" />
