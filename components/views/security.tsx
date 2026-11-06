@@ -82,14 +82,14 @@ export function SecurityGate({ user }: { user: Account }) {
                           <p className="text-lg font-bold tracking-tight">{t.plate}</p>
                           <Pill label={originIsJai ? 'Keluar Gerbang JAI' : 'Start Rute Luar'} tone={originIsJai ? 'green' : 'amber'} />
                         </div>
-                        <p className="text-xs text-[#708078] mt-1 flex items-center gap-1">
-                          <MapPin size={12} className="text-emerald-600 shrink-0" />
-                          <span className="font-semibold text-[#0f2419]">{originLabel}</span>
-                          <span className="text-[#a3afa8]">→</span>
-                          <span className="font-semibold text-[#0f2419]">{t.destination}</span>
+                        <p className="text-xs text-emerald-100/70 mt-1 flex items-center gap-1.5 flex-wrap">
+                          <MapPin size={13} className="text-emerald-400 shrink-0" />
+                          <span className="font-semibold text-white">{originLabel}</span>
+                          <span className="text-emerald-400/60">→</span>
+                          <span className="font-semibold text-white">{t.destination}</span>
                         </p>
-                        <p className="text-xs text-[#708078] mt-0.5">
-                          Driver: <span className="font-medium text-[#18392b]">{dn(t.driverId)}</span> · Est. {t.estDeparture || '08:00'} WIB
+                        <p className="text-xs text-emerald-100/70 mt-1">
+                          Driver: <span className="font-medium text-emerald-300">{dn(t.driverId)}</span> · Est. <span className="font-semibold text-white">{t.estDeparture || '08:00'} WIB</span>
                         </p>
                       </div>
                       <Pill label="Siap" tone="green" />
@@ -141,14 +141,14 @@ export function SecurityGate({ user }: { user: Account }) {
                           <p className="text-lg font-bold tracking-tight">{t.plate}</p>
                           <Pill label={destIsJai ? 'Menuju Gerbang JAI' : 'Tujuan Akhir Luar'} tone={destIsJai ? 'blue' : 'amber'} />
                         </div>
-                        <p className="text-xs text-[#708078] mt-1 flex items-center gap-1">
-                          <MapPin size={12} className="text-blue-600 shrink-0" />
-                          <span className="font-semibold text-[#0f2419]">{t.origin || 'PT. JAI'}</span>
-                          <span className="text-[#a3afa8]">→</span>
-                          <span className="font-semibold text-[#0f2419]">{t.destination}</span>
+                        <p className="text-xs text-sky-100/70 mt-1 flex items-center gap-1.5 flex-wrap">
+                          <MapPin size={13} className="text-sky-400 shrink-0" />
+                          <span className="font-semibold text-white">{t.origin || 'PT. JAI'}</span>
+                          <span className="text-sky-400/60">→</span>
+                          <span className="font-semibold text-white">{t.destination}</span>
                         </p>
-                        <p className="text-xs text-[#708078] mt-0.5">
-                          Driver: <span className="font-medium text-[#18392b]">{dn(t.driverId)}</span> · Keluar {fmtTime(t.timeGo)} WIB
+                        <p className="text-xs text-sky-100/70 mt-1">
+                          Driver: <span className="font-medium text-sky-300">{dn(t.driverId)}</span> · Keluar <span className="font-semibold text-white">{fmtTime(t.timeGo)} WIB</span>
                         </p>
                       </div>
                       <Pill label="Bertugas" tone="blue" />
@@ -188,13 +188,13 @@ export function SecurityGate({ user }: { user: Account }) {
           <ul className="divide-y divide-[#edf1ee]">
             {doneToday.map((t) => (
               <li key={t.id} className="flex justify-between px-5 py-3 text-xs">
-                <span className="font-semibold">
-                  {t.plate} · {dn(t.driverId)}
-                  <span className="ml-2 font-normal text-[#708078]">
+                <span className="font-semibold text-white">
+                  {t.plate} · <span className="text-emerald-300">{dn(t.driverId)}</span>
+                  <span className="ml-2 font-normal text-emerald-100/70">
                     ({t.origin || 'PT. JAI'} → {t.destination})
                   </span>
                 </span>
-                <span className="text-[#708078]">
+                <span className="text-emerald-100/70 font-mono">
                   {fmtTime(t.timeGo)} → {fmtTime(t.timeBack)} ({fmtDur(t.durationMin)})
                 </span>
               </li>
