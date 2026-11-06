@@ -328,7 +328,20 @@ export async function upsertTripToSupabase(trip: Trip): Promise<SyncResult> {
     const validRequester = (!trip.requesterUser || trip.requesterUser === 'admin') ? 'admin1' : trip.requesterUser
     const plateValue = trip.isOtherVehicle ? null : (trip.plate || null)
 
-    const { error } = await supabase.from('trips').upsert({
+    // security_go & security_back memiliki foreign key REFERENCES accounts(username).
+    // Nilai seperti 'driver-app' atau string sistem bukan merupakan record username di tabel accounts,
+    // sehingga harus dikonversi ke null agar tidak memicu error constraint 23503.
+    const sanitizeSecurityUser = (val?: string | null) => {
+      if (!val) return null
+      const trimmed = val.trim()
+      if (trimmed === 'driver-app' || trimmed === 'system' || trimmed === '') return null
+      return trimmed
+    }
+
+    let securityGoVal = sanitizeSecurityUser(trip.securityGo)
+    let securityBackVal = sanitizeSecurityUser(trip.securityBack)
+
+    const payload = {
       id: trip.id,
       date: trip.date,
       category: trip.category,
@@ -347,6 +360,8 @@ export async function upsertTripToSupabase(trip: Trip): Promise<SyncResult> {
         returnToOrigin: trip.returnToOrigin !== false,
         isEdited: !!trip.isEdited,
         editedAt: trip.editedAt || null,
+        securityGoChannel: trip.securityGo || null,
+        securityBackChannel: trip.securityBack || null,
       },
       distance_km: trip.distance_km != null ? trip.distance_km : null,
       estimated_duration_minutes: trip.estimated_duration_minutes != null ? trip.estimated_duration_minutes : null,
@@ -370,9 +385,9 @@ export async function upsertTripToSupabase(trip: Trip): Promise<SyncResult> {
       pool_spv_note: trip.poolSpvNote || null,
       reject_reason: trip.rejectReason || null,
       time_go: trip.timeGo || null,
-      security_go: trip.securityGo || null,
+      security_go: securityGoVal,
       time_back: trip.timeBack || null,
-      security_back: trip.securityBack || null,
+      security_back: securityBackVal,
       duration_min: trip.durationMin || null,
       status: trip.status,
       coupon: trip.coupon || 'NONE',
@@ -383,7 +398,29 @@ export async function upsertTripToSupabase(trip: Trip): Promise<SyncResult> {
       pr_created_at: trip.prCreatedAt || null,
       pr_created_by: trip.prCreatedBy || null,
       updated_at: new Date().toISOString(),
-    })
+    }
+
+    let { error } = await supabase.from('trips').upsert(payload)
+
+    // Fallback otomatis jika masih terjadi FK violation pada security_go / security_back
+    // (misalnya user security lokal belum terdaftar di database Supabase remote)
+    if (
+      error &&
+      error.code === '23503' &&
+      (error.message.includes('trips_security_go_fkey') ||
+        error.message.includes('trips_security_back_fkey') ||
+        error.details?.includes('security_go') ||
+        error.details?.includes('security_back'))
+    ) {
+      console.warn('Foreign key violation pada security user, mencoba fallback dengan security_go & security_back = null...')
+      const fallbackPayload = {
+        ...payload,
+        security_go: null,
+        security_back: null,
+      }
+      const retryResult = await supabase.from('trips').upsert(fallbackPayload)
+      error = retryResult.error
+    }
 
     if (error) {
       console.error('Trip upsert error in Supabase:', {
