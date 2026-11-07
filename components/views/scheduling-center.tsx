@@ -21,6 +21,9 @@ import {
   Users,
   AlertCircle,
   Fuel,
+  Eye,
+  EyeOff,
+  Lock,
 } from 'lucide-react'
 import {
   DEPARTMENTS,
@@ -40,7 +43,7 @@ import { ModalPortal } from '../modal-portal'
 import { TimeInput24h } from '../time-input-24h'
 
 export function AdminSchedulingCenter({ user }: { user: Account }) {
-  const { db, scheduleTrip, rejectTrip, directBooking } = useStore()
+  const { db, scheduleTrip, rejectTrip, directBooking, cancelTrip } = useStore()
   const notify = useToast()
 
   // Kapasitas maksimum kendaraan dari master fleet
@@ -52,6 +55,13 @@ export function AdminSchedulingCenter({ user }: { user: Account }) {
   // Modals
   const [rejectingTrip, setRejectingTrip] = useState<Trip | null>(null)
   const [rejectReason, setRejectReason] = useState('')
+
+  // State Modal Hapus / Bersihkan Pengajuan Waiting List (dengan Verifikasi Password Admin Pool GA)
+  const [deletingTrip, setDeletingTrip] = useState<Trip | null>(null)
+  const [adminPasswordInput, setAdminPasswordInput] = useState('')
+  const [showAdminPassword, setShowAdminPassword] = useState(false)
+  const [passwordError, setPasswordError] = useState('')
+  const [isDeleting, setIsDeleting] = useState(false)
 
   const [confirmModalData, setConfirmModalData] = useState<{
     trip: Trip
@@ -179,6 +189,42 @@ export function AdminSchedulingCenter({ user }: { user: Account }) {
     )
     setConfirmModalData(null)
     setSelectedTrip(null)
+  }
+
+  // Handle Submit Hapus / Bersihkan Pengajuan dari Waiting List dengan Verifikasi Password
+  const handleDeleteWaitingTrip = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!deletingTrip) return
+
+    setPasswordError('')
+
+    // Ambil akun admin terkini dari database/localStorage
+    const currentAccount = getAllAccounts().find((a) => a.username === user.username) || user
+    const expectedPassword = currentAccount.password || 'admin123'
+
+    if (adminPasswordInput !== expectedPassword) {
+      setPasswordError('Password Admin salah! Verifikasi keamanan gagal.')
+      return
+    }
+
+    setIsDeleting(true)
+    try {
+      const res = await cancelTrip(deletingTrip.id, 'Dibersihkan dari Waiting List oleh Super Admin / Admin Pool GA')
+      if (res && !res.success) {
+        notify(`Gagal menghapus pengajuan: ${res.error}`)
+      } else {
+        notify(`Pengajuan ${deletingTrip.id} berhasil dihapus dan dibersihkan dari waiting list.`)
+        if (selectedTrip?.id === deletingTrip.id) {
+          setSelectedTrip(null)
+        }
+        setDeletingTrip(null)
+        setAdminPasswordInput('')
+      }
+    } catch (err: any) {
+      notify(`Terjadi kesalahan: ${err?.message || err}`)
+    } finally {
+      setIsDeleting(false)
+    }
   }
 
   // Handle Submit Direct Booking
@@ -407,18 +453,36 @@ export function AdminSchedulingCenter({ user }: { user: Account }) {
                       </div>
 
                       {/* Action buttons inside card */}
-                      <div className="mt-3 flex items-center justify-between border-t border-[#e2ece5] pt-2.5">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setRejectingTrip(trip)
-                            setRejectReason('')
-                          }}
-                          className="text-[11px] font-bold text-[#b91c1c] hover:underline"
-                        >
-                          Tolak (Reject)
-                        </button>
+                      <div className="mt-3 flex items-center justify-between border-t border-[#e2ece5] pt-2.5 gap-2">
+                        <div className="flex items-center gap-2.5">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setRejectingTrip(trip)
+                              setRejectReason('')
+                            }}
+                            className="text-[11px] font-bold text-[#b91c1c] hover:underline"
+                          >
+                            Tolak
+                          </button>
+                          <span className="text-gray-300">|</span>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setDeletingTrip(trip)
+                              setAdminPasswordInput('')
+                              setShowAdminPassword(false)
+                              setPasswordError('')
+                            }}
+                            className="flex items-center gap-1 text-[11px] font-bold text-red-600 hover:text-red-700 hover:underline"
+                            title="Hapus / bersihkan pengajuan yang tidak terpakai dari waiting list"
+                          >
+                            <Trash2 size={12} />
+                            Hapus
+                          </button>
+                        </div>
 
                         {isSpvPending ? (
                           <span className="text-[10px] font-semibold text-amber-700 bg-amber-100/80 px-2 py-0.5 rounded flex items-center gap-1">
@@ -568,6 +632,117 @@ export function AdminSchedulingCenter({ user }: { user: Account }) {
                   className="rounded-full bg-[#dc2626] px-5 py-2 text-xs font-bold text-white shadow-md hover:bg-[#b91c1c] transition"
                 >
                   Konfirmasi Tolak Pengajuan
+                </button>
+              </div>
+            </form>
+          </div>
+        </ModalPortal>
+      )}
+
+      {/* MODAL 1.5: Security Password Verification Modal to Delete Waiting Trip */}
+      {deletingTrip && (
+        <ModalPortal onClose={() => !isDeleting && setDeletingTrip(null)}>
+          <div className="relative w-full max-w-md rounded-2xl bg-white shadow-2xl border border-red-200 overflow-hidden flex flex-col animate-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-red-100 bg-red-50/80 px-6 py-4">
+              <div className="flex items-center gap-2.5">
+                <div className="flex size-9 items-center justify-center rounded-xl bg-red-600 text-white shadow-sm">
+                  <Trash2 size={18} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-red-900">Hapus Pengajuan Waiting List</h3>
+                  <p className="text-[10px] text-red-600 font-mono">{deletingTrip.id} · {deletingTrip.destination}</p>
+                </div>
+              </div>
+              <button
+                disabled={isDeleting}
+                onClick={() => setDeletingTrip(null)}
+                className="p-1 rounded-lg text-gray-500 hover:bg-red-100 disabled:opacity-50"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <form onSubmit={handleDeleteWaitingTrip} className="p-6 space-y-4">
+              <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-3 text-xs text-amber-900">
+                <p className="font-semibold flex items-center gap-1.5 text-amber-800">
+                  <AlertCircle size={14} className="shrink-0 text-amber-600" />
+                  Konfirmasi Pembersihan Data Waiting List
+                </p>
+                <p className="mt-1 text-[11px] leading-relaxed text-amber-700">
+                  Pengajuan milik <b>{deletingTrip.requesterName}</b> ({deletingTrip.dept}) dengan rute <b>{deletingTrip.destination}</b> akan dihapus permanen dari antrean dan database Supabase.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">
+                  Masukkan Password Admin Pool GA:
+                </label>
+                <p className="text-[11px] text-gray-500 mb-2">
+                  Untuk mencegah kecurangan atau salah klik, verifikasi keamanan dengan password akun login Anda (<b>{user.username}</b>) diwajibkan.
+                </p>
+
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                    <Lock size={15} />
+                  </div>
+                  <input
+                    type={showAdminPassword ? 'text' : 'password'}
+                    value={adminPasswordInput}
+                    onChange={(e) => {
+                      setAdminPasswordInput(e.target.value)
+                      setPasswordError('')
+                    }}
+                    placeholder="Ketik password admin Anda..."
+                    autoFocus
+                    required
+                    className={`w-full pl-9 pr-10 py-2.5 text-xs rounded-xl border ${
+                      passwordError ? 'border-red-500 ring-1 ring-red-500 bg-red-50/30' : 'border-gray-300 focus:border-[#075b3d]'
+                    } outline-none transition text-gray-900 font-medium`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowAdminPassword(!showAdminPassword)}
+                    tabIndex={-1}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+                    title={showAdminPassword ? 'Sembunyikan password' : 'Lihat password'}
+                  >
+                    {showAdminPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                  </button>
+                </div>
+
+                {passwordError && (
+                  <p className="mt-1.5 text-[11px] font-semibold text-red-600 flex items-center gap-1">
+                    <AlertTriangle size={12} className="shrink-0" />
+                    {passwordError}
+                  </p>
+                )}
+              </div>
+
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-gray-100">
+                <button
+                  type="button"
+                  disabled={isDeleting}
+                  onClick={() => setDeletingTrip(null)}
+                  className="rounded-xl px-4 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-100 transition disabled:opacity-50"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={isDeleting || !adminPasswordInput}
+                  className="rounded-xl bg-red-600 px-5 py-2 text-xs font-bold text-white shadow-md hover:bg-red-700 active:scale-95 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+                >
+                  {isDeleting ? (
+                    <>
+                      <span className="size-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Menghapus...
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 size={13} />
+                      Verifikasi & Hapus Permanen
+                    </>
+                  )}
                 </button>
               </div>
             </form>
