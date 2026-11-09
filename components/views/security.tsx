@@ -19,11 +19,15 @@ import {
   Filter,
   ChevronLeft,
   ChevronRight,
+  CheckCircle2,
+  X,
+  AlertTriangle,
 } from 'lucide-react'
 import type { Account } from '@/lib/accounts'
-import { fmtDate, fmtDur, fmtTime, useStore, ymd } from '@/lib/store'
+import { fmtDate, fmtDur, fmtTime, useStore, ymd, canStartTripNow, type Trip } from '@/lib/store'
 import { isJaiLocation } from '@/lib/geo'
 import { Card, Empty, PageHeader, Pill, useToast } from '../ui-bits'
+import { ModalPortal } from '../modal-portal'
 
 export function SecurityGate({ user }: { user: Account }) {
   const { db, gateGo, gateBack } = useStore()
@@ -34,6 +38,10 @@ export function SecurityGate({ user }: { user: Account }) {
   // State untuk expand detail tambahan pengajuan
   const [expandedTripId, setExpandedTripId] = useState<string | null>(null)
   const toggleExpand = (id: string) => setExpandedTripId((prev) => (prev === id ? null : id))
+
+  // State modal konfirmasi Gate Out (Berangkat) & Gate In (Kembali)
+  const [confirmGoTrip, setConfirmGoTrip] = useState<Trip | null>(null)
+  const [confirmBackTrip, setConfirmBackTrip] = useState<Trip | null>(null)
 
   // State filter & pagination untuk mengurangi scroll
   const [searchQuery, setSearchQuery] = useState('')
@@ -312,17 +320,31 @@ export function SecurityGate({ user }: { user: Account }) {
 
                       {/* Button BERANGKAT only if Origin is PT. JAI */}
                       {originIsJai ? (
-                        <button
-                          id={`go-${t.id}`}
-                          onClick={() => {
-                            gateGo(t.id, user.username)
-                            notify(`${t.plate} BERANGKAT ${fmtTime(new Date().toISOString())} WIB`)
-                          }}
-                          className="mt-4 flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-[#075b3d] text-base font-bold text-white shadow-lg shadow-[#075b3d]/25 transition active:scale-[.98]"
-                        >
-                          <LogOut size={20} />
-                          BERANGKAT (GERBANG JAI)
-                        </button>
+                        (() => {
+                          const check = canStartTripNow(t.date, t.estDeparture)
+                          if (!check.allowed) {
+                            return (
+                              <div className="mt-4 p-3 rounded-2xl bg-black/40 border border-amber-500/30 text-amber-300 text-xs flex items-start gap-2.5">
+                                <AlertTriangle size={16} className="shrink-0 text-amber-400 mt-0.5" />
+                                <div>
+                                  <span className="font-bold text-white block">Belum Waktu Keberangkatan</span>
+                                  <span className="text-[11px] leading-relaxed text-amber-200/90">{check.reason}</span>
+                                </div>
+                              </div>
+                            )
+                          }
+                          return (
+                            <button
+                              id={`go-${t.id}`}
+                              type="button"
+                              onClick={() => setConfirmGoTrip(t)}
+                              className="mt-4 flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-[#075b3d] hover:bg-[#09734e] text-base font-bold text-white shadow-lg shadow-[#075b3d]/25 transition active:scale-[.98]"
+                            >
+                              <LogOut size={20} />
+                              BERANGKAT (GERBANG JAI)
+                            </button>
+                          )
+                        })()
                       ) : (
                         <div className="mt-4 flex items-center gap-2 rounded-xl bg-amber-50 p-3 text-xs text-amber-800 border border-amber-200">
                           <AlertCircle size={16} className="text-amber-600 shrink-0" />
@@ -503,11 +525,9 @@ export function SecurityGate({ user }: { user: Account }) {
                       {destIsJai ? (
                         <button
                           id={`back-${t.id}`}
-                          onClick={() => {
-                            gateBack(t.id, user.username)
-                            notify(`${t.plate} KEMBALI tercatat di gerbang`)
-                          }}
-                          className="mt-4 flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-[#e08a00] text-base font-bold text-white shadow-lg shadow-[#e08a00]/25 transition active:scale-[.98]"
+                          type="button"
+                          onClick={() => setConfirmBackTrip(t)}
+                          className="mt-4 flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-[#e08a00] hover:bg-[#c97b00] text-base font-bold text-white shadow-lg shadow-[#e08a00]/25 transition active:scale-[.98]"
                         >
                           <LogIn size={20} />
                           KEMBALI (GERBANG JAI)
@@ -578,6 +598,144 @@ export function SecurityGate({ user }: { user: Account }) {
           </ul>
         )}
       </Card>
+
+      {/* MODAL KONFIRMASI BERANGKAT (GATE OUT) */}
+      {confirmGoTrip && (
+        <ModalPortal onClose={() => setConfirmGoTrip(null)}>
+          <div className="relative w-full max-w-md rounded-2xl bg-[#0a2418] border border-emerald-500/40 p-6 text-white shadow-2xl space-y-4 animate-in zoom-in-95 duration-150">
+            <div className="flex items-start justify-between border-b border-white/10 pb-3">
+              <div className="flex items-center gap-3">
+                <div className="size-10 rounded-xl bg-emerald-600/30 border border-emerald-500/40 flex items-center justify-center text-emerald-400">
+                  <LogOut size={22} />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">Konfirmasi Keberangkatan</h3>
+                  <p className="text-xs text-emerald-300 font-mono">{confirmGoTrip.plate} • {confirmGoTrip.id}</p>
+                </div>
+              </div>
+              <button 
+                type="button" 
+                onClick={() => setConfirmGoTrip(null)}
+                className="p-1 rounded-lg text-white/60 hover:text-white hover:bg-white/10"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="space-y-2 text-xs bg-black/40 p-3.5 rounded-xl border border-white/10">
+              <div className="flex justify-between">
+                <span className="text-[#8fa99b]">Driver:</span>
+                <span className="font-semibold text-emerald-300">{dn(confirmGoTrip.driverId)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[#8fa99b]">Pemohon:</span>
+                <span className="font-semibold text-white">{confirmGoTrip.requesterName} ({confirmGoTrip.dept})</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[#8fa99b]">Tujuan:</span>
+                <span className="font-semibold text-white">{confirmGoTrip.destination}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[#8fa99b]">Jadwal Rencana:</span>
+                <span className="font-medium text-emerald-300">{fmtDate(confirmGoTrip.date)} • {confirmGoTrip.estDeparture} WIB</span>
+              </div>
+            </div>
+
+            <p className="text-xs text-[#8fa99b] leading-relaxed">
+              Apakah Anda yakin ingin mencatat kendaraan ini <b className="text-white">BERANGKAT</b> keluar dari Gerbang PT. JAI sekarang?
+            </p>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setConfirmGoTrip(null)}
+                className="px-4 py-2.5 rounded-xl text-xs font-semibold text-white/70 hover:bg-white/10 transition"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  gateGo(confirmGoTrip.id, user.username)
+                  notify(`${confirmGoTrip.plate} BERANGKAT ${fmtTime(new Date().toISOString())} WIB`)
+                  setConfirmGoTrip(null)
+                }}
+                className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-bold text-xs text-white shadow-lg shadow-emerald-950/50 flex items-center gap-1.5 transition active:scale-95"
+              >
+                <CheckCircle2 size={15} />
+                Ya, Catat Berangkat
+              </button>
+            </div>
+          </div>
+        </ModalPortal>
+      )}
+
+      {/* MODAL KONFIRMASI KEMBALI (GATE IN) */}
+      {confirmBackTrip && (
+        <ModalPortal onClose={() => setConfirmBackTrip(null)}>
+          <div className="relative w-full max-w-md rounded-2xl bg-[#1f1a0e] border border-amber-500/40 p-6 text-white shadow-2xl space-y-4 animate-in zoom-in-95 duration-150">
+            <div className="flex items-start justify-between border-b border-white/10 pb-3">
+              <div className="flex items-center gap-3">
+                <div className="size-10 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400">
+                  <LogIn size={22} />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">Konfirmasi Kepulangan (Masuk Gerbang)</h3>
+                  <p className="text-xs text-amber-300 font-mono">{confirmBackTrip.plate} • {confirmBackTrip.id}</p>
+                </div>
+              </div>
+              <button 
+                type="button" 
+                onClick={() => setConfirmBackTrip(null)}
+                className="p-1 rounded-lg text-white/60 hover:text-white hover:bg-white/10"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="space-y-2 text-xs bg-black/40 p-3.5 rounded-xl border border-white/10">
+              <div className="flex justify-between">
+                <span className="text-[#8fa99b]">Driver:</span>
+                <span className="font-semibold text-amber-300">{dn(confirmBackTrip.driverId)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[#8fa99b]">Jam Keluar:</span>
+                <span className="font-semibold text-white">{fmtTime(confirmBackTrip.timeGo)} WIB</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[#8fa99b]">Rute:</span>
+                <span className="font-semibold text-white">{confirmBackTrip.origin || 'PT. JAI'} → {confirmBackTrip.destination}</span>
+              </div>
+            </div>
+
+            <p className="text-xs text-[#8fa99b] leading-relaxed">
+              Apakah Anda yakin ingin mencatat kendaraan ini <b className="text-white">KEMBALI MASUK</b> ke Gerbang PT. JAI dan menyelesaikan perjalanan?
+            </p>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setConfirmBackTrip(null)}
+                className="px-4 py-2.5 rounded-xl text-xs font-semibold text-white/70 hover:bg-white/10 transition"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  gateBack(confirmBackTrip.id, user.username)
+                  notify(`${confirmBackTrip.plate} KEMBALI tercatat di gerbang`)
+                  setConfirmBackTrip(null)
+                }}
+                className="px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 font-bold text-xs text-white shadow-lg shadow-amber-950/50 flex items-center gap-1.5 transition active:scale-95"
+              >
+                <CheckCircle2 size={15} />
+                Ya, Catat Masuk Gerbang
+              </button>
+            </div>
+          </div>
+        </ModalPortal>
+      )}
     </>
   )
 }

@@ -9,7 +9,9 @@ import {
   fmtTime, 
   fmtDate,
   fmtDur,
-  calculateEstimatedFuel
+  calculateEstimatedFuel,
+  canStartTripNow,
+  type Trip
 } from '@/lib/store'
 import { Account } from '@/lib/accounts'
 import { Card, PageHeader, Pill, useToast } from '../ui-bits'
@@ -35,7 +37,8 @@ import {
   ChevronUp,
   FileText,
   Fuel,
-  Info
+  Info,
+  X
 } from 'lucide-react'
 
 const DELAY_REASONS = [
@@ -236,6 +239,10 @@ export function DriverDashboard({ user }: DriverDashboardProps) {
   const [selectedDelayReason, setSelectedDelayReason] = useState<string>(DELAY_REASONS[0])
   const [customDelayReason, setCustomDelayReason] = useState<string>('')
 
+  // Modal Konfirmasi Start Trip & End Trip Driver
+  const [confirmStartTrip, setConfirmStartTrip] = useState<Trip | null>(null)
+  const [confirmEndTrip, setConfirmEndTrip] = useState<Trip | null>(null)
+
   // Trips assigned to this driver that have passed SPV Kendaraan ACC (READY, ON_TRIP, DONE)
   const driverTrips = useMemo(() => {
     if (!matchedDriver) return []
@@ -324,16 +331,17 @@ export function DriverDashboard({ user }: DriverDashboardProps) {
   // Trigger Delay Modal when ending trip or reporting delay
   const handleOpenEndTripModal = (tripId: string) => {
     const t = db.trips.find((x) => x.id === tripId)
-    const planMins = t?.durationMin || t?.estimated_duration_minutes || 60
-    const elapsedMins = t?.timeGo ? Math.max(0, Math.round((Date.now() - new Date(t.timeGo).getTime()) / 60000)) : 0
+    if (!t) return
+    const planMins = t.durationMin || t.estimated_duration_minutes || 60
+    const elapsedMins = t.timeGo ? Math.max(0, Math.round((Date.now() - new Date(t.timeGo).getTime()) / 60000)) : 0
     
     // If delayed, prompt delay reason
-    if (elapsedMins > planMins || t?.delayReason) {
-      setSelectedDelayReason(t?.delayReason || DELAY_REASONS[0])
+    if (elapsedMins > planMins || t.delayReason) {
+      setSelectedDelayReason(t.delayReason || DELAY_REASONS[0])
       setDelayModalTripId(tripId)
     } else {
-      endDriverTrip(tripId)
-      notify('Perjalanan selesai tepat waktu dan tercatat.')
+      // Jika tepat waktu, tampilkan dialog konfirmasi menyelesaikan trip
+      setConfirmEndTrip(t)
     }
   }
 
@@ -907,20 +915,35 @@ export function DriverDashboard({ user }: DriverDashboardProps) {
 
                       {/* START TRIP BUTTON (Driver App Self Start) */}
                       <div className="pt-3 border-t border-white/10">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            startDriverTrip(trip.id)
-                            notify(`Perjalanan ${trip.plate} dimulai oleh Driver pada ${fmtTime(new Date().toISOString())} WIB`)
-                          }}
-                          className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white font-bold text-xs shadow-md shadow-emerald-900/30 transition active:scale-[.98]"
-                        >
-                          <Play size={15} fill="currentColor" />
-                          Mulai Perjalanan (Start Trip)
-                        </button>
-                        <p className="text-[10px] text-[#8fa99b] text-center mt-1">
-                          Klik saat berangkat (termasuk rute luar yang tidak lewat gerbang pabrik)
-                        </p>
+                        {(() => {
+                          const check = canStartTripNow(trip.date, trip.estDeparture)
+                          if (!check.allowed) {
+                            return (
+                              <div className="p-3 rounded-xl bg-black/40 border border-amber-500/30 text-amber-300 text-xs flex items-start gap-2.5">
+                                <AlertTriangle size={15} className="shrink-0 text-amber-400 mt-0.5" />
+                                <div>
+                                  <span className="font-bold text-white block">Belum Waktu Keberangkatan</span>
+                                  <span className="text-[11px] leading-relaxed text-amber-200/90">{check.reason}</span>
+                                </div>
+                              </div>
+                            )
+                          }
+                          return (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => setConfirmStartTrip(trip)}
+                                className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white font-bold text-xs shadow-md shadow-emerald-900/30 transition active:scale-[.98]"
+                              >
+                                <Play size={15} fill="currentColor" />
+                                Mulai Perjalanan (Start Trip)
+                              </button>
+                              <p className="text-[10px] text-[#8fa99b] text-center mt-1">
+                                Klik saat berangkat (termasuk rute luar yang tidak lewat gerbang pabrik)
+                              </p>
+                            </>
+                          )
+                        })()}
                       </div>
                     </div>
                   )
@@ -1247,6 +1270,148 @@ export function DriverDashboard({ user }: DriverDashboardProps) {
                 </button>
               </div>
             </form>
+          </div>
+        </ModalPortal>
+      )}
+
+      {/* POPUP MODAL: KONFIRMASI MULAI PERJALANAN (START TRIP) DRIVER */}
+      {confirmStartTrip && (
+        <ModalPortal onClose={() => setConfirmStartTrip(null)}>
+          <div className="relative w-full max-w-md rounded-2xl border border-emerald-500/40 bg-[#071d13] p-6 text-white shadow-2xl space-y-4 animate-in zoom-in-95 duration-150">
+            <div className="flex items-start justify-between border-b border-white/10 pb-3">
+              <div className="flex items-center gap-3">
+                <div className="size-10 rounded-xl bg-emerald-600/30 border border-emerald-500/40 flex items-center justify-center text-emerald-400">
+                  <Play size={20} fill="currentColor" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">Konfirmasi Mulai Perjalanan</h3>
+                  <p className="text-xs text-emerald-300 font-mono">{confirmStartTrip.plate} • {confirmStartTrip.id}</p>
+                </div>
+              </div>
+              <button 
+                type="button" 
+                onClick={() => setConfirmStartTrip(null)}
+                className="p-1 rounded-lg text-white/60 hover:text-white hover:bg-white/10"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="space-y-2 text-xs bg-black/40 p-3.5 rounded-xl border border-white/10">
+              <div className="flex justify-between">
+                <span className="text-[#8fa99b]">Rute:</span>
+                <span className="font-semibold text-white">{confirmStartTrip.origin || 'PT. JAI'} → {confirmStartTrip.destination}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[#8fa99b]">Pemohon:</span>
+                <span className="font-semibold text-white">{confirmStartTrip.requesterName} ({confirmStartTrip.dept})</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[#8fa99b]">Jadwal Rencana:</span>
+                <span className="font-medium text-emerald-300">{fmtDate(confirmStartTrip.date)} • {confirmStartTrip.estDeparture} WIB</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[#8fa99b]">Waktu Mulai Riil:</span>
+                <span className="font-bold text-emerald-300 font-mono">{wibTimeStr || fmtTime(new Date().toISOString())} WIB</span>
+              </div>
+            </div>
+
+            <p className="text-xs text-[#8fa99b] leading-relaxed">
+              Apakah Anda sudah siap di dalam kendaraan dan ingin <b className="text-white">MEMULAI PERJALANAN</b> dinas sekarang?
+            </p>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setConfirmStartTrip(null)}
+                className="px-4 py-2.5 rounded-xl text-xs font-semibold text-white/70 hover:bg-white/10 transition"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  startDriverTrip(confirmStartTrip.id)
+                  notify(`Perjalanan ${confirmStartTrip.plate} dimulai oleh Driver pada ${fmtTime(new Date().toISOString())} WIB`)
+                  setConfirmStartTrip(null)
+                }}
+                className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-bold text-xs text-white shadow-lg shadow-emerald-950/50 flex items-center gap-1.5 transition active:scale-95"
+              >
+                <CheckCircle2 size={15} />
+                Ya, Mulai Perjalanan
+              </button>
+            </div>
+          </div>
+        </ModalPortal>
+      )}
+
+      {/* POPUP MODAL: KONFIRMASI SELESAI PERJALANAN (END TRIP) DRIVER */}
+      {confirmEndTrip && (
+        <ModalPortal onClose={() => setConfirmEndTrip(null)}>
+          <div className="relative w-full max-w-md rounded-2xl border border-amber-500/40 bg-[#1f190a] p-6 text-white shadow-2xl space-y-4 animate-in zoom-in-95 duration-150">
+            <div className="flex items-start justify-between border-b border-white/10 pb-3">
+              <div className="flex items-center gap-3">
+                <div className="size-10 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400">
+                  <Square size={20} />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">Konfirmasi Selesai Tugas</h3>
+                  <p className="text-xs text-amber-300 font-mono">{confirmEndTrip.plate} • {confirmEndTrip.id}</p>
+                </div>
+              </div>
+              <button 
+                type="button" 
+                onClick={() => setConfirmEndTrip(null)}
+                className="p-1 rounded-lg text-white/60 hover:text-white hover:bg-white/10"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="space-y-2 text-xs bg-black/40 p-3.5 rounded-xl border border-white/10">
+              <div className="flex justify-between">
+                <span className="text-[#8fa99b]">Rute:</span>
+                <span className="font-semibold text-white">{confirmEndTrip.origin || 'PT. JAI'} → {confirmEndTrip.destination}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[#8fa99b]">Waktu Berangkat:</span>
+                <span className="font-semibold text-white">{fmtTime(confirmEndTrip.timeGo)} WIB</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[#8fa99b]">Waktu Selesai:</span>
+                <span className="font-bold text-amber-300 font-mono">{wibTimeStr || fmtTime(new Date().toISOString())} WIB</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[#8fa99b]">Durasi Riil:</span>
+                <span className="font-semibold text-white">~{activeElapsedMinutes} Menit (Tepat Waktu)</span>
+              </div>
+            </div>
+
+            <p className="text-xs text-[#8fa99b] leading-relaxed">
+              Apakah perjalanan telah selesai dan penumpang/tugas telah tuntas diantarkan?
+            </p>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setConfirmEndTrip(null)}
+                className="px-4 py-2.5 rounded-xl text-xs font-semibold text-white/70 hover:bg-white/10 transition"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  endDriverTrip(confirmEndTrip.id)
+                  notify(`Perjalanan ${confirmEndTrip.plate} selesai dan tercatat resmi.`)
+                  setConfirmEndTrip(null)
+                }}
+                className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 font-bold text-xs text-black shadow-lg shadow-amber-950/50 flex items-center gap-1.5 transition active:scale-95"
+              >
+                <CheckCircle2 size={15} />
+                Ya, Selesaikan Tugas
+              </button>
+            </div>
           </div>
         </ModalPortal>
       )}

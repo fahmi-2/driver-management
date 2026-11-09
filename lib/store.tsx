@@ -173,6 +173,52 @@ type DB = {
   overtimeRequests?: OvertimeRequest[]
 }
 
+/**
+ * Helper validasi apakah sebuah trip sudah boleh dimulai (Start Trip / Gate Go).
+ * - Tidak boleh dimulai jika tanggal pengajuan belum tiba (trip.date > today).
+ * - Jika pada hari H (trip.date === today), dicek apakah sudah mendekati jam rencana estDeparture.
+ *   Memberikan toleransi 30 menit sebelum jam keberangkatan.
+ */
+export function canStartTripNow(tripDate?: string, estDeparture?: string): {
+  allowed: boolean
+  reason?: string
+} {
+  if (!tripDate) return { allowed: true }
+
+  const todayStr = ymd()
+  // 1. Cek Tanggal: jika tanggal keberangkatan masih di masa depan
+  if (tripDate > todayStr) {
+    return {
+      allowed: false,
+      reason: `Jadwal ini untuk tanggal ${fmtDate(tripDate)}. Belum dapat dimulai sebelum hari H.`,
+    }
+  }
+
+  // 2. Cek Jam (pada hari H): boleh dimulai maksimal 30 menit sebelum jam rencana
+  if (tripDate === todayStr && estDeparture) {
+    const [planH, planM] = estDeparture.split(':').map((v) => parseInt(v, 10))
+    if (!isNaN(planH) && !isNaN(planM)) {
+      const planTotalMins = planH * 60 + planM
+      const wib = getWibNow()
+      const currentTotalMins = wib.totalMins
+      const earlyToleranceMins = 30 // Boleh start 30 menit sebelum jam rencana
+
+      if (currentTotalMins < planTotalMins - earlyToleranceMins) {
+        const diffMins = (planTotalMins - earlyToleranceMins) - currentTotalMins
+        const hoursLeft = Math.floor(diffMins / 60)
+        const minsLeft = diffMins % 60
+        const timeLeftStr = hoursLeft > 0 ? `${hoursLeft} jam ${minsLeft} menit` : `${minsLeft} menit`
+        return {
+          allowed: false,
+          reason: `Rencana keberangkatan jam ${estDeparture} WIB. Tombol aktif 30 menit sebelum jadwal (${timeLeftStr} lagi).`,
+        }
+      }
+    }
+  }
+
+  return { allowed: true }
+}
+
 export const NOON_HOUR = 12
 
 // ---------- helpers ----------
