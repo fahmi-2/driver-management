@@ -393,19 +393,6 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
             {isSyncing ? 'Sinkronisasi…' : 'Sinkron Supabase'}
           </button>
           <button
-            onClick={() => {
-              if (confirm('Sinkronkan seluruh data akun kembali ke data matriks resmi PT. JAI? Akun default akan diperbarui.')) {
-                const refreshed = resetToDefaultAccounts()
-                setAccounts(refreshed)
-                notify('Data akun berhasil disinkronkan ke master matriks resmi PT. JAI!')
-              }
-            }}
-            className="flex items-center gap-2 rounded-xl border border-[#b8cfc2] bg-white px-3.5 py-2.5 text-xs font-bold text-[#075b3d] shadow-xs transition hover:bg-[#eef8f3]"
-          >
-            <ShieldCheck size={16} />
-            Muat Ulang Matriks Resmi
-          </button>
-          <button
             onClick={openAddModal}
             className="flex items-center gap-2 rounded-xl bg-[#075b3d] px-4 py-2.5 text-xs font-bold text-white shadow-md shadow-[#075b3d]/20 transition hover:bg-[#064e34] active:scale-[0.98]"
           >
@@ -989,63 +976,69 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
                     </div>
                   </div>
 
-                  {/* Multi-Section Selector (Untuk Manager / SSPV yang membawahi double section) */}
+                  {/* Multi-Section Selector (Satu Pintu: Otomatis sinkron dari Master Organisasi) */}
                   <div className="rounded-xl border border-[#dce7df] bg-[#f8faf9] p-3.5 space-y-2">
                     <div className="flex items-center justify-between">
                       <label className="block text-[11px] font-bold text-[#10251c]">
-                        Cakupan Section / Bagian (Bisa Pilih Lebih Dari 1)
+                        Cakupan Section / Bagian (Sesuai Master Organisasi)
                       </label>
                       <span className="text-[10px] text-[#62736b] font-medium">
                         Centang section yang dipegang
                       </span>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 max-h-48 overflow-y-auto">
-                      {getSectionsByDept(formData.dept).map((sec) => {
-                        const currentArr = parseSections(formData.section)
-                        const isChecked = currentArr.includes(sec.toUpperCase())
-                        
-                        const handleToggle = () => {
-                          const target = sec.toUpperCase()
-                          let newArr: string[]
-                          if (isChecked) {
-                            newArr = currentArr.filter((s) => s.toUpperCase() !== target)
-                          } else {
-                            newArr = [...currentArr, sec]
+                    {getSectionsByDept(formData.dept).length === 0 ? (
+                      <div className="p-3 rounded-lg border border-dashed border-white/10 text-center text-xs text-slate-400">
+                        Belum ada section di Departemen {formData.dept}. Tambahkan di menu <b>Master Organisasi</b>.
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 max-h-48 overflow-y-auto">
+                        {getSectionsByDept(formData.dept).map((sec) => {
+                          const currentArr = parseSections(formData.section)
+                          const isChecked = currentArr.includes(sec.toUpperCase())
+                          
+                          const handleToggle = () => {
+                            const target = sec.toUpperCase()
+                            let newArr: string[]
+                            if (isChecked) {
+                              newArr = currentArr.filter((s) => s.toUpperCase() !== target)
+                            } else {
+                              newArr = [...currentArr, sec]
+                            }
+                            setFormData({
+                              ...formData,
+                              section: newArr.join(' / '),
+                            })
                           }
-                          setFormData({
-                            ...formData,
-                            section: newArr.join(' / '),
-                          })
-                        }
 
-                        return (
-                          <div
-                            key={sec}
-                            onClick={handleToggle}
-                            className={`flex items-center gap-2.5 rounded-xl border p-2.5 text-xs select-none cursor-pointer transition shadow-2xs ${
-                              isChecked
-                                ? 'border-[#a3e635] bg-[#a3e635]/15 text-[#bef264] font-bold ring-1 ring-[#a3e635]/30'
-                                : 'border-white/10 bg-black/20 text-slate-300 hover:border-[#a3e635]/40 hover:bg-white/5'
-                            }`}
-                          >
+                          return (
                             <div
-                              className={`flex size-4 shrink-0 items-center justify-center rounded border transition ${
+                              key={sec}
+                              onClick={handleToggle}
+                              className={`flex items-center gap-2.5 rounded-xl border p-2.5 text-xs select-none cursor-pointer transition shadow-2xs ${
                                 isChecked
-                                  ? 'border-[#a3e635] bg-[#a3e635] text-[#052e16]'
-                                  : 'border-white/30 bg-black/30'
+                                  ? 'border-[#a3e635] bg-[#a3e635]/15 text-[#bef264] font-bold ring-1 ring-[#a3e635]/30'
+                                  : 'border-white/10 bg-black/20 text-slate-300 hover:border-[#a3e635]/40 hover:bg-white/5'
                               }`}
                             >
-                              {isChecked && <Check size={12} strokeWidth={3.5} />}
+                              <div
+                                className={`flex size-4 shrink-0 items-center justify-center rounded border transition ${
+                                  isChecked
+                                    ? 'border-[#a3e635] bg-[#a3e635] text-[#052e16]'
+                                    : 'border-white/30 bg-black/30'
+                                }`}
+                              >
+                                {isChecked && <Check size={12} strokeWidth={3.5} />}
+                              </div>
+                              <span className="truncate flex-1 font-semibold" title={sec}>{sec}</span>
                             </div>
-                            <span className="truncate flex-1" title={sec}>{sec}</span>
-                          </div>
-                        )
-                      })}
-                    </div>
+                          )
+                        })}
+                      </div>
+                    )}
 
                     {formData.section ? (
-                      <p className="text-[11px] text-[#bef264] font-bold pt-1.5 flex items-center gap-1.5">
+                      <p className="text-[11px] text-[#bef264] font-bold pt-1.5 flex items-center gap-1.5 flex-wrap">
                         <Check size={13} className="text-[#a3e635] shrink-0" />
                         Terpilih: <span className="font-mono text-white bg-black/30 px-2 py-0.5 rounded border border-white/10">{formData.section}</span>
                       </p>

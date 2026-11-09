@@ -338,8 +338,9 @@ export function matchesSection(accSection?: string, targetSection?: string): boo
   )
 }
 
-// Fungsi bantu mendapatkan daftar section per departemen (dinamis 1 per 1 dari master data / localStorage, fallback ke ORG_MATRIX)
+// Fungsi bantu mendapatkan daftar section per departemen (SATU PINTU: dinamis 1 per 1 dari master data / localStorage, fallback ke ORG_MATRIX)
 export function getSectionsByDept(dept: string): string[] {
+  if (!dept) return []
   if (typeof window !== 'undefined') {
     try {
       const rawDepts = window.localStorage.getItem('ff_master_depts_v1')
@@ -347,24 +348,48 @@ export function getSectionsByDept(dept: string): string[] {
       if (rawDepts && rawSecs) {
         const depts: any[] = JSON.parse(rawDepts)
         const secs: any[] = JSON.parse(rawSecs)
+        
+        // Cari departemen target baik berdasarkan ID (dept_xxx) maupun nama (PGA, PRODUKSI, dll)
         const targetDept = depts.find(
-          (d) => d.id === dept || d.name?.toUpperCase() === dept?.toUpperCase()
+          (d) =>
+            (d.id && d.id.toLowerCase() === dept.toLowerCase()) ||
+            (d.name && d.name.trim().toUpperCase() === dept.trim().toUpperCase())
         )
+        
         if (targetDept) {
+          // Ambil seluruh section aktif (is_deleted === false / undefined) yang department_id cocok
           const matched = secs
-            .filter((s) => s.department_id === targetDept.id && !s.is_deleted)
+            .filter(
+              (s) =>
+                s &&
+                !s.is_deleted &&
+                (s.department_id === targetDept.id ||
+                  s.department_id?.toLowerCase() === targetDept.id.toLowerCase() ||
+                  s.department_id?.toLowerCase() === `dept_${targetDept.name?.toLowerCase().replace(/[^a-z0-9]/g, '_')}`)
+            )
             .map((s) => s.name?.trim())
             .filter(Boolean)
-          if (matched.length > 0) return Array.from(new Set(matched))
+
+          if (matched.length > 0) {
+            return Array.from(new Set(matched))
+          }
         }
       }
-    } catch {}
+    } catch (err) {
+      console.warn('Error reading master sections from localStorage:', err)
+    }
   }
-  return Array.from(
-    new Set(
-      ORG_MATRIX.filter((m) => m.dept.toUpperCase() === dept.toUpperCase()).map((m) => m.section)
-    )
-  )
+
+  // Fallback jika belum tersimpan di localStorage (mengambil dari matriks bawaan dan memecahnya satu per satu)
+  const defaultSections: string[] = []
+  ORG_MATRIX.filter((m) => m.dept.toUpperCase() === dept.trim().toUpperCase()).forEach((m) => {
+    const parts = m.section.split(',').map((s) => s.trim()).filter(Boolean)
+    parts.forEach((p) => {
+      if (!defaultSections.includes(p)) defaultSections.push(p)
+    })
+  })
+
+  return defaultSections
 }
 
 // Fungsi bantu mendapatkan data Manajer resmi berdasarkan Section & Dept
