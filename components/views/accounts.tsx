@@ -40,7 +40,14 @@ import {
   verifyAdminPassword,
   syncAccountsWithSupabase,
 } from '@/lib/accounts'
-import { getLocalRoles, type MasterRole } from '@/lib/master-data'
+import {
+  getLocalRoles,
+  fetchMasterDeptsFromSupabase,
+  fetchMasterSectionsFromSupabase,
+  saveLocalDepartments,
+  saveLocalSections,
+  type MasterRole
+} from '@/lib/master-data'
 import { useStore } from '@/lib/store'
 import { Card, PageHeader, Pill, btnGhost, btnPrimary, inputCls, useToast } from '../ui-bits'
 import { ModalPortal } from '../modal-portal'
@@ -106,6 +113,19 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
   useEffect(() => {
     refreshAccounts()
     refreshMasterData()
+
+    // Sync master data (departments & sections) langsung dari Supabase agar selalu up-to-date
+    Promise.all([
+      fetchMasterDeptsFromSupabase(),
+      fetchMasterSectionsFromSupabase(),
+    ]).then(([remDepts, remSecs]) => {
+      if (remDepts && remDepts.length > 0) saveLocalDepartments(remDepts)
+      if (remSecs && remSecs.length > 0) saveLocalSections(remSecs)
+      refreshMasterData()
+    }).catch((err) => {
+      console.warn('Sync master data to accounts view warning:', err)
+    })
+
     syncAccountsWithSupabase().then((latest) => {
       if (latest && latest.length > 0) setAccounts(latest)
     })

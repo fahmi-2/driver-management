@@ -40,6 +40,19 @@ export async function upsertAccountToSupabase(acc: Account): Promise<boolean> {
     // sedangkan title / jabatan tetap membedakannya sebagai Manager.
     const dbRole = acc.role === 'approver_manager' ? 'approver' : acc.role
 
+    // Cari dept_id dari tabel departments jika ada
+    let deptId: number | null = null
+    if (acc.dept) {
+      const { data: deptRow } = await supabase
+        .from('departments')
+        .select('id')
+        .ilike('name', acc.dept.trim())
+        .maybeSingle()
+      if (deptRow?.id) {
+        deptId = deptRow.id
+      }
+    }
+
     const { error } = await supabase.from('accounts').upsert({
       username: acc.username,
       password_hash: acc.password,
@@ -47,6 +60,7 @@ export async function upsertAccountToSupabase(acc: Account): Promise<boolean> {
       email: acc.email || null,
       nik: acc.nik || null,
       role: dbRole,
+      dept_id: deptId,
       department_name: acc.dept || null,
       section_name: acc.section || null,
       driver_id: acc.driverId || null,
@@ -58,6 +72,37 @@ export async function upsertAccountToSupabase(acc: Account): Promise<boolean> {
       console.warn('Upsert account error:', error.message)
       return false
     }
+
+    // Sinkronisasi tabel relasi account_sections (Many-to-Many) jika tabel tersedia
+    try {
+      if (acc.dept && acc.section) {
+        // Ambil ID semua section yang cocok
+        const { data: matchedSecs } = await supabase
+          .from('sections')
+          .select('id, name')
+        
+        if (matchedSecs && matchedSecs.length > 0) {
+          const userSecUpper = acc.section.toUpperCase()
+          const matchedIds = matchedSecs
+            .filter((s: any) => userSecUpper.includes(s.name.toUpperCase()))
+            .map((s: any) => s.id)
+
+          // Bersihkan relasi lama user ini, lalu insert yang baru
+          await supabase.from('account_sections').delete().eq('username', acc.username)
+          if (matchedIds.length > 0) {
+            await supabase.from('account_sections').insert(
+              matchedIds.map((sid: number) => ({
+                username: acc.username,
+                section_id: sid,
+              }))
+            )
+          }
+        }
+      }
+    } catch (relErr) {
+      console.warn('account_sections sync notice (optional):', relErr)
+    }
+
     return true
   } catch (err) {
     console.error('Failed to upsert account to Supabase:', err)

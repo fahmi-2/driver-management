@@ -345,34 +345,39 @@ export function getSectionsByDept(dept: string): string[] {
     try {
       const rawDepts = window.localStorage.getItem('ff_master_depts_v1')
       const rawSecs = window.localStorage.getItem('ff_master_secs_v1')
-      if (rawDepts && rawSecs) {
-        const depts: any[] = JSON.parse(rawDepts)
+      if (rawSecs) {
         const secs: any[] = JSON.parse(rawSecs)
+        const depts: any[] = rawDepts ? JSON.parse(rawDepts) : []
         
-        // Cari departemen target baik berdasarkan ID (dept_xxx) maupun nama (PGA, PRODUKSI, dll)
+        // Cari target departemen berdasarkan ID (misal '11' atau 'dept_produksi') atau nama ('PRODUKSI')
         const targetDept = depts.find(
           (d) =>
-            (d.id && d.id.toLowerCase() === dept.toLowerCase()) ||
+            (d.id && String(d.id).toLowerCase() === String(dept).toLowerCase()) ||
             (d.name && d.name.trim().toUpperCase() === dept.trim().toUpperCase())
         )
-        
-        if (targetDept) {
-          // Ambil seluruh section aktif (is_deleted === false / undefined) yang department_id cocok
-          const matched = secs
-            .filter(
-              (s) =>
-                s &&
-                !s.is_deleted &&
-                (s.department_id === targetDept.id ||
-                  s.department_id?.toLowerCase() === targetDept.id.toLowerCase() ||
-                  s.department_id?.toLowerCase() === `dept_${targetDept.name?.toLowerCase().replace(/[^a-z0-9]/g, '_')}`)
-            )
-            .map((s) => s.name?.trim())
-            .filter(Boolean)
 
-          if (matched.length > 0) {
-            return Array.from(new Set(matched))
-          }
+        const targetDeptId = targetDept ? String(targetDept.id) : String(dept)
+        const targetDeptName = targetDept?.name ? targetDept.name.trim().toUpperCase() : dept.trim().toUpperCase()
+        const targetSlug = `dept_${targetDeptName.toLowerCase().replace(/[^a-z0-9]/g, '_')}`
+
+        // Ambil seluruh section aktif yang cocok dengan ID numeric, slug, nama dept, atau targetDept.id
+        const matched = secs
+          .filter(
+            (s) =>
+              s &&
+              !s.is_deleted &&
+              (
+                String(s.department_id).toLowerCase() === targetDeptId.toLowerCase() ||
+                String(s.department_id).toLowerCase() === targetSlug ||
+                String(s.department_id).toUpperCase() === targetDeptName ||
+                (targetDept && String(s.department_id) === String(targetDept.id))
+              )
+          )
+          .map((s) => s.name?.trim())
+          .filter(Boolean)
+
+        if (matched.length > 0) {
+          return Array.from(new Set(matched))
         }
       }
     } catch (err) {

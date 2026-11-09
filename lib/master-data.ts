@@ -145,7 +145,7 @@ export function saveLocalSections(sections: MasterSection[]) {
   window.dispatchEvent(new Event('master_secs_updated'))
 }
 
-// ======================== SYNC DENGAN SUPABASE ========================
+// ======================== SYNC DENGAN SUPABASE (TABLE departments & sections) ========================
 
 export async function fetchMasterRolesFromSupabase(): Promise<MasterRole[] | null> {
   try {
@@ -174,9 +174,15 @@ export async function upsertMasterRoleToSupabase(role: MasterRole): Promise<bool
 
 export async function fetchMasterDeptsFromSupabase(): Promise<MasterDepartment[] | null> {
   try {
-    const { data, error } = await supabase.from('master_departments').select('*').order('name')
+    const { data, error } = await supabase.from('departments').select('id, name, created_at').order('name')
     if (error || !data || data.length === 0) return null
-    return data
+    return data.map((d: any) => ({
+      id: String(d.id),
+      name: d.name,
+      code: d.name,
+      is_deleted: false,
+      created_at: d.created_at,
+    }))
   } catch {
     return null
   }
@@ -184,13 +190,31 @@ export async function fetchMasterDeptsFromSupabase(): Promise<MasterDepartment[]
 
 export async function upsertMasterDeptToSupabase(dept: MasterDepartment): Promise<boolean> {
   try {
-    const { error } = await supabase.from('master_departments').upsert({
-      id: dept.id,
-      name: dept.name,
-      code: dept.code || null,
-      is_deleted: dept.is_deleted,
-      updated_at: new Date().toISOString(),
-    })
+    const numId = Number(dept.id)
+    if (!isNaN(numId) && numId > 0) {
+      // Update by numeric ID
+      const { error } = await supabase
+        .from('departments')
+        .update({ name: dept.name })
+        .eq('id', numId)
+      return !error
+    } else {
+      // Insert new department (serial ID)
+      const { error } = await supabase
+        .from('departments')
+        .insert({ name: dept.name })
+      return !error
+    }
+  } catch {
+    return false
+  }
+}
+
+export async function deleteMasterDeptFromSupabase(id: string | number): Promise<boolean> {
+  try {
+    const numId = Number(id)
+    if (isNaN(numId)) return false
+    const { error } = await supabase.from('departments').delete().eq('id', numId)
     return !error
   } catch {
     return false
@@ -199,9 +223,15 @@ export async function upsertMasterDeptToSupabase(dept: MasterDepartment): Promis
 
 export async function fetchMasterSectionsFromSupabase(): Promise<MasterSection[] | null> {
   try {
-    const { data, error } = await supabase.from('master_sections').select('*').order('name')
+    const { data, error } = await supabase.from('sections').select('id, name, department_id, created_at').order('name')
     if (error || !data || data.length === 0) return null
-    return data
+    return data.map((s: any) => ({
+      id: String(s.id),
+      name: s.name,
+      department_id: String(s.department_id),
+      is_deleted: false,
+      created_at: s.created_at,
+    }))
   } catch {
     return null
   }
@@ -209,13 +239,69 @@ export async function fetchMasterSectionsFromSupabase(): Promise<MasterSection[]
 
 export async function upsertMasterSectionToSupabase(section: MasterSection): Promise<boolean> {
   try {
-    const { error } = await supabase.from('master_sections').upsert({
-      id: section.id,
-      name: section.name,
-      department_id: section.department_id,
-      is_deleted: section.is_deleted,
-      updated_at: new Date().toISOString(),
-    })
+    const numId = Number(section.id)
+    let numDeptId = Number(section.department_id)
+
+    // Jika department_id string non-angka (misal dept_produksi), cari ID integer di tabel departments atau localStorage
+    if (isNaN(numDeptId)) {
+      const depts = getLocalDepartments()
+      const found = depts.find((d) => d.id === section.department_id || d.name.toUpperCase() === section.department_id.toUpperCase())
+      if (found && !isNaN(Number(found.id))) {
+        numDeptId = Number(found.id)
+      } else {
+        // Fallback cari di database langsung
+        const { data: deptRows } = await supabase.from('departments').select('id, name')
+        if (deptRows) {
+          const matched = deptRows.find((d: any) => 
+            d.name.toUpperCase() === section.department_id.toUpperCase() ||
+            `dept_${d.name.toLowerCase().replace(/[^a-z0-9]/g, '_')}` === section.department_id
+          )
+          if (matched) numDeptId = matched.id
+        }
+      }
+    }
+
+    if (isNaN(numDeptId)) {
+      console.warn('Cannot resolve numeric department_id for section:', section)
+      return false
+    }
+
+    if (!isNaN(numId) && numId > 0) {
+      // Update by existing numeric ID
+      const { error } = await supabase
+        .from('sections')
+        .update({
+          name: section.name,
+          department_id: numDeptId,
+        })
+        .eq('id', numId)
+      return !error
+    } else {
+      // Insert new section
+      const { data, error } = await supabase
+        .from('sections')
+        .insert({
+          name: section.name,
+          department_id: numDeptId,
+        })
+        .select()
+        .single()
+      if (!error && data) {
+        section.id = String(data.id)
+        section.department_id = String(data.department_id)
+      }
+      return !error
+    }
+  } catch {
+    return false
+  }
+}
+
+export async function deleteMasterSectionFromSupabase(id: string | number): Promise<boolean> {
+  try {
+    const numId = Number(id)
+    if (isNaN(numId)) return false
+    const { error } = await supabase.from('sections').delete().eq('id', numId)
     return !error
   } catch {
     return false

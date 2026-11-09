@@ -38,6 +38,8 @@ import {
   upsertMasterRoleToSupabase,
   upsertMasterDeptToSupabase,
   upsertMasterSectionToSupabase,
+  deleteMasterDeptFromSupabase,
+  deleteMasterSectionFromSupabase,
 } from '@/lib/master-data'
 import { Card, PageHeader, Pill, useToast, btnPrimary, btnGhost } from '../ui-bits'
 import { ModalPortal } from '../modal-portal'
@@ -376,13 +378,15 @@ export function AdminMasterDataView() {
         })
       }
 
-      notify(`Departemen '${selectedDept.name}' berhasil dinonaktifkan (Soft Delete).`)
+      // Delete Departemen di Supabase
+      deleteMasterDeptFromSupabase(selectedDept.id)
+      notify(`Departemen '${selectedDept.name}' berhasil dinonaktifkan.`)
     } else if (selectedSec) {
       const next = sections.map((s) => (s.id === selectedSec.id ? { ...s, is_deleted: true, updated_at: nowIso } : s))
       setSections(next.filter((s) => !s.is_deleted))
       saveLocalSections(next)
-      upsertMasterSectionToSupabase({ ...selectedSec, is_deleted: true, updated_at: nowIso })
-      notify(`Section '${selectedSec.name}' berhasil dinonaktifkan (Soft Delete).`)
+      deleteMasterSectionFromSupabase(selectedSec.id)
+      notify(`Section '${selectedSec.name}' berhasil dinonaktifkan.`)
     }
 
     closeModal()
