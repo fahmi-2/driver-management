@@ -114,7 +114,7 @@ export function AdminSchedulingCenter({ user }: { user: Account }) {
       // FITUR DIRECT BOOKING VIA KALENDER (DRAG-TO-BOOK)
       // Menampilkan popup pengajuan lengkap seperti form requester
       const defaultDept = user.dept && DEPARTMENTS.includes(user.dept) ? user.dept : 'PGA'
-      const initialApprover = getApproverByGolongan(defaultDept, undefined, 1)
+      const initialApprover = getApproverByGolongan(defaultDept, undefined, 1, user.username)
 
       setDirectBookingData({
         selection,
@@ -1103,7 +1103,7 @@ export function AdminSchedulingCenter({ user }: { user: Account }) {
                       value={directBookingData.golongan}
                       onChange={(e) => {
                         const newGol = Number(e.target.value) as Golongan
-                        const appr = getApproverByGolongan(directBookingData.dept, undefined, newGol)
+                        const appr = getApproverByGolongan(directBookingData.dept, undefined, newGol, user.username)
                         setDirectBookingData({
                           ...directBookingData,
                           golongan: newGol,
@@ -1133,7 +1133,7 @@ export function AdminSchedulingCenter({ user }: { user: Account }) {
                       value={directBookingData.dept}
                       onChange={(e) => {
                         const newDept = e.target.value
-                        const appr = getApproverByGolongan(newDept, undefined, directBookingData.golongan)
+                        const appr = getApproverByGolongan(newDept, undefined, directBookingData.golongan, user.username)
                         setDirectBookingData({
                           ...directBookingData,
                           dept: newDept,

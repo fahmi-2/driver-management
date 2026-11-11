@@ -78,7 +78,7 @@ export function RequesterForm({ user }: { user: Account }) {
   const initialDept = user.dept && DEPARTMENTS.includes(user.dept) ? user.dept : 'PGA'
   const availableSections = getSectionsByDept(initialDept)
   const initialSection = user.section && availableSections.includes(user.section) ? user.section : availableSections[0] || ''
-  const initialApprover = getApproverByGolongan(initialDept, initialSection, 1)
+  const initialApprover = getApproverByGolongan(initialDept, initialSection, 1, user.username)
 
   const [f, setF] = useState({
     date: ymd(), // Tanggal Perjalanan (default hari ini, tidak boleh hari kemarin)
@@ -107,7 +107,7 @@ export function RequesterForm({ user }: { user: Account }) {
   // Sync approver & email secara realtime jika ada perubahan pada akun di database atau golongan/dept/section
   useEffect(() => {
     const handleAccountsChanged = () => {
-      const appr = getApproverByGolongan(f.dept, f.section, f.golongan)
+      const appr = getApproverByGolongan(f.dept, f.section, f.golongan, user.username)
       setF((prev) => ({
         ...prev,
         approvedBy: appr.name,
@@ -124,7 +124,7 @@ export function RequesterForm({ user }: { user: Account }) {
       window.removeEventListener('accounts_updated', handleAccountsChanged)
       window.removeEventListener('profile_updated', handleAccountsChanged)
     }
-  }, [f.dept, f.section, f.golongan])
+  }, [f.dept, f.section, f.golongan, user.username])
 
   // State untuk modal & deteksi akun SMTP pengirim (Hierarki: Akun -> Dept -> Pool GA)
   const [smtpModalOpen, setSmtpModalOpen] = useState(false)
@@ -168,7 +168,7 @@ export function RequesterForm({ user }: { user: Account }) {
   const handleDeptChange = (newDept: string) => {
     const secList = getSectionsByDept(newDept)
     const newSec = secList[0] || ''
-    const appr = getApproverByGolongan(newDept, newSec, f.golongan)
+    const appr = getApproverByGolongan(newDept, newSec, f.golongan, user.username)
     setF((prev) => ({
       ...prev,
       dept: newDept,
@@ -180,7 +180,7 @@ export function RequesterForm({ user }: { user: Account }) {
   }
 
   const handleSectionChange = (newSection: string) => {
-    const appr = getApproverByGolongan(f.dept, newSection, f.golongan)
+    const appr = getApproverByGolongan(f.dept, newSection, f.golongan, user.username)
     setF((prev) => ({
       ...prev,
       section: newSection,
@@ -191,7 +191,7 @@ export function RequesterForm({ user }: { user: Account }) {
   }
 
   const handleGolonganChange = (newGolongan: Golongan) => {
-    const appr = getApproverByGolongan(f.dept, f.section, newGolongan)
+    const appr = getApproverByGolongan(f.dept, f.section, newGolongan, user.username)
     setF((prev) => ({
       ...prev,
       golongan: newGolongan,
@@ -318,7 +318,7 @@ export function RequesterForm({ user }: { user: Account }) {
           : `Terkirim! Permohonan Golongan ${f.golongan} otomatis diarahkan ke ${f.approverRole}: ${f.approvedBy} (${f.approverEmail}) dari Section ${f.section || f.dept}.`
       )
 
-      const resetApprover = getApproverByGolongan(initialDept, initialSection, 1)
+      const resetApprover = getApproverByGolongan(initialDept, initialSection, 1, user.username)
       setF({
         date: ymd(),
         category: 'Dinas',

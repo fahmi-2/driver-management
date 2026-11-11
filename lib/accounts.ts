@@ -26,6 +26,9 @@ export type Account = {
   driverId?: string // Relasi ke ID driver jika role === 'driver'
   title: string
   avatar?: string
+  // Konfigurasi Approval Khusus (Hanya untuk Requester & Admin Lobby)
+  approver1_username?: string // Akun Approver Tahap 1 (Manager / SSPV spesifik)
+  approver2_username?: string // Akun Approver Tahap 2 (SPV Kendaraan spesifik)
 }
 
 // Master Matriks Struktur Organisasi PT. JAI (Dept, Section 1-per-1, Manager, SSPV, Admin/Requester)
@@ -606,15 +609,35 @@ export function getSspvBySection(dept: string, section?: string): { name: string
 }
 
 /**
- * Routing Dinamis Approval Tahap 1 berdasarkan Golongan Karyawan.
+ * Routing Dinamis Approval Tahap 1 berdasarkan Golongan Karyawan & Akun Pemohon.
+ * - Jika akun pemohon memiliki custom approver1_username (diset Super Admin), langsung gunakan akun tersebut!
  * - Golongan 1, 2, 3: Diarahkan ke SSPV (Section) dari departemen pemohon.
  * - Golongan 4: Langsung diarahkan ke Manager (Departemen), melewati SSPV.
  */
 export function getApproverByGolongan(
   dept: string,
   section?: string,
-  golongan?: Golongan | number
+  golongan?: Golongan | number,
+  requesterUsername?: string
 ): { name: string; email: string; approverRole: 'SSPV' | 'Manager' } {
+  // Cek konfigurasi spesifik dari Akun Requester / Admin Lobby
+  if (requesterUsername) {
+    const all = getAllAccounts()
+    const reqAcc = all.find((a) => a.username.toLowerCase() === requesterUsername.toLowerCase())
+    if (reqAcc?.approver1_username) {
+      const targetAppr = all.find((a) => a.username.toLowerCase() === reqAcc.approver1_username?.toLowerCase())
+      if (targetAppr) {
+        const isMgr = targetAppr.role === 'approver_manager' || (targetAppr.title && targetAppr.title.toLowerCase().includes('manager'))
+        const roleLabel: 'SSPV' | 'Manager' = isMgr ? 'Manager' : 'SSPV'
+        return {
+          name: `${targetAppr.name} (${roleLabel})`,
+          email: targetAppr.email || '',
+          approverRole: roleLabel,
+        }
+      }
+    }
+  }
+
   if (golongan === 4) {
     // Golongan 4 → langsung ke Manager Departemen
     const manager = getManagerBySection(dept, section)
@@ -631,6 +654,34 @@ export function getApproverByGolongan(
     name: sspv.name,
     email: sspv.email,
     approverRole: 'SSPV',
+  }
+}
+
+/**
+ * Mendapatkan Akun Approver Tahap 2 (SPV Kendaraan) untuk Requester tertentu
+ */
+export function getApproverPoolForRequester(requesterUsername?: string): { name: string; email: string; username?: string } {
+  const all = getAllAccounts()
+  if (requesterUsername) {
+    const reqAcc = all.find((a) => a.username.toLowerCase() === requesterUsername.toLowerCase())
+    if (reqAcc?.approver2_username) {
+      const targetPool = all.find((a) => a.username.toLowerCase() === reqAcc.approver2_username?.toLowerCase())
+      if (targetPool) {
+        return {
+          name: targetPool.name,
+          email: targetPool.email || '',
+          username: targetPool.username,
+        }
+      }
+    }
+  }
+
+  // Fallback: cari akun approver_pool
+  const defaultPool = all.find((a) => a.role === 'approver_pool' || a.username === 'hayu.p' || a.username === 'spv_pool')
+  return {
+    name: defaultPool?.name || 'HAYU PRASETYO UTOMO',
+    email: defaultPool?.email || 'hayu.p@jai.co.id',
+    username: defaultPool?.username || 'hayu.p',
   }
 }
 

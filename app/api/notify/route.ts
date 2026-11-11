@@ -185,7 +185,27 @@ export async function POST(req: Request) {
         stageLabel = 'Penjadwalan Armada & Driver oleh Admin Pool GA'
         break
       case 'WAITING_POOL_SPV':
-        recipients = await emailsByRole('approver_pool')
+        // Cek jika akun requester memiliki custom approver2_username
+        if (trip.requester_username) {
+          const { data: reqAcc } = await supabase
+            .from('accounts')
+            .select('approver2_username')
+            .eq('username', trip.requester_username)
+            .maybeSingle()
+          if (reqAcc?.approver2_username) {
+            const { data: targetPoolAcc } = await supabase
+              .from('accounts')
+              .select('email')
+              .eq('username', reqAcc.approver2_username)
+              .maybeSingle()
+            if (targetPoolAcc?.email) {
+              recipients = [targetPoolAcc.email]
+            }
+          }
+        }
+        if (recipients.length === 0) {
+          recipients = await emailsByRole('approver_pool')
+        }
         stageLabel = 'Persetujuan SPV Kendaraan (Tahap 2)'
         break
       default:

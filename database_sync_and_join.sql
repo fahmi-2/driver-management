@@ -74,9 +74,11 @@ ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, department_id = EXCLUDED.de
 
 SELECT setval(pg_get_serial_sequence('sections', 'id'), (SELECT MAX(id) FROM sections));
 
--- 6. PASTIKAN KOLOM section_name & dept_id PADA TABEL accounts MEMADAI
+-- 6. PASTIKAN KOLOM section_name, dept_id, SERTA KOLOM APPROVAL KHUSUS PADA TABEL accounts MEMADAI
 ALTER TABLE IF EXISTS accounts ALTER COLUMN section_name TYPE TEXT;
 ALTER TABLE IF EXISTS accounts ALTER COLUMN department_name TYPE VARCHAR(100);
+ALTER TABLE IF EXISTS accounts ADD COLUMN IF NOT EXISTS approver1_username VARCHAR(50);
+ALTER TABLE IF EXISTS accounts ADD COLUMN IF NOT EXISTS approver2_username VARCHAR(50);
 
 -- 7. BUAT TABEL RELASI MANY-TO-MANY (account_sections) UNTUK JOIN DINAMIS
 CREATE TABLE IF NOT EXISTS account_sections (

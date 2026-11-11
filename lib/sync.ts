@@ -25,6 +25,8 @@ export async function fetchAccountsFromSupabase(): Promise<Account[] | null> {
         driverId: row.driver_id,
         title: row.title,
         avatar: row.avatar_url,
+        approver1_username: row.approver1_username || undefined,
+        approver2_username: row.approver2_username || undefined,
       }
     })
   } catch (err) {
@@ -66,6 +68,8 @@ export async function upsertAccountToSupabase(acc: Account): Promise<boolean> {
       driver_id: acc.driverId || null,
       title: acc.title,
       avatar_url: acc.avatar || null,
+      approver1_username: acc.approver1_username || null,
+      approver2_username: acc.approver2_username || null,
       updated_at: new Date().toISOString(),
     })
     if (error) {

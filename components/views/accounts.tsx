@@ -82,6 +82,8 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
     nik: string
     title: string
     driverId: string
+    approver1_username: string
+    approver2_username: string
   }>({
     username: '',
     password: '',
@@ -93,6 +95,8 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
     nik: '',
     title: '',
     driverId: '',
+    approver1_username: '',
+    approver2_username: '',
   })
   const [formShowPassword, setFormShowPassword] = useState(false)
 
@@ -219,6 +223,8 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
       nik: '',
       title: '',
       driverId: '',
+      approver1_username: '',
+      approver2_username: '',
     })
     setFormShowPassword(true)
     setFormModalOpen(true)
@@ -259,6 +265,8 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
       nik: acc.nik || '',
       title: acc.title || '',
       driverId: acc.driverId || '',
+      approver1_username: acc.approver1_username || '',
+      approver2_username: acc.approver2_username || '',
     })
     setFormShowPassword(false)
     setFormModalOpen(true)
@@ -277,6 +285,7 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
     }
 
     const isOrgRole = ['requester', 'approver', 'approver_manager', 'approver_pool'].includes(formData.role)
+    const isApprovalConfigurable = formData.role === 'requester' || formData.role === 'admin_lobby'
     const cleanEmail = formData.email.trim() || undefined
     if (editingAccount) {
       const res = updateAccount(editingAccount.username, {
@@ -290,6 +299,8 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
         nik: formData.nik.trim() || undefined,
         title: formData.title.trim() || `${ROLE_LABEL[formData.role]} - ${cleanName}`,
         driverId: formData.role === 'driver' ? formData.driverId || undefined : undefined,
+        approver1_username: isApprovalConfigurable ? formData.approver1_username.trim() || undefined : undefined,
+        approver2_username: isApprovalConfigurable ? formData.approver2_username.trim() || undefined : undefined,
       })
       if (!res.success) {
         alert(res.message)
@@ -308,6 +319,8 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
         nik: formData.nik.trim() || undefined,
         title: formData.title.trim() || `${ROLE_LABEL[formData.role]} - ${cleanName}`,
         driverId: formData.role === 'driver' ? formData.driverId || undefined : undefined,
+        approver1_username: isApprovalConfigurable ? formData.approver1_username.trim() || undefined : undefined,
+        approver2_username: isApprovalConfigurable ? formData.approver2_username.trim() || undefined : undefined,
       })
       if (!res.success) {
         alert(res.message)
@@ -584,6 +597,16 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
                             <span className="text-[10px] text-[#62736b] font-medium leading-tight">
                               {acc.dept}{acc.section ? ` · ${acc.section}` : ''}
                             </span>
+                          )}
+                          {(acc.approver1_username || acc.approver2_username) && (
+                            <div className="mt-1 flex flex-col gap-0.5 text-[9px] font-mono text-emerald-800 bg-emerald-50 border border-emerald-200/80 px-1.5 py-0.5 rounded">
+                              {acc.approver1_username && (
+                                <span title="Approver Tahap 1 Khusus">T1: @{acc.approver1_username}</span>
+                              )}
+                              {acc.approver2_username && (
+                                <span title="Approver Tahap 2 Khusus">T2: @{acc.approver2_username}</span>
+                              )}
+                            </div>
                           )}
                         </div>
                       </td>
@@ -1105,6 +1128,87 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
                   className="h-10 w-full rounded-xl border border-[#dce7df] bg-[#fafcfb] px-3 text-xs text-[#10251c] focus:border-[#075b3d] focus:outline-none"
                 />
               </div>
+
+              {/* Pengaturan Jalur Persetujuan (HANYA MUNCUL DI REQUESTER & ADMIN LOBBY) */}
+              {(formData.role === 'requester' || formData.role === 'admin_lobby') && (
+                <div className="rounded-2xl border border-emerald-500/30 bg-[#f4faf6] p-4 space-y-3.5">
+                  <div className="flex items-center gap-2 border-b border-emerald-500/20 pb-2">
+                    <ShieldCheck size={16} className="text-[#075b3d]" />
+                    <div>
+                      <h4 className="text-xs font-bold text-[#075b3d]">
+                        Konfigurasi Approver Tiket (Persetujuan Khusus)
+                      </h4>
+                      <p className="text-[10px] text-[#475a50]">
+                        Atur secara spesifik siapa approver yang akan menyetujui pengajuan kendaraan dari akun ini.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Approver Tahap 1: Manager / SSPV */}
+                  <div>
+                    <label className="block text-[11px] font-bold text-[#10251c] mb-1">
+                      Approver Tahap 1 (Manager / SSPV Departemen)
+                    </label>
+                    <select
+                      value={formData.approver1_username}
+                      onChange={(e) => setFormData({ ...formData, approver1_username: e.target.value })}
+                      className="h-10 w-full rounded-xl border border-[#dce7df] bg-white px-3 text-xs font-semibold text-[#10251c] focus:border-[#075b3d] focus:outline-none"
+                    >
+                      <option value="">
+                        -- Otomatis (Sesuai Departemen &amp; Section Pemohon) --
+                      </option>
+                      {accounts
+                        .filter(
+                          (a) =>
+                            a.role === 'approver' ||
+                            a.role === 'approver_manager' ||
+                            (a.title && a.title.toLowerCase().includes('manager')) ||
+                            (a.title && a.title.toLowerCase().includes('sspv'))
+                        )
+                        .map((appr) => (
+                          <option key={appr.username} value={appr.username}>
+                            {appr.name} · {appr.title || appr.role} ({appr.dept || 'Umum'})
+                          </option>
+                        ))}
+                    </select>
+                    <p className="mt-1 text-[10px] text-[#62736b]">
+                      Jika dipilih spesifik, seluruh pengajuan dari akun ini akan otomatis dikirimkan ke Approver Tahap 1 yang dipilih.
+                    </p>
+                  </div>
+
+                  {/* Approver Tahap 2: SPV Kendaraan */}
+                  <div>
+                    <label className="block text-[11px] font-bold text-[#10251c] mb-1">
+                      Approver Tahap 2 (SPV Kendaraan / Pool GA)
+                    </label>
+                    <select
+                      value={formData.approver2_username}
+                      onChange={(e) => setFormData({ ...formData, approver2_username: e.target.value })}
+                      className="h-10 w-full rounded-xl border border-[#dce7df] bg-white px-3 text-xs font-semibold text-[#10251c] focus:border-[#075b3d] focus:outline-none"
+                    >
+                      <option value="">
+                        -- Default Sistem (Hayu Prasetyo Utomo / SPV Kendaraan) --
+                      </option>
+                      {accounts
+                        .filter(
+                          (a) =>
+                            a.role === 'approver_pool' ||
+                            a.username === 'hayu.p' ||
+                            a.username === 'spv_pool' ||
+                            (a.title && a.title.toLowerCase().includes('kendaraan'))
+                        )
+                        .map((pool) => (
+                          <option key={pool.username} value={pool.username}>
+                            {pool.name} · {pool.title || 'SPV Kendaraan'} ({pool.username})
+                          </option>
+                        ))}
+                    </select>
+                    <p className="mt-1 text-[10px] text-[#62736b]">
+                      Pihak yang memberikan verifikasi akhir kendaraan operasional (Tahap 2).
+                    </p>
+                  </div>
+                </div>
+              )}
 
               <div className="flex items-center justify-end gap-2 pt-4 border-t border-[#edf1ee]">
                 <button
