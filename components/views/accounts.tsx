@@ -99,6 +99,8 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
     approver2_username: '',
   })
   const [formShowPassword, setFormShowPassword] = useState(false)
+  const [approver1Search, setApprover1Search] = useState('')
+  const [approver2Search, setApprover2Search] = useState('')
 
   // Dynamic Master Roles & Departments State
   const [dynamicRoles, setDynamicRoles] = useState<MasterRole[]>([])
@@ -226,6 +228,8 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
       approver1_username: '',
       approver2_username: '',
     })
+    setApprover1Search('')
+    setApprover2Search('')
     setFormShowPassword(true)
     setFormModalOpen(true)
   }
@@ -268,6 +272,8 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
       approver1_username: acc.approver1_username || '',
       approver2_username: acc.approver2_username || '',
     })
+    setApprover1Search('')
+    setApprover2Search('')
     setFormShowPassword(false)
     setFormModalOpen(true)
   }
@@ -1131,81 +1137,215 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
 
               {/* Pengaturan Jalur Persetujuan (HANYA MUNCUL DI REQUESTER & ADMIN LOBBY) */}
               {(formData.role === 'requester' || formData.role === 'admin_lobby') && (
-                <div className="rounded-2xl border border-emerald-500/30 bg-[#f4faf6] p-4 space-y-3.5">
-                  <div className="flex items-center gap-2 border-b border-emerald-500/20 pb-2">
-                    <ShieldCheck size={16} className="text-[#075b3d]" />
+                <div className="rounded-2xl border border-emerald-500/40 bg-[#062417] p-4.5 space-y-4 shadow-sm text-white">
+                  <div className="flex items-center gap-2.5 border-b border-emerald-500/30 pb-3">
+                    <div className="flex size-7 items-center justify-center rounded-lg bg-[#a3e635]/20 text-[#bef264]">
+                      <ShieldCheck size={18} />
+                    </div>
                     <div>
-                      <h4 className="text-xs font-bold text-[#075b3d]">
+                      <h4 className="text-xs font-extrabold text-[#bef264]">
                         Konfigurasi Approver Tiket (Persetujuan Khusus)
                       </h4>
-                      <p className="text-[10px] text-[#475a50]">
-                        Atur secara spesifik siapa approver yang akan menyetujui pengajuan kendaraan dari akun ini.
+                      <p className="text-[11px] text-[#a7f3d0]">
+                        Tentukan secara spesifik akun approver yang akan memproses tiket pengajuan dari akun ini.
                       </p>
                     </div>
                   </div>
 
                   {/* Approver Tahap 1: Manager / SSPV */}
-                  <div>
-                    <label className="block text-[11px] font-bold text-[#10251c] mb-1">
-                      Approver Tahap 1 (Manager / SSPV Departemen)
-                    </label>
-                    <select
-                      value={formData.approver1_username}
-                      onChange={(e) => setFormData({ ...formData, approver1_username: e.target.value })}
-                      className="h-10 w-full rounded-xl border border-[#dce7df] bg-white px-3 text-xs font-semibold text-[#10251c] focus:border-[#075b3d] focus:outline-none"
-                    >
-                      <option value="">
-                        -- Otomatis (Sesuai Departemen &amp; Section Pemohon) --
-                      </option>
-                      {accounts
-                        .filter(
-                          (a) =>
-                            a.role === 'approver' ||
-                            a.role === 'approver_manager' ||
-                            (a.title && a.title.toLowerCase().includes('manager')) ||
-                            (a.title && a.title.toLowerCase().includes('sspv'))
-                        )
-                        .map((appr) => (
-                          <option key={appr.username} value={appr.username}>
-                            {appr.name} · {appr.title || appr.role} ({appr.dept || 'Umum'})
-                          </option>
-                        ))}
-                    </select>
-                    <p className="mt-1 text-[10px] text-[#62736b]">
-                      Jika dipilih spesifik, seluruh pengajuan dari akun ini akan otomatis dikirimkan ke Approver Tahap 1 yang dipilih.
-                    </p>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-xs font-bold text-white">
+                        Approver Tahap 1 (Manager / SSPV Departemen)
+                      </label>
+                      {formData.approver1_username ? (
+                        <button
+                          type="button"
+                          onClick={() => setFormData({ ...formData, approver1_username: '' })}
+                          className="text-[10px] text-amber-300 hover:underline font-semibold"
+                        >
+                          Reset ke Otomatis
+                        </button>
+                      ) : (
+                        <span className="text-[10px] text-[#a3e635] font-semibold bg-[#a3e635]/15 px-2 py-0.5 rounded">
+                          Mode Otomatis
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Quick Search Approver 1 */}
+                    <div className="relative">
+                      <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-emerald-300/70" />
+                      <input
+                        type="text"
+                        placeholder="Cari nama / jabatan / departemen approver tahap 1..."
+                        value={approver1Search}
+                        onChange={(e) => setApprover1Search(e.target.value)}
+                        className="h-8.5 w-full rounded-xl border border-emerald-500/30 bg-black/40 pl-8 pr-3 text-xs text-white placeholder:text-emerald-200/50 focus:border-[#a3e635] focus:outline-none"
+                      />
+                    </div>
+
+                    {/* Scrollable Compact List Approver 1 */}
+                    <div className="rounded-xl border border-emerald-500/30 bg-black/40 overflow-hidden">
+                      <div className="max-h-40 overflow-y-auto divide-y divide-white/5 p-1 space-y-0.5">
+                        {/* Option 1: Otomatis */}
+                        <div
+                          onClick={() => setFormData({ ...formData, approver1_username: '' })}
+                          className={`flex items-center justify-between p-2 rounded-lg text-xs cursor-pointer transition select-none ${
+                            !formData.approver1_username
+                              ? 'bg-[#a3e635]/20 text-[#bef264] font-bold border border-[#a3e635]/40'
+                              : 'text-white/80 hover:bg-white/10'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono font-bold">AUTO</span>
+                            <span className="truncate">Otomatis (Sesuai Dept &amp; Section Pemohon)</span>
+                          </div>
+                          {!formData.approver1_username && <Check size={14} className="text-[#a3e635] shrink-0 ml-2" />}
+                        </div>
+
+                        {/* Filtered list of accounts */}
+                        {accounts
+                          .filter(
+                            (a) =>
+                              a.role === 'approver' ||
+                              a.role === 'approver_manager' ||
+                              (a.title && a.title.toLowerCase().includes('manager')) ||
+                              (a.title && a.title.toLowerCase().includes('sspv'))
+                          )
+                          .filter((a) => {
+                            if (!approver1Search.trim()) return true
+                            const q = approver1Search.toLowerCase()
+                            return (
+                              a.name.toLowerCase().includes(q) ||
+                              (a.title && a.title.toLowerCase().includes(q)) ||
+                              (a.dept && a.dept.toLowerCase().includes(q)) ||
+                              a.username.toLowerCase().includes(q)
+                            )
+                          })
+                          .map((appr) => {
+                            const isSelected = formData.approver1_username === appr.username
+                            const isMgr = appr.role === 'approver_manager' || (appr.title && appr.title.toLowerCase().includes('manager'))
+                            return (
+                              <div
+                                key={appr.username}
+                                onClick={() => setFormData({ ...formData, approver1_username: appr.username })}
+                                className={`flex items-center justify-between p-2 rounded-lg text-xs cursor-pointer transition select-none ${
+                                  isSelected
+                                    ? 'bg-[#a3e635]/20 text-[#bef264] font-bold border border-[#a3e635]/40'
+                                    : 'text-white hover:bg-white/10'
+                                }`}
+                              >
+                                <div className="min-w-0 flex-1 pr-2">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="font-bold truncate text-white">{appr.name}</span>
+                                    <span className={`text-[9px] px-1.5 py-0.2 rounded font-semibold shrink-0 ${
+                                      isMgr ? 'bg-blue-500/30 text-blue-200 border border-blue-400/30' : 'bg-amber-500/30 text-amber-200 border border-amber-400/30'
+                                    }`}>
+                                      {isMgr ? 'Manager' : 'SSPV'}
+                                    </span>
+                                  </div>
+                                  <p className="text-[10px] text-emerald-200/70 truncate mt-0.5">
+                                    {appr.title || appr.role} · <span className="font-semibold text-white/90">{appr.dept || 'Umum'}</span>
+                                  </p>
+                                </div>
+                                {isSelected && <Check size={14} className="text-[#a3e635] shrink-0" />}
+                              </div>
+                            )
+                          })}
+                      </div>
+                    </div>
                   </div>
 
                   {/* Approver Tahap 2: SPV Kendaraan */}
-                  <div>
-                    <label className="block text-[11px] font-bold text-[#10251c] mb-1">
-                      Approver Tahap 2 (SPV Kendaraan / Pool GA)
-                    </label>
-                    <select
-                      value={formData.approver2_username}
-                      onChange={(e) => setFormData({ ...formData, approver2_username: e.target.value })}
-                      className="h-10 w-full rounded-xl border border-[#dce7df] bg-white px-3 text-xs font-semibold text-[#10251c] focus:border-[#075b3d] focus:outline-none"
-                    >
-                      <option value="">
-                        -- Default Sistem (Hayu Prasetyo Utomo / SPV Kendaraan) --
-                      </option>
-                      {accounts
-                        .filter(
-                          (a) =>
-                            a.role === 'approver_pool' ||
-                            a.username === 'hayu.p' ||
-                            a.username === 'spv_pool' ||
-                            (a.title && a.title.toLowerCase().includes('kendaraan'))
-                        )
-                        .map((pool) => (
-                          <option key={pool.username} value={pool.username}>
-                            {pool.name} · {pool.title || 'SPV Kendaraan'} ({pool.username})
-                          </option>
-                        ))}
-                    </select>
-                    <p className="mt-1 text-[10px] text-[#62736b]">
-                      Pihak yang memberikan verifikasi akhir kendaraan operasional (Tahap 2).
-                    </p>
+                  <div className="space-y-2 pt-1 border-t border-emerald-500/20">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-xs font-bold text-white">
+                        Approver Tahap 2 (SPV Kendaraan / Pool GA)
+                      </label>
+                      {formData.approver2_username ? (
+                        <button
+                          type="button"
+                          onClick={() => setFormData({ ...formData, approver2_username: '' })}
+                          className="text-[10px] text-amber-300 hover:underline font-semibold"
+                        >
+                          Reset ke Default
+                        </button>
+                      ) : (
+                        <span className="text-[10px] text-[#a3e635] font-semibold bg-[#a3e635]/15 px-2 py-0.5 rounded">
+                          Default Pool GA
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Quick Search Approver 2 */}
+                    <div className="relative">
+                      <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-emerald-300/70" />
+                      <input
+                        type="text"
+                        placeholder="Cari akun SPV Kendaraan..."
+                        value={approver2Search}
+                        onChange={(e) => setApprover2Search(e.target.value)}
+                        className="h-8.5 w-full rounded-xl border border-emerald-500/30 bg-black/40 pl-8 pr-3 text-xs text-white placeholder:text-emerald-200/50 focus:border-[#a3e635] focus:outline-none"
+                      />
+                    </div>
+
+                    {/* Scrollable Compact List Approver 2 */}
+                    <div className="rounded-xl border border-emerald-500/30 bg-black/40 overflow-hidden">
+                      <div className="max-h-36 overflow-y-auto divide-y divide-white/5 p-1 space-y-0.5">
+                        {/* Option Default */}
+                        <div
+                          onClick={() => setFormData({ ...formData, approver2_username: '' })}
+                          className={`flex items-center justify-between p-2 rounded-lg text-xs cursor-pointer transition select-none ${
+                            !formData.approver2_username
+                              ? 'bg-[#a3e635]/20 text-[#bef264] font-bold border border-[#a3e635]/40'
+                              : 'text-white/80 hover:bg-white/10'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono font-bold">DEFAULT</span>
+                            <span className="truncate">Default Sistem (Hayu Prasetyo Utomo / SPV Kendaraan)</span>
+                          </div>
+                          {!formData.approver2_username && <Check size={14} className="text-[#a3e635] shrink-0 ml-2" />}
+                        </div>
+
+                        {accounts
+                          .filter(
+                            (a) =>
+                              a.role === 'approver_pool' ||
+                              a.username === 'hayu.p' ||
+                              a.username === 'spv_pool' ||
+                              (a.title && a.title.toLowerCase().includes('kendaraan'))
+                          )
+                          .filter((a) => {
+                            if (!approver2Search.trim()) return true
+                            const q = approver2Search.toLowerCase()
+                            return a.name.toLowerCase().includes(q) || a.username.toLowerCase().includes(q)
+                          })
+                          .map((pool) => {
+                            const isSelected = formData.approver2_username === pool.username
+                            return (
+                              <div
+                                key={pool.username}
+                                onClick={() => setFormData({ ...formData, approver2_username: pool.username })}
+                                className={`flex items-center justify-between p-2 rounded-lg text-xs cursor-pointer transition select-none ${
+                                  isSelected
+                                    ? 'bg-[#a3e635]/20 text-[#bef264] font-bold border border-[#a3e635]/40'
+                                    : 'text-white hover:bg-white/10'
+                                }`}
+                              >
+                                <div className="min-w-0 flex-1 pr-2">
+                                  <p className="font-bold truncate text-white">{pool.name}</p>
+                                  <p className="text-[10px] text-emerald-200/70 truncate">
+                                    {pool.title || 'SPV Kendaraan'} · <span className="font-mono">@{pool.username}</span>
+                                  </p>
+                                </div>
+                                {isSelected && <Check size={14} className="text-[#a3e635] shrink-0" />}
+                              </div>
+                            )
+                          })}
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
