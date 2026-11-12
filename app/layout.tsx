@@ -8,23 +8,35 @@ const jakarta = Plus_Jakarta_Sans({ subsets: ['latin'], variable: '--font-jakart
 export const metadata: Metadata = {
   title: 'JAI-FLEET Management · Gas Operations',
   description: 'Fleet allocation, gate clearance, and driver operations dashboard.',
-  generator: 'v0.app',
+  generator: 'JAI-FLEET',
   icons: {
     icon: [
       {
         url: '/icon-light-32x32.png',
-        media: '(prefers-color-scheme: light)',
+        sizes: '32x32',
+        type: 'image/png',
       },
       {
         url: '/icon-dark-32x32.png',
-        media: '(prefers-color-scheme: dark)',
+        sizes: '32x32',
+        type: 'image/png',
+      },
+      {
+        url: '/favicon.ico',
+        sizes: 'any',
       },
       {
         url: '/icon.svg',
         type: 'image/svg+xml',
       },
     ],
-    apple: '/apple-icon.png',
+    apple: [
+      {
+        url: '/apple-icon.png',
+        sizes: '180x180',
+        type: 'image/png',
+      },
+    ],
   },
 }
 
