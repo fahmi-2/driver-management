@@ -328,24 +328,44 @@ export function normalizeSectionName(str: string): string {
 }
 
 // Helper: Parse sections string into normalized individual uppercase strings
-// CATATAN: Pemisah antar section multi-pilihan adalah ' / ' (spasi garis miring spasi) atau tanda koma ','.
-// Garis miring tunggal tanpa spasi di tengah kata (seperti 'HR/IR' atau 'HR / IR') dinormalisasi konsisten!
+// Menangani secara pintar section dengan slash bawaan (seperti 'HR / IR' atau 'PE / PD')
+// agar pemisahan multi-pilihan (' / ') tidak memotong nama section menjadi kata terpisah!
 export function parseSections(str?: string): string[] {
   if (!str) return []
-  // Jika formatnya comma-separated: 'HR/IR, SHE, QSA'
-  // Jika formatnya slash-separated: 'GAGS / INTERPRETER / STATIONARY & UTILITY'
-  // Gunakan pemisah multi-item: koma, titik koma, atau ' / ' yang memisahkan nama section.
-  const rawParts = str.includes(' / ')
-    ? str.split(/\s+\/\s+/)
-    : str.includes(',')
-    ? str.split(',')
-    : [str]
 
-  const cleaned = rawParts
-    .map((s) => normalizeSectionName(s))
-    .filter(Boolean)
+  let s = str.trim()
+  const tokenMap = new Map<string, string>()
+  let tokenCounter = 0
 
-  return Array.from(new Set(cleaned))
+  // Pola nama section resmi yang memiliki tanda garis miring internal
+  const internalSlashPatterns = [
+    /\bHR\s*\/\s*IR\b/gi,
+    /\bPE\s*\/\s*PD\b/gi,
+    /\bIT\s*&\s*QC\b/gi,
+  ]
+
+  for (const pat of internalSlashPatterns) {
+    s = s.replace(pat, (matched) => {
+      const token = `___SEC_TOKEN_${tokenCounter++}___`
+      tokenMap.set(token, normalizeSectionName(matched))
+      return token
+    })
+  }
+
+  // Pecah berdasarkan pemisah ' / ' (spasi slash spasi) atau koma atau titik koma
+  const rawParts = s.split(/\s+\/\s+|[,;]/)
+  const result: string[] = []
+
+  for (const part of rawParts) {
+    let restored = part.trim()
+    for (const [token, val] of tokenMap.entries()) {
+      restored = restored.replace(new RegExp(token, 'g'), val)
+    }
+    const clean = normalizeSectionName(restored)
+    if (clean) result.push(clean)
+  }
+
+  return Array.from(new Set(result))
 }
 
 // Helper: Check if an account's section matches a target section
