@@ -321,23 +321,41 @@ export function getDynamicDepartments(): { id: string; name: string }[] {
   return DEPARTMENTS.map((d) => ({ id: `dept_${d.toLowerCase().replace(/[^a-z0-9]/g, '_')}`, name: d }))
 }
 
+// Fungsi normalisasi string section agar format spasi di sekitar slash konsisten ('HR/IR' -> 'HR / IR')
+export function normalizeSectionName(str: string): string {
+  if (!str) return ''
+  return str.trim().replace(/\s*\/\s*/g, ' / ').replace(/\s+/g, ' ').toUpperCase()
+}
+
 // Helper: Parse sections string into normalized individual uppercase strings
+// CATATAN: Pemisah antar section multi-pilihan adalah ' / ' (spasi garis miring spasi) atau tanda koma ','.
+// Garis miring tunggal tanpa spasi di tengah kata (seperti 'HR/IR' atau 'HR / IR') dinormalisasi konsisten!
 export function parseSections(str?: string): string[] {
   if (!str) return []
-  return str
-    .split(/[,/]/)
-    .map((s) => s.trim().toUpperCase())
+  // Jika formatnya comma-separated: 'HR/IR, SHE, QSA'
+  // Jika formatnya slash-separated: 'GAGS / INTERPRETER / STATIONARY & UTILITY'
+  // Gunakan pemisah multi-item: koma, titik koma, atau ' / ' yang memisahkan nama section.
+  const rawParts = str.includes(' / ')
+    ? str.split(/\s+\/\s+/)
+    : str.includes(',')
+    ? str.split(',')
+    : [str]
+
+  const cleaned = rawParts
+    .map((s) => normalizeSectionName(s))
     .filter(Boolean)
+
+  return Array.from(new Set(cleaned))
 }
 
 // Helper: Check if an account's section matches a target section
 export function matchesSection(accSection?: string, targetSection?: string): boolean {
   if (!accSection || !targetSection) return true
   const accList = parseSections(accSection)
-  const target = targetSection.trim().toUpperCase()
+  const targetNorm = normalizeSectionName(targetSection)
   return (
-    accList.includes(target) ||
-    accList.some((s) => target.includes(s) || s.includes(target))
+    accList.includes(targetNorm) ||
+    accList.some((s) => targetNorm.includes(s) || s.includes(targetNorm))
   )
 }
 

@@ -32,6 +32,7 @@ import {
   getSectionsByDept,
   parseSections,
   matchesSection,
+  normalizeSectionName,
   getAllAccounts,
   resetToDefaultAccounts,
   addAccount,
@@ -246,13 +247,13 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
     let initialSection = acc.section || ''
     if (initialSection) {
       const parsed = parseSections(initialSection)
-      // Cocokkan kembali dengan casing asli dari secList jika ada yang cocok
+      // Cocokkan kembali dengan nama asli dari secList berdasarkan normalisasi
       const matchedList = parsed.map((p) => {
-        const found = secList.find((s) => s.toUpperCase() === p)
+        const found = secList.find((s) => normalizeSectionName(s) === p)
         return found || p
       })
       if (matchedList.length > 0) {
-        initialSection = matchedList.join(' / ')
+        initialSection = Array.from(new Set(matchedList)).join(' / ')
       }
     } else if (secList.length > 0) {
       initialSection = secList[0]
@@ -1000,18 +1001,17 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
                           const first = parseSections(formData.section)[0] || ''
                           if (!first) return ''
                           const secList = getSectionsByDept(formData.dept)
-                          const matched = secList.find((s) => s.toUpperCase() === first.toUpperCase())
+                          const matched = secList.find((s) => normalizeSectionName(s) === first)
                           return matched || first
                         })()}
                         onChange={(e) => {
                           const picked = e.target.value
                           const currentArr = parseSections(formData.section)
                           const secList = getSectionsByDept(formData.dept)
-                          // Replace the first element or add it
-                          const targetUpper = picked.toUpperCase()
+                          const targetNorm = normalizeSectionName(picked)
                           const others = currentArr
-                            .filter((s) => s !== targetUpper)
-                            .map((s) => secList.find((x) => x.toUpperCase() === s) || s)
+                            .filter((s) => s !== targetNorm)
+                            .map((s) => secList.find((x) => normalizeSectionName(x) === s) || s)
                           const merged = picked ? [picked, ...others].join(' / ') : others.join(' / ')
                           setFormData({ ...formData, section: merged })
                         }}
@@ -1043,16 +1043,16 @@ export function AdminAccounts({ currentUser }: { currentUser: Account }) {
                     ) : (
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 max-h-48 overflow-y-auto">
                         {getSectionsByDept(formData.dept).map((sec) => {
+                          const secNorm = normalizeSectionName(sec)
                           const currentArr = parseSections(formData.section)
-                          const isChecked = currentArr.includes(sec.toUpperCase())
+                          const isChecked = currentArr.includes(secNorm)
                           
                           const handleToggle = () => {
-                            const target = sec.toUpperCase()
                             let newArr: string[]
                             if (isChecked) {
-                              newArr = currentArr.filter((s) => s.toUpperCase() !== target)
+                              newArr = currentArr.filter((s) => s !== secNorm)
                             } else {
-                              newArr = [...currentArr, sec]
+                              newArr = Array.from(new Set([...currentArr, secNorm]))
                             }
                             setFormData({
                               ...formData,
