@@ -17,9 +17,11 @@ import {
   Users,
   Loader2,
   Calendar,
+  FileText,
 } from 'lucide-react'
 import { SmtpSettingsModal } from '../smtp-settings-modal'
 import { TripEditModal } from '../trip-edit-modal'
+import { TripReportSummaryModal } from '../trip-report-summary-modal'
 import { ModalPortal } from '../modal-portal'
 import { TimeInput24h } from '../time-input-24h'
 import {
@@ -70,6 +72,7 @@ export function RequesterForm({ user }: { user: Account }) {
   const { db, createTrip, deleteTrip } = useStore()
   const notify = useToast()
   const [editingTrip, setEditingTrip] = useState<Trip | null>(null)
+  const [summaryTrip, setSummaryTrip] = useState<Trip | null>(null)
 
   // Kapasitas maksimum kendaraan dari master fleet (default 7 kursi jika belum diset)
   const maxVehicleCapacity = Math.max(7, ...db.vehicles.map((v) => v.capacity || 7))
@@ -259,9 +262,9 @@ export function RequesterForm({ user }: { user: Account }) {
     const allPassengers: Passenger[] = f.driverOnly
       ? []
       : [
-          { name: f.requesterName.trim(), nik: f.requesterNik.trim(), dept: f.dept },
-          ...f.additionalUsers.filter((u) => u.name.trim()),
-        ]
+        { name: f.requesterName.trim(), nik: f.requesterNik.trim(), dept: f.dept },
+        ...f.additionalUsers.filter((u) => u.name.trim()),
+      ]
 
     const guestLabel = f.driverOnly
       ? `Hanya Driver (Kirim Barang / Dokumen oleh ${f.requesterName.trim()})`
@@ -369,11 +372,10 @@ export function RequesterForm({ user }: { user: Account }) {
             <button
               type="button"
               onClick={() => setActiveTab('form')}
-              className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition-all ${
-                activeTab === 'form'
+              className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition-all ${activeTab === 'form'
                   ? 'bg-[#a3e635] text-[#052e16] shadow-md shadow-[#a3e635]/25 scale-[1.02]'
                   : 'text-[#8fa99b] hover:text-white hover:bg-white/5'
-              }`}
+                }`}
             >
               <Plus size={15} />
               Formulir Pengajuan
@@ -381,20 +383,18 @@ export function RequesterForm({ user }: { user: Account }) {
             <button
               type="button"
               onClick={() => setActiveTab('history')}
-              className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition-all ${
-                activeTab === 'history'
+              className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition-all ${activeTab === 'history'
                   ? 'bg-[#a3e635] text-[#052e16] shadow-md shadow-[#a3e635]/25 scale-[1.02]'
                   : 'text-[#8fa99b] hover:text-white hover:bg-white/5'
-              }`}
+                }`}
             >
               <Users size={15} />
               Riwayat Pengajuan
               <span
-                className={`ml-1 rounded-full px-2 py-0.5 text-[10px] font-black ${
-                  activeTab === 'history'
+                className={`ml-1 rounded-full px-2 py-0.5 text-[10px] font-black ${activeTab === 'history'
                     ? 'bg-[#052e16] text-[#bef264]'
                     : 'bg-white/10 text-white'
-                }`}
+                  }`}
               >
                 {mine.length}
               </span>
@@ -418,11 +418,10 @@ export function RequesterForm({ user }: { user: Account }) {
                     type="button"
                     key={c}
                     onClick={() => setF({ ...f, category: c })}
-                    className={`rounded-xl border px-4 py-3 text-xs font-bold transition flex items-center justify-center gap-2 ${
-                      f.category === c
+                    className={`rounded-xl border px-4 py-3 text-xs font-bold transition flex items-center justify-center gap-2 ${f.category === c
                         ? 'border-[#a3e635] bg-[#a3e635]/20 text-white ring-1 ring-[#a3e635]/40 shadow-xs'
                         : 'border-[#a3e635]/20 bg-white/[0.03] text-[#8fa99b] hover:bg-[#a3e635]/10'
-                    }`}
+                      }`}
                   >
                     <span className="size-2 rounded-full bg-[#a3e635]" />
                     {i + 1}. {c}
@@ -571,10 +570,10 @@ export function RequesterForm({ user }: { user: Account }) {
                         {activeSenderSmtp?.scope === 'account'
                           ? `Akun Pribadi (${user.name})`
                           : activeSenderSmtp?.scope === 'dept'
-                          ? `Departemen ${f.dept}`
-                          : activeSenderSmtp?.scope === 'global'
-                          ? 'Pool GA Pusat (Global)'
-                          : 'Default Server'}
+                            ? `Departemen ${f.dept}`
+                            : activeSenderSmtp?.scope === 'global'
+                              ? 'Pool GA Pusat (Global)'
+                              : 'Default Server'}
                       </strong>
                       {' — '}Email persetujuan akan dikirim atas nama departemen Anda ke Manager terkait.
                     </p>
@@ -592,11 +591,10 @@ export function RequesterForm({ user }: { user: Account }) {
 
               {/* Opsi "Hanya Driver" (Kirim Barang / Dokumen tanpa penumpang) */}
               <div
-                className={`rounded-xl border p-3.5 transition ${
-                  f.driverOnly
+                className={`rounded-xl border p-3.5 transition ${f.driverOnly
                     ? 'border-amber-400/40 bg-amber-500/10 text-amber-200 ring-1 ring-amber-400/30'
                     : 'border-white/10 bg-white/[0.02] text-[#8fa99b] hover:bg-white/[0.04]'
-                }`}
+                  }`}
               >
                 <label className="flex items-start gap-3 cursor-pointer select-none">
                   <input
@@ -619,11 +617,10 @@ export function RequesterForm({ user }: { user: Account }) {
                         Opsi "Hanya Driver" (Tanpa Penumpang)
                       </span>
                       <span
-                        className={`rounded px-1.5 py-0.2 text-[9px] font-black uppercase tracking-wider ${
-                          f.driverOnly
+                        className={`rounded px-1.5 py-0.2 text-[9px] font-black uppercase tracking-wider ${f.driverOnly
                             ? 'bg-amber-400/20 text-amber-300 border border-amber-400/40'
                             : 'bg-white/10 text-[#8fa99b]'
-                        }`}
+                          }`}
                       >
                         {f.driverOnly ? 'Kupon Makan VOID / Hangus' : 'Kupon Normal'}
                       </span>
@@ -925,54 +922,64 @@ export function RequesterForm({ user }: { user: Account }) {
                     <TripRouteToggle trip={t} />
                   </div>
 
-                    <div className="flex items-center gap-2">
-                      <Pill label={STATUS_LABEL[t.status]} tone={tripTone(t.status)} />
-                      
-                      {/* Pre-Approval Phase: Tombol Aksi Edit & Hapus strictly HANYA jika status WAITING_SPV */}
-                      {t.status === 'WAITING_SPV' && (
-                        <div className="flex items-center gap-1.5 ml-1">
-                          <button
-                            type="button"
-                            title="Edit / Revisi Pengajuan [EDITED]"
-                            onClick={() => setEditingTrip(t)}
-                            className="inline-flex items-center gap-1 rounded-lg border border-amber-400/40 bg-amber-500/15 hover:bg-amber-500/25 px-2.5 py-1 text-[11px] font-bold text-amber-300 transition shadow-xs"
-                          >
-                            <Edit3 size={12} />
-                            <span>Edit</span>
-                          </button>
-                          <button
-                            type="button"
-                            title="Hapus Pengajuan"
-                            onClick={async () => {
-                              if (confirm(`Apakah Anda yakin ingin menghapus pengajuan ${t.id} ke ${t.destination}? Tindakan ini tidak dapat dibatalkan.`)) {
-                                const res = await deleteTrip(t.id)
-                                if (res.success) {
-                                  notify(`Pengajuan ${t.id} berhasil dihapus dari sistem.`)
-                                } else {
-                                  notify(res.error || 'Gagal menghapus pengajuan.', 'error')
-                                }
-                              }
-                            }}
-                            className="inline-flex items-center gap-1 rounded-lg border border-red-500/40 bg-red-500/15 hover:bg-red-500/25 px-2.5 py-1 text-[11px] font-bold text-red-300 transition shadow-xs"
-                          >
-                            <Trash2 size={12} />
-                            <span>Hapus</span>
-                          </button>
-                        </div>
-                      )}
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setSummaryTrip(t)}
+                      title="Lihat Lembar Summary & QR E-Sign Dokumen Laporan"
+                      className="inline-flex items-center gap-1.5 rounded-lg border-2 border-[#a3e635] bg-[#a3e635] hover:bg-[#bef264] text-[#052e16] px-3 py-1.5 text-xs font-black transition shadow-md shadow-[#a3e635]/20 hover:scale-[1.02]"
+                    >
+                      <FileText size={14} className="text-[#052e16] stroke-[2.5]" />
+                      <span>Summary & QR</span>
+                    </button>
 
-                      {(t.status === 'WAITING_SPV' || t.status === 'WAITING_POOL_SPV') && (
-                        <a
-                          href={`/approve/${t.id}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-1 rounded-full border border-[#b8cfc2] px-3 py-1.5 text-[11px] font-bold text-[#176c4b] hover:bg-[#eef5f0]"
+                    <Pill label={STATUS_LABEL[t.status]} tone={tripTone(t.status)} />
+
+                    {/* Pre-Approval Phase: Tombol Aksi Edit & Hapus strictly HANYA jika status WAITING_SPV */}
+                    {t.status === 'WAITING_SPV' && (
+                      <div className="flex items-center gap-1.5 ml-1">
+                        <button
+                          type="button"
+                          title="Edit / Revisi Pengajuan [EDITED]"
+                          onClick={() => setEditingTrip(t)}
+                          className="inline-flex items-center gap-1 rounded-lg border border-amber-400/40 bg-amber-500/15 hover:bg-amber-500/25 px-2.5 py-1 text-[11px] font-bold text-amber-300 transition shadow-xs"
                         >
-                          <Mail size={12} />
-                          {t.status === 'WAITING_SPV' ? 'E-Sign SPV Dept' : 'E-Sign SPV Kendaraan'}
-                        </a>
-                      )}
-                    </div>
+                          <Edit3 size={12} />
+                          <span>Edit</span>
+                        </button>
+                        <button
+                          type="button"
+                          title="Hapus Pengajuan"
+                          onClick={async () => {
+                            if (confirm(`Apakah Anda yakin ingin menghapus pengajuan ${t.id} ke ${t.destination}? Tindakan ini tidak dapat dibatalkan.`)) {
+                              const res = await deleteTrip(t.id)
+                              if (res.success) {
+                                notify(`Pengajuan ${t.id} berhasil dihapus dari sistem.`)
+                              } else {
+                                notify(res.error || 'Gagal menghapus pengajuan.', 'error')
+                              }
+                            }
+                          }}
+                          className="inline-flex items-center gap-1 rounded-lg border border-red-500/40 bg-red-500/15 hover:bg-red-500/25 px-2.5 py-1 text-[11px] font-bold text-red-300 transition shadow-xs"
+                        >
+                          <Trash2 size={12} />
+                          <span>Hapus</span>
+                        </button>
+                      </div>
+                    )}
+
+                    {(t.status === 'WAITING_SPV' || t.status === 'WAITING_POOL_SPV') && (
+                      <a
+                        href={`/approve/${t.id}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 rounded-full border border-[#b8cfc2] px-3 py-1.5 text-[11px] font-bold text-[#176c4b] hover:bg-[#eef5f0]"
+                      >
+                        <Mail size={12} />
+                        {t.status === 'WAITING_SPV' ? 'E-Sign SPV Dept' : 'E-Sign SPV Kendaraan'}
+                      </a>
+                    )}
+                  </div>
                 </li>
               ))}
             </ul>
@@ -985,6 +992,13 @@ export function RequesterForm({ user }: { user: Account }) {
         trip={editingTrip}
         isOpen={!!editingTrip}
         onClose={() => setEditingTrip(null)}
+      />
+
+      {/* Modal Summary Laporan & Lembar Pengesahan QR E-Sign */}
+      <TripReportSummaryModal
+        trip={summaryTrip}
+        isOpen={!!summaryTrip}
+        onClose={() => setSummaryTrip(null)}
       />
 
       {/* Modal Pengaturan SMTP Departemen / Akun */}

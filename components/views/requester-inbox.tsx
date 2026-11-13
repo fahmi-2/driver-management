@@ -27,6 +27,7 @@ import type { Account } from '@/lib/accounts'
 import { useStore, type Trip, fmtDate, fmtTime } from '@/lib/store'
 import { Card, PageHeader, Pill, useToast } from '../ui-bits'
 import { TripEditModal } from '../trip-edit-modal'
+import { TripReportSummaryModal } from '../trip-report-summary-modal'
 import { TripRouteMap } from '../route-map'
 import { ModalPortal } from '../modal-portal'
 
@@ -40,6 +41,7 @@ export function RequesterInbox({ user }: { user: Account }) {
   const [currentPage, setCurrentPage] = useState(1)
   const [editingTrip, setEditingTrip] = useState<Trip | null>(null)
   const [detailTrip, setDetailTrip] = useState<Trip | null>(null)
+  const [summaryTrip, setSummaryTrip] = useState<Trip | null>(null)
 
   // Requester trips
   const myTrips = db.trips
@@ -208,6 +210,17 @@ export function RequesterInbox({ user }: { user: Account }) {
                             : 'Menunggu Dispatcher'}
                         </span>
                       )}
+
+                      {/* Tombol Summary Laporan & Lembar QR E-Sign */}
+                      <button
+                        type="button"
+                        onClick={() => setSummaryTrip(trip)}
+                        className="inline-flex items-center gap-1.5 rounded-lg border-2 border-[#a3e635] bg-[#a3e635] hover:bg-[#bef264] text-[#052e16] px-3.5 py-1.5 text-xs font-black transition shadow-md shadow-[#a3e635]/25 hover:scale-[1.02]"
+                        title="Buka Lembar Summary & Pengesahan QR E-Sign (Cetak / PDF)"
+                      >
+                        <FileText size={14} className="text-[#052e16] stroke-[2.5]" />
+                        <span>Summary & QR</span>
+                      </button>
 
                       {/* Tombol Detail Perjalanan (Pemohon, Penumpang & Map) */}
                       <button
@@ -599,6 +612,13 @@ export function RequesterInbox({ user }: { user: Account }) {
         trip={editingTrip}
         isOpen={!!editingTrip}
         onClose={() => setEditingTrip(null)}
+      />
+
+      {/* Modal Summary Laporan & Lembar Pengesahan QR E-Sign */}
+      <TripReportSummaryModal
+        trip={summaryTrip}
+        isOpen={!!summaryTrip}
+        onClose={() => setSummaryTrip(null)}
       />
     </>
   )
