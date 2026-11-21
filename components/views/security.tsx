@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import {
   LogIn,
   LogOut,
@@ -22,6 +22,12 @@ import {
   CheckCircle2,
   X,
   AlertTriangle,
+  History,
+  DoorOpen,
+  ArrowRight,
+  Truck,
+  Building2,
+  Timer,
 } from 'lucide-react'
 import type { Account } from '@/lib/accounts'
 import { fmtDate, fmtDur, fmtTime, useStore, ymd, canStartTripNow, type Trip } from '@/lib/store'
@@ -30,10 +36,13 @@ import { Card, Empty, PageHeader, Pill, useToast } from '../ui-bits'
 import { ModalPortal } from '../modal-portal'
 
 export function SecurityGate({ user }: { user: Account }) {
-  const { db, gateGo, gateBack } = useStore()
+  const { db, gateGo, gateBack, deleteTrip } = useStore()
   const notify = useToast()
   const dn = (id?: string) => db.drivers.find((d) => d.id === id)?.name ?? '—'
   const vn = (plate?: string) => db.vehicles.find((v) => v.plate === plate)?.type ?? ''
+
+  // Sub-menu Tab: 'clearance' (Gate Clearance) vs 'history' (Riwayat & Log Gerbang)
+  const [activeTab, setActiveTab] = useState<'clearance' | 'history'>('clearance')
 
   // State untuk expand detail tambahan pengajuan
   const [expandedTripId, setExpandedTripId] = useState<string | null>(null)
@@ -43,7 +52,7 @@ export function SecurityGate({ user }: { user: Account }) {
   const [confirmGoTrip, setConfirmGoTrip] = useState<Trip | null>(null)
   const [confirmBackTrip, setConfirmBackTrip] = useState<Trip | null>(null)
 
-  // State filter & pagination untuk mengurangi scroll
+  // State filter & pagination
   const [searchQuery, setSearchQuery] = useState('')
   const [dateFilter, setDateFilter] = useState<'ALL' | 'TODAY'>('ALL')
   const [rowsPerPageReady, setRowsPerPageReady] = useState<number>(10)
@@ -51,9 +60,35 @@ export function SecurityGate({ user }: { user: Account }) {
   const [rowsPerPageOut, setRowsPerPageOut] = useState<number>(10)
   const [pageOut, setPageOut] = useState(1)
 
+  // State filter & pagination untuk History
+  const [historySearch, setHistorySearch] = useState('')
+  const [historyPage, setHistoryPage] = useState(1)
+  const [historyRowsPerPage, setHistoryRowsPerPage] = useState(10)
+
+  // Hari ini
+  const todayStr = ymd()
+
+  // 1. OTOMATIS BERSIHKAN / HAPUS OVER-DATE TRIPS DI GATE CLEARANCE
+  // Jika trip status READY (belum berangkat) dan tanggal trip < todayStr (sudah lewat hari),
+  // maka otomatis dihapus agar tidak menumpuk di gate clearance.
+  useEffect(() => {
+    const expiredTrips = db.trips.filter(
+      (t) => t.status === 'READY' && t.date && t.date < todayStr
+    )
+    if (expiredTrips.length > 0) {
+      expiredTrips.forEach(async (exp) => {
+        try {
+          await deleteTrip(exp.id)
+        } catch (e) {
+          console.error('Error auto-clearing expired trip:', exp.id, e)
+        }
+      })
+    }
+  }, [db.trips, todayStr, deleteTrip])
+
   // Conditional Security Logic:
-  // Only show trips if either Origin OR Destination explicitly includes "PT. JAI"
-  const readyAll = db.trips.filter((t) => t.status === 'READY')
+  // Hanya menampilkan trip yang melewati Origin atau Destination PT. JAI dan tanggal >= hari ini (tidak over date)
+  const readyAll = db.trips.filter((t) => t.status === 'READY' && (!t.date || t.date >= todayStr))
   const outAll = db.trips.filter((t) => t.status === 'ON_TRIP')
 
   const tripTouchesJai = (t: typeof db.trips[0]) => {
@@ -66,10 +101,10 @@ export function SecurityGate({ user }: { user: Account }) {
   const readyRaw = readyAll.filter(tripTouchesJai)
   const outRaw = outAll.filter(tripTouchesJai)
 
-  // Filter pencarian dan tanggal
+  // Filter pencarian dan tanggal untuk Gate Clearance
   const filterList = (list: typeof readyRaw) => {
     return list.filter((t) => {
-      if (dateFilter === 'TODAY' && t.date !== ymd()) return false
+      if (dateFilter === 'TODAY' && t.date !== todayStr) return false
       if (!searchQuery.trim()) return true
       const q = searchQuery.toLowerCase()
       const plate = (t.plate || '').toLowerCase()
@@ -115,489 +150,728 @@ export function SecurityGate({ user }: { user: Account }) {
   const outsideReadyCount = readyAll.length - readyRaw.length
   const outsideOutCount = outAll.length - outRaw.length
 
-  const doneToday = db.trips
-    .filter((t) => t.status === 'DONE' && t.securityBack)
-    .slice(-10)
-    .reverse()
+  // 2. DATA HISTORY LENGKAP GERBANG PT. JAI
+  // Seluruh riwayat perjalanan yang telah selesai (DONE) atau memiliki securityGo / securityBack
+  const allHistory = useMemo(() => {
+    return db.trips
+      .filter((t) => t.status === 'DONE' && (t.securityBack || t.timeBack || t.timeGo))
+      .slice()
+      .reverse()
+  }, [db.trips])
+
+  const filteredHistory = useMemo(() => {
+    if (!historySearch.trim()) return allHistory
+    const q = historySearch.toLowerCase()
+    return allHistory.filter((t) => {
+      const plate = (t.plate || '').toLowerCase()
+      const driver = dn(t.driverId).toLowerCase()
+      const req = (t.requesterName || '').toLowerCase()
+      const dest = (t.destination || '').toLowerCase()
+      const origin = (t.origin || '').toLowerCase()
+      return plate.includes(q) || driver.includes(q) || req.includes(q) || dest.includes(q) || origin.includes(q)
+    })
+  }, [allHistory, historySearch, db.drivers])
+
+  const totalHistoryPages = Math.max(1, Math.ceil(filteredHistory.length / historyRowsPerPage))
+  const paginatedHistory = useMemo(() => {
+    const start = (historyPage - 1) * historyRowsPerPage
+    return filteredHistory.slice(start, start + historyRowsPerPage)
+  }, [filteredHistory, historyPage, historyRowsPerPage])
 
   return (
     <>
-      <PageHeader 
-        title="Gate Clearance" 
-        desc={`Paraf digital gerbang · ${user.name}`} 
+      <PageHeader
+        title="Gate Clearance Gerbang PT. JAI"
+        desc={`Paraf digital & pengawasan gerbang pabrik · Petugas: ${user.name}`}
+        action={
+          <div className="flex items-center gap-2 rounded-2xl bg-white/[0.04] p-1.5 border border-white/10 shadow-inner">
+            <button
+              type="button"
+              onClick={() => setActiveTab('clearance')}
+              className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition-all ${
+                activeTab === 'clearance'
+                  ? 'bg-[#a3e635] text-[#052e16] shadow-md shadow-[#a3e635]/25 scale-[1.02]'
+                  : 'text-[#8fa99b] hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <DoorOpen size={15} />
+              Gate Clearance
+              <span
+                className={`ml-1 rounded-full px-2 py-0.5 text-[10px] font-black ${
+                  activeTab === 'clearance' ? 'bg-[#052e16] text-[#bef264]' : 'bg-white/10 text-white'
+                }`}
+              >
+                {ready.length + out.length}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab('history')}
+              className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition-all ${
+                activeTab === 'history'
+                  ? 'bg-[#a3e635] text-[#052e16] shadow-md shadow-[#a3e635]/25 scale-[1.02]'
+                  : 'text-[#8fa99b] hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <History size={15} />
+              Riwayat & Log Gerbang
+              <span
+                className={`ml-1 rounded-full px-2 py-0.5 text-[10px] font-black ${
+                  activeTab === 'history' ? 'bg-[#052e16] text-[#bef264]' : 'bg-white/10 text-white'
+                }`}
+              >
+                {allHistory.length}
+              </span>
+            </button>
+          </div>
+        }
       />
 
-      {/* Info Banner Keamanan Bersyarat */}
-      <div className="mb-4 flex flex-col md:flex-row md:items-center justify-between gap-3 rounded-2xl border border-emerald-500/20 bg-gradient-to-r from-emerald-950/40 via-black/40 to-black/30 p-4 text-xs text-[#8fa99b]">
-        <div className="flex items-center gap-2.5">
-          <ShieldCheck className="h-5 w-5 text-emerald-400 shrink-0" />
-          <div>
-            <span className="font-semibold text-white">Sistem Keamanan Bersyarat Aktif:</span>{' '}
-            Hanya menampilkan perjalanan yang melewati gerbang pabrik <span className="text-emerald-300 font-bold">PT. JAI</span>.
-          </div>
-        </div>
-        {(outsideReadyCount > 0 || outsideOutCount > 0) && (
-          <div className="flex items-center gap-2 text-[11px] bg-white/5 border border-white/10 px-3 py-1 rounded-xl text-amber-300 shrink-0">
-            <Info size={14} />
-            <span>{outsideReadyCount + outsideOutCount} trip rute luar dikontrol 100% via Driver App</span>
-          </div>
-        )}
-      </div>
-
-      {/* Toolbar Filter Cepat & Pencarian */}
-      <div className="mb-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3 rounded-2xl bg-white/[0.03] border border-white/10">
-        <div className="relative flex-1">
-          <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/40" />
-          <input
-            type="text"
-            placeholder="Cari plat nomor, nama driver, pemohon, tujuan, tipe mobil..."
-            value={searchQuery}
-            onChange={(e) => handleSearchChange(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 text-xs rounded-xl bg-black/40 border border-white/10 text-white placeholder-white/40 focus:outline-none focus:border-emerald-500"
-          />
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <div className="inline-flex rounded-xl p-1 bg-black/40 border border-white/10 text-xs">
-            <button
-              type="button"
-              onClick={() => handleDateFilterChange('ALL')}
-              className={`px-3 py-1 rounded-lg font-medium transition ${
-                dateFilter === 'ALL'
-                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold'
-                  : 'text-white/60 hover:text-white'
-              }`}
-            >
-              Semua Jadwal
-            </button>
-            <button
-              type="button"
-              onClick={() => handleDateFilterChange('TODAY')}
-              className={`px-3 py-1 rounded-lg font-medium transition ${
-                dateFilter === 'TODAY'
-                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold'
-                  : 'text-white/60 hover:text-white'
-              }`}
-            >
-              Hanya Hari Ini
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div className="grid gap-4 xl:grid-cols-2">
-        {/* Card Siap Berangkat */}
-        <Card 
-          title="Siap Berangkat (Gerbang PT. JAI)" 
-          subtitle="Kendaraan menunggu clearance gerbang keluar pabrik"
-          action={
-            <div className="flex items-center gap-2 text-xs text-white/70">
-              <span>Tampil:</span>
-              <select
-                value={rowsPerPageReady}
-                onChange={(e) => {
-                  setRowsPerPageReady(Number(e.target.value))
-                  setPageReady(1)
-                }}
-                className="bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-xs text-white font-medium focus:outline-none"
-              >
-                <option value={5}>5 baris</option>
-                <option value={10}>10 baris</option>
-                <option value={20}>20 baris</option>
-                <option value={50}>50 baris</option>
-              </select>
+      {/* ===================== SUB-MENU 1: GATE CLEARANCE ===================== */}
+      {activeTab === 'clearance' && (
+        <div className="space-y-4 animate-in fade-in duration-200">
+          {/* Info Banner Keamanan Bersyarat */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 rounded-2xl border border-emerald-500/20 bg-gradient-to-r from-emerald-950/40 via-black/40 to-black/30 p-4 text-xs text-[#8fa99b]">
+            <div className="flex items-center gap-2.5">
+              <ShieldCheck className="h-5 w-5 text-emerald-400 shrink-0" />
+              <div>
+                <span className="font-semibold text-white">Sistem Keamanan Gerbang Aktif:</span>{' '}
+                Hanya menampilkan jadwal hari ini dan yang akan datang yang melintasi gerbang <span className="text-emerald-300 font-bold">PT. JAI</span>. Jadwal yang telah lewat tanggal (over date) otomatis dibersihkan dari antrean gerbang.
+              </div>
             </div>
-          }
-        >
-          {ready.length === 0 ? (
-            <Empty text="Tidak ada kendaraan gerbang siap berangkat." />
-          ) : (
-            <>
-              <ul className="divide-y divide-[#edf1ee]">
-                {paginatedReady.map((t) => {
-                  const originIsJai = isJaiLocation(t.origin || 'PT. JAI')
-                  const originLabel = t.origin || 'PT. JAI'
-                  const isToday = t.date === ymd()
-                  const vehicleType = vn(t.plate)
-                  const isExpanded = expandedTripId === t.id
+            {(outsideReadyCount > 0 || outsideOutCount > 0) && (
+              <div className="flex items-center gap-2 text-[11px] bg-white/5 border border-white/10 px-3 py-1 rounded-xl text-amber-300 shrink-0">
+                <Info size={14} />
+                <span>{outsideReadyCount + outsideOutCount} trip rute luar dikontrol 100% via Driver App</span>
+              </div>
+            )}
+          </div>
 
-                  return (
-                    <li key={t.id} className="p-5 transition-colors hover:bg-white/[0.02]">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex-1 min-w-0">
-                          {/* Header: Plat, Tipe Mobil, Badges */}
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <p className="text-lg font-bold tracking-tight text-white">{t.plate}</p>
-                            {vehicleType && (
-                              <span className="text-xs px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 font-medium">
-                                {vehicleType}
-                              </span>
-                            )}
-                            <Pill label={originIsJai ? 'Keluar Gerbang JAI' : 'Start Rute Luar'} tone={originIsJai ? 'green' : 'amber'} />
-                          </div>
+          {/* Toolbar Filter Cepat & Pencarian */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3 rounded-2xl bg-white/[0.03] border border-white/10">
+            <div className="relative flex-1">
+              <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/40" />
+              <input
+                type="text"
+                placeholder="Cari plat nomor, nama driver, pemohon, tujuan, tipe mobil..."
+                value={searchQuery}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                className="w-full pl-9 pr-4 py-2 text-xs rounded-xl bg-black/40 border border-white/10 text-white placeholder-white/40 focus:outline-none focus:border-emerald-500"
+              />
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <div className="inline-flex rounded-xl p-1 bg-black/40 border border-white/10 text-xs">
+                <button
+                  type="button"
+                  onClick={() => handleDateFilterChange('ALL')}
+                  className={`px-3 py-1 rounded-lg font-medium transition ${
+                    dateFilter === 'ALL'
+                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold'
+                      : 'text-white/60 hover:text-white'
+                  }`}
+                >
+                  Semua Jadwal
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDateFilterChange('TODAY')}
+                  className={`px-3 py-1 rounded-lg font-medium transition ${
+                    dateFilter === 'TODAY'
+                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold'
+                      : 'text-white/60 hover:text-white'
+                  }`}
+                >
+                  Hanya Hari Ini
+                </button>
+              </div>
+            </div>
+          </div>
 
-                          {/* Tanggal & Waktu Rencana Berangkat */}
-                          <div className="mt-2 flex items-center gap-2 flex-wrap text-xs">
-                            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg font-semibold border ${
-                              isToday 
-                                ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30 ring-1 ring-emerald-500/20' 
-                                : 'bg-amber-500/15 text-amber-300 border-amber-500/30'
-                            }`}>
-                              <Calendar size={13} className="shrink-0" />
-                              <span>{fmtDate(t.date)}</span>
-                              {isToday && <span className="ml-1 text-[10px] px-1.5 py-0.2 rounded bg-emerald-500/30 text-white uppercase tracking-wider">Hari Ini</span>}
-                            </span>
+          <div className="grid gap-4 xl:grid-cols-2">
+            {/* Card Siap Berangkat */}
+            <Card
+              title="Siap Berangkat (Gerbang PT. JAI)"
+              subtitle="Kendaraan menunggu clearance gerbang keluar pabrik"
+              action={
+                <div className="flex items-center gap-2 text-xs text-white/70">
+                  <span>Tampil:</span>
+                  <select
+                    value={rowsPerPageReady}
+                    onChange={(e) => {
+                      setRowsPerPageReady(Number(e.target.value))
+                      setPageReady(1)
+                    }}
+                    className="bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-xs text-white font-medium focus:outline-none"
+                  >
+                    <option value={5}>5 baris</option>
+                    <option value={10}>10 baris</option>
+                    <option value={20}>20 baris</option>
+                    <option value={50}>50 baris</option>
+                  </select>
+                </div>
+              }
+            >
+              {ready.length === 0 ? (
+                <Empty text="Tidak ada kendaraan gerbang siap berangkat." />
+              ) : (
+                <>
+                  <ul className="divide-y divide-[#edf1ee]">
+                    {paginatedReady.map((t) => {
+                      const originIsJai = isJaiLocation(t.origin || 'PT. JAI')
+                      const originLabel = t.origin || 'PT. JAI'
+                      const isToday = t.date === todayStr
+                      const vehicleType = vn(t.plate)
+                      const isExpanded = expandedTripId === t.id
 
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-emerald-200 font-medium">
-                              <Clock size={13} className="shrink-0 text-emerald-400" />
-                              <span>Rencana: <b className="text-white">{t.estDeparture || '08:00'}</b> {t.estReturn ? `– ${t.estReturn}` : ''} WIB</span>
-                            </span>
-                          </div>
+                      return (
+                        <li key={t.id} className="p-5 transition-colors hover:bg-white/[0.02]">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex-1 min-w-0">
+                              {/* Header: Plat, Tipe Mobil, Badges */}
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <p className="text-lg font-bold tracking-tight text-white">{t.plate}</p>
+                                {vehicleType && (
+                                  <span className="text-xs px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 font-medium">
+                                    {vehicleType}
+                                  </span>
+                                )}
+                                <Pill
+                                  label={originIsJai ? 'Keluar Gerbang JAI' : 'Start Rute Luar'}
+                                  tone={originIsJai ? 'green' : 'amber'}
+                                />
+                              </div>
 
-                          {/* Rute Perjalanan */}
-                          <p className="text-xs text-emerald-100/80 mt-2 flex items-center gap-1.5 flex-wrap">
-                            <MapPin size={13} className="text-emerald-400 shrink-0" />
-                            <span className="font-semibold text-white">{originLabel}</span>
-                            <span className="text-emerald-400/60 font-bold">→</span>
-                            <span className="font-semibold text-white">{t.destination}</span>
-                          </p>
-
-                          {/* Driver & Pemohon */}
-                          <div className="mt-1.5 flex items-center gap-3 text-xs text-emerald-100/70 flex-wrap">
-                            <p>
-                              Driver: <span className="font-semibold text-emerald-300">{dn(t.driverId)}</span>
-                            </p>
-                            <span className="text-white/20">•</span>
-                            <p className="flex items-center gap-1">
-                              <User size={12} className="text-emerald-400/80 shrink-0" />
-                              Pemohon: <span className="font-medium text-white">{t.requesterName}</span> ({t.dept}{t.section ? ` - ${t.section}` : ''})
-                            </p>
-                          </div>
-
-                          {/* Toggle Detail Tambahan (Keperluan / Penumpang) */}
-                          <div className="mt-2.5">
-                            <button
-                              type="button"
-                              onClick={() => toggleExpand(t.id)}
-                              className="inline-flex items-center gap-1 text-[11px] text-emerald-400/90 hover:text-emerald-300 transition underline underline-offset-2"
-                            >
-                              <FileText size={12} />
-                              <span>{isExpanded ? 'Tutup Detail Pengajuan' : 'Lihat Detail Pengajuan & Keperluan'}</span>
-                              {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-                            </button>
-
-                            {isExpanded && (
-                              <div className="mt-2 p-3 rounded-xl bg-black/30 border border-white/10 text-xs text-emerald-100/80 space-y-1.5 anim-fade-in">
-                                <p>
-                                  <span className="text-[#8fa99b]">Keperluan / Tujuan:</span>{' '}
-                                  <span className="font-medium text-white">{t.purpose || '—'}</span>
-                                </p>
-                                {t.passengers && t.passengers.length > 0 ? (
-                                  <p className="flex items-start gap-1">
-                                    <Users size={13} className="text-emerald-400 shrink-0 mt-0.5" />
-                                    <span>
-                                      <span className="text-[#8fa99b]">Penumpang ({t.passengers.length}):</span>{' '}
-                                      <span className="font-medium text-white">
-                                        {t.passengers.map((p) => `${p.name} (${p.dept})`).join(', ')}
-                                      </span>
+                              {/* Tanggal & Waktu Rencana Berangkat */}
+                              <div className="mt-2 flex items-center gap-2 flex-wrap text-xs">
+                                <span
+                                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg font-semibold border ${
+                                    isToday
+                                      ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30 ring-1 ring-emerald-500/20'
+                                      : 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+                                  }`}
+                                >
+                                  <Calendar size={13} className="shrink-0" />
+                                  <span>{fmtDate(t.date)}</span>
+                                  {isToday && (
+                                    <span className="ml-1 text-[10px] px-1.5 py-0.2 rounded bg-emerald-500/30 text-white uppercase tracking-wider">
+                                      Hari Ini
                                     </span>
-                                  </p>
-                                ) : t.driverOnly ? (
-                                  <p className="text-amber-300 text-[11px] font-medium">
-                                    ⚠️ Pengantaran dokumen/barang saja (Driver Only - Tanpa penumpang)
-                                  </p>
-                                ) : null}
-                                {t.adminNote && (
-                                  <p className="text-[11px] text-[#93a097] border-t border-white/5 pt-1.5 mt-1.5">
-                                    <span>Catatan Admin:</span> <span className="text-white">{t.adminNote}</span>
-                                  </p>
+                                  )}
+                                </span>
+
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-emerald-200 font-medium">
+                                  <Clock size={13} className="shrink-0 text-emerald-400" />
+                                  <span>
+                                    Rencana: <b className="text-white">{t.estDeparture} WIB</b>
+                                    {t.estReturn && ` (Kembali ~${t.estReturn} WIB)`}
+                                  </span>
+                                </span>
+                              </div>
+
+                              {/* Rute Perjalanan */}
+                              <p className="text-xs text-emerald-100/80 mt-2 flex items-center gap-1.5 flex-wrap">
+                                <MapPin size={13} className="text-emerald-400 shrink-0" />
+                                <span className="font-semibold text-white">{originLabel}</span>
+                                <span className="text-emerald-400/60 font-bold">→</span>
+                                <span className="font-semibold text-white">{t.destination}</span>
+                              </p>
+
+                              {/* Driver & Pemohon */}
+                              <div className="mt-1.5 flex items-center gap-3 text-xs text-emerald-100/70 flex-wrap">
+                                <p>
+                                  Driver: <span className="font-semibold text-emerald-300">{dn(t.driverId)}</span>
+                                </p>
+                                <span className="text-white/20">•</span>
+                                <p className="flex items-center gap-1">
+                                  <User size={12} className="text-emerald-400/80 shrink-0" />
+                                  Pemohon: <span className="font-medium text-white">{t.requesterName}</span> (
+                                  {t.dept}
+                                  {t.section ? ` - ${t.section}` : ''})
+                                </p>
+                              </div>
+
+                              {/* Toggle Detail Tambahan (Keperluan / Penumpang) */}
+                              <div className="mt-2.5">
+                                <button
+                                  type="button"
+                                  onClick={() => toggleExpand(t.id)}
+                                  className="inline-flex items-center gap-1 text-[11px] text-emerald-400/90 hover:text-emerald-300 transition underline underline-offset-2"
+                                >
+                                  <FileText size={12} />
+                                  <span>{isExpanded ? 'Tutup Detail Pengajuan' : 'Lihat Detail Pengajuan & Keperluan'}</span>
+                                  {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                                </button>
+
+                                {isExpanded && (
+                                  <div className="mt-2 p-3 rounded-xl bg-black/30 border border-white/10 text-xs text-emerald-100/80 space-y-1.5 anim-fade-in">
+                                    <p>
+                                      <span className="text-[#8fa99b]">Keperluan / Tujuan:</span>{' '}
+                                      <span className="font-medium text-white">{t.purpose || '—'}</span>
+                                    </p>
+                                    {t.passengers && t.passengers.length > 0 ? (
+                                      <p className="flex items-start gap-1">
+                                        <Users size={13} className="text-emerald-400 shrink-0 mt-0.5" />
+                                        <span>
+                                          <span className="text-[#8fa99b]">Penumpang ({t.passengers.length}):</span>{' '}
+                                          <span className="font-medium text-white">
+                                            {t.passengers.map((p) => `${p.name} (${p.dept})`).join(', ')}
+                                          </span>
+                                        </span>
+                                      </p>
+                                    ) : t.driverOnly ? (
+                                      <p className="text-amber-300 text-[11px] font-medium">
+                                        ⚠️ Pengantaran dokumen/barang saja (Driver Only - Tanpa penumpang)
+                                      </p>
+                                    ) : null}
+                                    {t.adminNote && (
+                                      <p className="text-[11px] text-[#93a097] border-t border-white/5 pt-1.5 mt-1.5">
+                                        <span>Catatan Admin:</span> <span className="text-white">{t.adminNote}</span>
+                                      </p>
+                                    )}
+                                  </div>
                                 )}
                               </div>
-                            )}
+                            </div>
+                            <Pill label="Siap Berangkat" tone="green" />
                           </div>
-                        </div>
-                        <Pill label="Siap" tone="green" />
-                      </div>
 
-                      {/* Button BERANGKAT only if Origin is PT. JAI */}
-                      {originIsJai ? (
-                        (() => {
-                          const check = canStartTripNow(t.date, t.estDeparture)
-                          if (!check.allowed) {
-                            return (
-                              <div className="mt-4 p-3 rounded-2xl bg-black/40 border border-amber-500/30 text-amber-300 text-xs flex items-start gap-2.5">
-                                <AlertTriangle size={16} className="shrink-0 text-amber-400 mt-0.5" />
-                                <div>
-                                  <span className="font-bold text-white block">Belum Waktu Keberangkatan</span>
-                                  <span className="text-[11px] leading-relaxed text-amber-200/90">{check.reason}</span>
-                                </div>
-                              </div>
-                            )
-                          }
-                          return (
+                          {/* Button BERANGKAT only if Origin is PT. JAI */}
+                          {originIsJai ? (
                             <button
                               id={`go-${t.id}`}
                               type="button"
                               onClick={() => setConfirmGoTrip(t)}
-                              className="mt-4 flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-[#075b3d] hover:bg-[#09734e] text-base font-bold text-white shadow-lg shadow-[#075b3d]/25 transition active:scale-[.98]"
+                              className="mt-4 flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-[#059669] hover:bg-[#047857] text-base font-bold text-white shadow-lg shadow-[#059669]/25 transition active:scale-[.98]"
                             >
                               <LogOut size={20} />
-                              BERANGKAT (GERBANG JAI)
+                              BERANGKAT (KELUAR GERBANG JAI)
                             </button>
-                          )
-                        })()
-                      ) : (
-                        <div className="mt-4 flex items-center gap-2 rounded-xl bg-amber-50 p-3 text-xs text-amber-800 border border-amber-200">
-                          <AlertCircle size={16} className="text-amber-600 shrink-0" />
-                          <span>Titik awal di luar pabrik ({originLabel}). Validasi keberangkatan dikontrol oleh Driver melalui Driver App.</span>
-                        </div>
-                      )}
-                    </li>
-                  )
-                })}
-              </ul>
+                          ) : (
+                            <div className="mt-4 flex items-center gap-2 rounded-xl bg-amber-50 p-3 text-xs text-amber-800 border border-amber-200">
+                              <AlertCircle size={16} className="text-amber-600 shrink-0" />
+                              <span>Titik awal di luar pabrik ({originLabel}). Validasi keberangkatan dikontrol oleh Driver melalui Driver App.</span>
+                            </div>
+                          )}
+                        </li>
+                      )
+                    })}
+                  </ul>
 
-              {/* Pagination Footer Ready */}
-              {totalPagesReady > 1 && (
-                <div className="flex items-center justify-between border-t border-white/10 px-5 py-3 text-xs text-white/70">
-                  <span>
-                    Menampilkan <b>{(pageReady - 1) * rowsPerPageReady + 1}</b> - <b>{Math.min(pageReady * rowsPerPageReady, ready.length)}</b> dari <b>{ready.length}</b> data
-                  </span>
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      type="button"
-                      disabled={pageReady <= 1}
-                      onClick={() => setPageReady((p) => Math.max(1, p - 1))}
-                      className="p-1.5 rounded-lg border border-white/10 bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white/10 text-white"
-                    >
-                      <ChevronLeft size={14} />
-                    </button>
-                    <span className="px-2 font-medium text-white">
-                      Hal {pageReady} / {totalPagesReady}
-                    </span>
-                    <button
-                      type="button"
-                      disabled={pageReady >= totalPagesReady}
-                      onClick={() => setPageReady((p) => Math.min(totalPagesReady, p + 1))}
-                      className="p-1.5 rounded-lg border border-white/10 bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white/10 text-white"
-                    >
-                      <ChevronRight size={14} />
-                    </button>
-                  </div>
-                </div>
+                  {/* Pagination Footer Ready */}
+                  {totalPagesReady > 1 && (
+                    <div className="flex items-center justify-between border-t border-white/10 px-5 py-3 text-xs text-white/70">
+                      <span>
+                        Menampilkan <b>{(pageReady - 1) * rowsPerPageReady + 1}</b> - <b>{Math.min(pageReady * rowsPerPageReady, ready.length)}</b> dari <b>{ready.length}</b> data
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          disabled={pageReady <= 1}
+                          onClick={() => setPageReady((p) => Math.max(1, p - 1))}
+                          className="p-1.5 rounded-lg border border-white/10 bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white/10 text-white"
+                        >
+                          <ChevronLeft size={14} />
+                        </button>
+                        <span className="px-2 font-medium text-white">
+                          Hal {pageReady} / {totalPagesReady}
+                        </span>
+                        <button
+                          type="button"
+                          disabled={pageReady >= totalPagesReady}
+                          onClick={() => setPageReady((p) => Math.min(totalPagesReady, p + 1))}
+                          className="p-1.5 rounded-lg border border-white/10 bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white/10 text-white"
+                        >
+                          <ChevronRight size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
-            </>
-          )}
-        </Card>
+            </Card>
 
-        {/* Card Sedang Di Luar */}
-        <Card 
-          title="Sedang Di Luar (Menuju PT. JAI)" 
-          subtitle="Klik KEMBALI saat kendaraan masuk gerbang pabrik"
-          action={
-            <div className="flex items-center gap-2 text-xs text-white/70">
-              <span>Tampil:</span>
-              <select
-                value={rowsPerPageOut}
-                onChange={(e) => {
-                  setRowsPerPageOut(Number(e.target.value))
-                  setPageOut(1)
-                }}
-                className="bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-xs text-white font-medium focus:outline-none"
-              >
-                <option value={5}>5 baris</option>
-                <option value={10}>10 baris</option>
-                <option value={20}>20 baris</option>
-                <option value={50}>50 baris</option>
-              </select>
-            </div>
-          }
-        >
-          {out.length === 0 ? (
-            <Empty text="Tidak ada kendaraan di luar yang menuju gerbang." />
-          ) : (
-            <>
-              <ul className="divide-y divide-[#edf1ee]">
-                {paginatedOut.map((t) => {
-                  const destIsJai = isJaiLocation(t.destination) || (Array.isArray(t.destinations) && t.destinations.some((d) => isJaiLocation(d))) || t.returnToOrigin !== false
-                  const isToday = t.date === ymd()
-                  const vehicleType = vn(t.plate)
-                  const isExpanded = expandedTripId === t.id
+            {/* Card Sedang Di Luar */}
+            <Card
+              title="Sedang Di Luar (Menuju PT. JAI)"
+              subtitle="Klik KEMBALI saat kendaraan masuk gerbang pabrik"
+              action={
+                <div className="flex items-center gap-2 text-xs text-white/70">
+                  <span>Tampil:</span>
+                  <select
+                    value={rowsPerPageOut}
+                    onChange={(e) => {
+                      setRowsPerPageOut(Number(e.target.value))
+                      setPageOut(1)
+                    }}
+                    className="bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-xs text-white font-medium focus:outline-none"
+                  >
+                    <option value={5}>5 baris</option>
+                    <option value={10}>10 baris</option>
+                    <option value={20}>20 baris</option>
+                    <option value={50}>50 baris</option>
+                  </select>
+                </div>
+              }
+            >
+              {out.length === 0 ? (
+                <Empty text="Tidak ada kendaraan di luar yang menuju gerbang." />
+              ) : (
+                <>
+                  <ul className="divide-y divide-[#edf1ee]">
+                    {paginatedOut.map((t) => {
+                      const destIsJai =
+                        isJaiLocation(t.destination) ||
+                        (Array.isArray(t.destinations) && t.destinations.some((d) => isJaiLocation(d))) ||
+                        t.returnToOrigin !== false
+                      const isToday = t.date === todayStr
+                      const vehicleType = vn(t.plate)
+                      const isExpanded = expandedTripId === t.id
 
-                  return (
-                    <li key={t.id} className="p-5 transition-colors hover:bg-white/[0.02]">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex-1 min-w-0">
-                          {/* Header: Plat, Tipe Mobil, Badges */}
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <p className="text-lg font-bold tracking-tight text-white">{t.plate}</p>
-                            {vehicleType && (
-                              <span className="text-xs px-2 py-0.5 rounded-md bg-sky-500/10 text-sky-300 border border-sky-500/20 font-medium">
-                                {vehicleType}
-                              </span>
-                            )}
-                            <Pill label={destIsJai ? 'Menuju Gerbang JAI' : 'Tujuan Akhir Luar'} tone={destIsJai ? 'blue' : 'amber'} />
+                      return (
+                        <li key={t.id} className="p-5 transition-colors hover:bg-white/[0.02]">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex-1 min-w-0">
+                              {/* Header: Plat, Tipe Mobil, Badges */}
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <p className="text-lg font-bold tracking-tight text-white">{t.plate}</p>
+                                {vehicleType && (
+                                  <span className="text-xs px-2 py-0.5 rounded-md bg-sky-500/10 text-sky-300 border border-sky-500/20 font-medium">
+                                    {vehicleType}
+                                  </span>
+                                )}
+                                <Pill
+                                  label={destIsJai ? 'Menuju Gerbang JAI' : 'Tujuan Akhir Luar'}
+                                  tone={destIsJai ? 'blue' : 'amber'}
+                                />
+                              </div>
+
+                              {/* Tanggal & Jam Keluar */}
+                              <div className="mt-2 flex items-center gap-2 flex-wrap text-xs">
+                                <span
+                                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg font-semibold border ${
+                                    isToday
+                                      ? 'bg-sky-500/15 text-sky-300 border-sky-500/30 ring-1 ring-sky-500/20'
+                                      : 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+                                  }`}
+                                >
+                                  <Calendar size={13} className="shrink-0" />
+                                  <span>{fmtDate(t.date)}</span>
+                                  {isToday && (
+                                    <span className="ml-1 text-[10px] px-1.5 py-0.2 rounded bg-sky-500/30 text-white uppercase tracking-wider">
+                                      Hari Ini
+                                    </span>
+                                  )}
+                                </span>
+
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-sky-200 font-medium">
+                                  <Clock size={13} className="shrink-0 text-sky-400" />
+                                  <span>
+                                    Keluar: <b className="text-white">{fmtTime(t.timeGo)} WIB</b>
+                                  </span>
+                                </span>
+                              </div>
+
+                              {/* Rute Perjalanan */}
+                              <p className="text-xs text-sky-100/80 mt-2 flex items-center gap-1.5 flex-wrap">
+                                <MapPin size={13} className="text-sky-400 shrink-0" />
+                                <span className="font-semibold text-white">{t.origin || 'PT. JAI'}</span>
+                                <span className="text-sky-400/60 font-bold">→</span>
+                                <span className="font-semibold text-white">{t.destination}</span>
+                              </p>
+
+                              {/* Driver & Pemohon */}
+                              <div className="mt-1.5 flex items-center gap-3 text-xs text-sky-100/70 flex-wrap">
+                                <p>
+                                  Driver: <span className="font-semibold text-sky-300">{dn(t.driverId)}</span>
+                                </p>
+                                <span className="text-white/20">•</span>
+                                <p className="flex items-center gap-1">
+                                  <User size={12} className="text-sky-400/80 shrink-0" />
+                                  Pemohon: <span className="font-medium text-white">{t.requesterName}</span> (
+                                  {t.dept}
+                                  {t.section ? ` - ${t.section}` : ''})
+                                </p>
+                              </div>
+
+                              {/* Toggle Detail Tambahan (Keperluan / Penumpang) */}
+                              <div className="mt-2.5">
+                                <button
+                                  type="button"
+                                  onClick={() => toggleExpand(t.id)}
+                                  className="inline-flex items-center gap-1 text-[11px] text-sky-400/90 hover:text-sky-300 transition underline underline-offset-2"
+                                >
+                                  <FileText size={12} />
+                                  <span>{isExpanded ? 'Tutup Detail Pengajuan' : 'Lihat Detail Pengajuan & Keperluan'}</span>
+                                  {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                                </button>
+
+                                {isExpanded && (
+                                  <div className="mt-2 p-3 rounded-xl bg-black/30 border border-white/10 text-xs text-sky-100/80 space-y-1.5 anim-fade-in">
+                                    <p>
+                                      <span className="text-[#8fa99b]">Keperluan / Tujuan:</span>{' '}
+                                      <span className="font-medium text-white">{t.purpose || '—'}</span>
+                                    </p>
+                                    {t.passengers && t.passengers.length > 0 ? (
+                                      <p className="flex items-start gap-1">
+                                        <Users size={13} className="text-sky-400 shrink-0 mt-0.5" />
+                                        <span>
+                                          <span className="text-[#8fa99b]">Penumpang ({t.passengers.length}):</span>{' '}
+                                          <span className="font-medium text-white">
+                                            {t.passengers.map((p) => `${p.name} (${p.dept})`).join(', ')}
+                                          </span>
+                                        </span>
+                                      </p>
+                                    ) : t.driverOnly ? (
+                                      <p className="text-amber-300 text-[11px] font-medium">
+                                        ⚠️ Pengantaran dokumen/barang saja (Driver Only - Tanpa penumpang)
+                                      </p>
+                                    ) : null}
+                                    {t.adminNote && (
+                                      <p className="text-[11px] text-[#93a097] border-t border-white/5 pt-1.5 mt-1.5">
+                                        <span>Catatan Admin:</span> <span className="text-white">{t.adminNote}</span>
+                                      </p>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            <Pill label="Bertugas" tone="blue" />
                           </div>
 
-                          {/* Tanggal & Jam Keluar */}
-                          <div className="mt-2 flex items-center gap-2 flex-wrap text-xs">
-                            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg font-semibold border ${
-                              isToday 
-                                ? 'bg-sky-500/15 text-sky-300 border-sky-500/30 ring-1 ring-sky-500/20' 
-                                : 'bg-amber-500/15 text-amber-300 border-amber-500/30'
-                            }`}>
-                              <Calendar size={13} className="shrink-0" />
-                              <span>{fmtDate(t.date)}</span>
-                              {isToday && <span className="ml-1 text-[10px] px-1.5 py-0.2 rounded bg-sky-500/30 text-white uppercase tracking-wider">Hari Ini</span>}
-                            </span>
+                          {/* Button KEMBALI only if Destination is PT. JAI or returns to PT. JAI */}
+                          {destIsJai ? (
+                            <button
+                              id={`back-${t.id}`}
+                              type="button"
+                              onClick={() => setConfirmBackTrip(t)}
+                              className="mt-4 flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-[#e08a00] hover:bg-[#c97b00] text-base font-bold text-white shadow-lg shadow-[#e08a00]/25 transition active:scale-[.98]"
+                            >
+                              <LogIn size={20} />
+                              KEMBALI (GERBANG JAI)
+                            </button>
+                          ) : (
+                            <div className="mt-4 flex items-center gap-2 rounded-xl bg-amber-50 p-3 text-xs text-amber-800 border border-amber-200">
+                              <AlertCircle size={16} className="text-amber-600 shrink-0" />
+                              <span>Tujuan akhir di luar pabrik tanpa kembali ke JAI. Validasi kepulangan / selesai trip dikontrol oleh Driver melalui Driver App.</span>
+                            </div>
+                          )}
+                        </li>
+                      )
+                    })}
+                  </ul>
 
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-sky-200 font-medium">
-                              <Clock size={13} className="shrink-0 text-sky-400" />
-                              <span>Keluar: <b className="text-white">{fmtTime(t.timeGo)} WIB</b></span>
+                  {/* Pagination Footer Out */}
+                  {totalPagesOut > 1 && (
+                    <div className="flex items-center justify-between border-t border-white/10 px-5 py-3 text-xs text-white/70">
+                      <span>
+                        Menampilkan <b>{(pageOut - 1) * rowsPerPageOut + 1}</b> - <b>{Math.min(pageOut * rowsPerPageOut, out.length)}</b> dari <b>{out.length}</b> data
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          disabled={pageOut <= 1}
+                          onClick={() => setPageOut((p) => Math.max(1, p - 1))}
+                          className="p-1.5 rounded-lg border border-white/10 bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white/10 text-white"
+                        >
+                          <ChevronLeft size={14} />
+                        </button>
+                        <span className="px-2 font-medium text-white">
+                          Hal {pageOut} / {totalPagesOut}
+                        </span>
+                        <button
+                          type="button"
+                          disabled={pageOut >= totalPagesOut}
+                          onClick={() => setPageOut((p) => Math.min(totalPagesOut, p + 1))}
+                          className="p-1.5 rounded-lg border border-white/10 bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white/10 text-white"
+                        >
+                          <ChevronRight size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </Card>
+          </div>
+        </div>
+      )}
+
+      {/* ===================== SUB-MENU 2: RIWAYAT & LOG GERBANG ===================== */}
+      {activeTab === 'history' && (
+        <div className="space-y-4 animate-in fade-in duration-200">
+          {/* Card Riwayat & Log Gerbang */}
+          <Card
+            title="Riwayat & Audit Log Gerbang PT. JAI"
+            subtitle="Pencatatan lengkap seluruh armada yang keluar & masuk gerbang pabrik"
+            action={
+              <div className="flex items-center gap-3">
+                <div className="relative">
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40" />
+                  <input
+                    type="text"
+                    placeholder="Cari riwayat plat, driver, pemohon..."
+                    value={historySearch}
+                    onChange={(e) => {
+                      setHistorySearch(e.target.value)
+                      setHistoryPage(1)
+                    }}
+                    className="h-8 w-60 rounded-xl bg-black/40 border border-white/10 pl-8 pr-3 text-xs text-white placeholder-white/40 focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+                <select
+                  value={historyRowsPerPage}
+                  onChange={(e) => {
+                    setHistoryRowsPerPage(Number(e.target.value))
+                    setHistoryPage(1)
+                  }}
+                  className="bg-black/40 border border-white/10 rounded-xl px-2.5 py-1.5 text-xs text-white font-medium focus:outline-none"
+                >
+                  <option value={10}>10 baris</option>
+                  <option value={20}>20 baris</option>
+                  <option value={50}>50 baris</option>
+                  <option value={100}>100 baris</option>
+                </select>
+              </div>
+            }
+          >
+            {filteredHistory.length === 0 ? (
+              <Empty text="Belum ada riwayat gerbang yang sesuai dengan kriteria pencarian." />
+            ) : (
+              <div className="divide-y divide-white/5">
+                {paginatedHistory.map((t) => {
+                  const driverName = dn(t.driverId)
+                  const vType = vn(t.plate)
+                  const durationFormatted = t.durationMin ? fmtDur(t.durationMin) : '—'
+                  const originLabel = t.origin || 'PT. JAI'
+
+                  return (
+                    <div
+                      key={t.id}
+                      className="group flex flex-col md:flex-row items-start md:items-center justify-between gap-4 p-4.5 hover:bg-white/[0.03] transition-all rounded-xl"
+                    >
+                      {/* Kolom Kiri: Plat Nomor, Driver, Mobil, Status Badge */}
+                      <div className="flex items-start gap-3.5 flex-1 min-w-0">
+                        <div className="flex size-11 items-center justify-center rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-bold shrink-0 shadow-sm group-hover:scale-105 transition-transform">
+                          <Truck size={20} />
+                        </div>
+                        <div className="space-y-1 min-w-0 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-base font-extrabold tracking-tight text-white group-hover:text-emerald-300 transition-colors">
+                              {t.plate}
+                            </span>
+                            {vType && (
+                              <span className="rounded-md bg-white/5 border border-white/10 px-2 py-0.5 text-[11px] font-semibold text-emerald-300">
+                                {vType}
+                              </span>
+                            )}
+                            <span className="rounded-md bg-emerald-500/20 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-bold text-emerald-300">
+                              SELESAI (DONE)
+                            </span>
+                            <span className="font-mono text-[10px] text-white/40">#{t.id}</span>
+                          </div>
+
+                          <div className="flex items-center gap-2 text-xs text-[#8fa99b] flex-wrap">
+                            <span className="font-semibold text-emerald-200">{driverName}</span>
+                            <span className="text-white/20">•</span>
+                            <span className="flex items-center gap-1 text-white/80">
+                              <User size={12} className="text-emerald-400" />
+                              {t.requesterName || t.guest} ({t.dept})
+                            </span>
+                            <span className="text-white/20">•</span>
+                            <span className="flex items-center gap-1 text-white/70">
+                              <Calendar size={12} className="text-emerald-400" />
+                              {fmtDate(t.date)}
                             </span>
                           </div>
 
                           {/* Rute Perjalanan */}
-                          <p className="text-xs text-sky-100/80 mt-2 flex items-center gap-1.5 flex-wrap">
-                            <MapPin size={13} className="text-sky-400 shrink-0" />
-                            <span className="font-semibold text-white">{t.origin || 'PT. JAI'}</span>
-                            <span className="text-sky-400/60 font-bold">→</span>
-                            <span className="font-semibold text-white">{t.destination}</span>
+                          <p className="text-xs text-white/90 flex items-center gap-1.5 flex-wrap pt-0.5">
+                            <MapPin size={12} className="text-emerald-400 shrink-0" />
+                            <span className="text-white font-medium">{originLabel}</span>
+                            <ArrowRight size={12} className="text-emerald-400" />
+                            <span className="text-emerald-300 font-bold">{t.destination}</span>
                           </p>
+                        </div>
+                      </div>
 
-                          {/* Driver & Pemohon */}
-                          <div className="mt-1.5 flex items-center gap-3 text-xs text-sky-100/70 flex-wrap">
-                            <p>
-                              Driver: <span className="font-semibold text-sky-300">{dn(t.driverId)}</span>
-                            </p>
-                            <span className="text-white/20">•</span>
-                            <p className="flex items-center gap-1">
-                              <User size={12} className="text-sky-400/80 shrink-0" />
-                              Pemohon: <span className="font-medium text-white">{t.requesterName}</span> ({t.dept}{t.section ? ` - ${t.section}` : ''})
-                            </p>
+                      {/* Kolom Kanan: Detail Waktu Gate Go & Gate Back Card */}
+                      <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-end border-t md:border-t-0 border-white/5 pt-3 md:pt-0 shrink-0">
+                        <div className="flex items-center gap-3 rounded-xl bg-black/40 border border-white/10 p-2.5 text-xs shadow-inner">
+                          {/* Jam Berangkat */}
+                          <div className="text-right">
+                            <span className="text-[10px] uppercase font-bold text-[#8fa99b] block">Keluar Gerbang</span>
+                            <span className="font-mono font-bold text-white text-[13px]">
+                              {fmtTime(t.timeGo)} WIB
+                            </span>
+                            {t.securityGo && (
+                              <span className="text-[10px] text-emerald-400 block truncate max-w-[100px]" title={t.securityGo}>
+                                By: {t.securityGo}
+                              </span>
+                            )}
                           </div>
 
-                          {/* Toggle Detail Tambahan (Keperluan / Penumpang) */}
-                          <div className="mt-2.5">
-                            <button
-                              type="button"
-                              onClick={() => toggleExpand(t.id)}
-                              className="inline-flex items-center gap-1 text-[11px] text-sky-400/90 hover:text-sky-300 transition underline underline-offset-2"
-                            >
-                              <FileText size={12} />
-                              <span>{isExpanded ? 'Tutup Detail Pengajuan' : 'Lihat Detail Pengajuan & Keperluan'}</span>
-                              {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-                            </button>
+                          <div className="flex flex-col items-center px-1 text-emerald-400">
+                            <span className="text-[10px] font-bold font-mono bg-emerald-500/20 px-1.5 py-0.5 rounded border border-emerald-500/30">
+                              {durationFormatted}
+                            </span>
+                            <span className="text-white/30 text-[10px]">━━━►</span>
+                          </div>
 
-                            {isExpanded && (
-                              <div className="mt-2 p-3 rounded-xl bg-black/30 border border-white/10 text-xs text-sky-100/80 space-y-1.5 anim-fade-in">
-                                <p>
-                                  <span className="text-[#8fa99b]">Keperluan / Tujuan:</span>{' '}
-                                  <span className="font-medium text-white">{t.purpose || '—'}</span>
-                                </p>
-                                {t.passengers && t.passengers.length > 0 ? (
-                                  <p className="flex items-start gap-1">
-                                    <Users size={13} className="text-sky-400 shrink-0 mt-0.5" />
-                                    <span>
-                                      <span className="text-[#8fa99b]">Penumpang ({t.passengers.length}):</span>{' '}
-                                      <span className="font-medium text-white">
-                                        {t.passengers.map((p) => `${p.name} (${p.dept})`).join(', ')}
-                                      </span>
-                                    </span>
-                                  </p>
-                                ) : t.driverOnly ? (
-                                  <p className="text-amber-300 text-[11px] font-medium">
-                                    ⚠️ Pengantaran dokumen/barang saja (Driver Only - Tanpa penumpang)
-                                  </p>
-                                ) : null}
-                                {t.adminNote && (
-                                  <p className="text-[11px] text-[#93a097] border-t border-white/5 pt-1.5 mt-1.5">
-                                    <span>Catatan Admin:</span> <span className="text-white">{t.adminNote}</span>
-                                  </p>
-                                )}
-                              </div>
+                          {/* Jam Kembali */}
+                          <div>
+                            <span className="text-[10px] uppercase font-bold text-[#8fa99b] block">Masuk Gerbang</span>
+                            <span className="font-mono font-bold text-emerald-300 text-[13px]">
+                              {fmtTime(t.timeBack)} WIB
+                            </span>
+                            {t.securityBack && (
+                              <span className="text-[10px] text-emerald-400 block truncate max-w-[100px]" title={t.securityBack}>
+                                By: {t.securityBack}
+                              </span>
                             )}
                           </div>
                         </div>
-                        <Pill label="Bertugas" tone="blue" />
                       </div>
-
-                      {/* Button KEMBALI only if Destination is PT. JAI or returns to PT. JAI */}
-                      {destIsJai ? (
-                        <button
-                          id={`back-${t.id}`}
-                          type="button"
-                          onClick={() => setConfirmBackTrip(t)}
-                          className="mt-4 flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-[#e08a00] hover:bg-[#c97b00] text-base font-bold text-white shadow-lg shadow-[#e08a00]/25 transition active:scale-[.98]"
-                        >
-                          <LogIn size={20} />
-                          KEMBALI (GERBANG JAI)
-                        </button>
-                      ) : (
-                        <div className="mt-4 flex items-center gap-2 rounded-xl bg-amber-50 p-3 text-xs text-amber-800 border border-amber-200">
-                          <AlertCircle size={16} className="text-amber-600 shrink-0" />
-                          <span>Tujuan akhir di luar pabrik tanpa kembali ke JAI. Validasi kepulangan / selesai trip dikontrol oleh Driver melalui Driver App.</span>
-                        </div>
-                      )}
-                    </li>
+                    </div>
                   )
                 })}
-              </ul>
+              </div>
+            )}
 
-              {/* Pagination Footer Out */}
-              {totalPagesOut > 1 && (
-                <div className="flex items-center justify-between border-t border-white/10 px-5 py-3 text-xs text-white/70">
-                  <span>
-                    Menampilkan <b>{(pageOut - 1) * rowsPerPageOut + 1}</b> - <b>{Math.min(pageOut * rowsPerPageOut, out.length)}</b> dari <b>{out.length}</b> data
+            {/* Pagination Riwayat Gerbang */}
+            {totalHistoryPages > 1 && (
+              <div className="flex items-center justify-between border-t border-white/10 px-5 py-3 text-xs text-white/70 mt-2">
+                <span>
+                  Menampilkan <b>{(historyPage - 1) * historyRowsPerPage + 1}</b> -{' '}
+                  <b>{Math.min(historyPage * historyRowsPerPage, filteredHistory.length)}</b> dari{' '}
+                  <b>{filteredHistory.length}</b> riwayat
+                </span>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    disabled={historyPage <= 1}
+                    onClick={() => setHistoryPage((p) => Math.max(1, p - 1))}
+                    className="p-1.5 rounded-lg border border-white/10 bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white/10 text-white"
+                  >
+                    <ChevronLeft size={14} />
+                  </button>
+                  <span className="px-2 font-medium text-white">
+                    Hal {historyPage} / {totalHistoryPages}
                   </span>
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      type="button"
-                      disabled={pageOut <= 1}
-                      onClick={() => setPageOut((p) => Math.max(1, p - 1))}
-                      className="p-1.5 rounded-lg border border-white/10 bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white/10 text-white"
-                    >
-                      <ChevronLeft size={14} />
-                    </button>
-                    <span className="px-2 font-medium text-white">
-                      Hal {pageOut} / {totalPagesOut}
-                    </span>
-                    <button
-                      type="button"
-                      disabled={pageOut >= totalPagesOut}
-                      onClick={() => setPageOut((p) => Math.min(totalPagesOut, p + 1))}
-                      className="p-1.5 rounded-lg border border-white/10 bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white/10 text-white"
-                    >
-                      <ChevronRight size={14} />
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    disabled={historyPage >= totalHistoryPages}
+                    onClick={() => setHistoryPage((p) => Math.min(totalHistoryPages, p + 1))}
+                    className="p-1.5 rounded-lg border border-white/10 bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white/10 text-white"
+                  >
+                    <ChevronRight size={14} />
+                  </button>
                 </div>
-              )}
-            </>
-          )}
-        </Card>
-      </div>
-
-      <Card className="mt-4" title="Log Terakhir Gerbang PT. JAI">
-        {doneToday.length === 0 ? (
-          <Empty text="Belum ada log gerbang tercatat hari ini." />
-        ) : (
-          <ul className="divide-y divide-[#edf1ee]">
-            {doneToday.map((t) => (
-              <li key={t.id} className="flex justify-between px-5 py-3 text-xs">
-                <span className="font-semibold text-white">
-                  {t.plate} · <span className="text-emerald-300">{dn(t.driverId)}</span>
-                  <span className="ml-2 font-normal text-emerald-100/70">
-                    ({t.origin || 'PT. JAI'} → {t.destination})
-                  </span>
-                </span>
-                <span className="text-emerald-100/70 font-mono">
-                  {fmtTime(t.timeGo)} → {fmtTime(t.timeBack)} ({fmtDur(t.durationMin)})
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Card>
+              </div>
+            )}
+          </Card>
+        </div>
+      )}
 
       {/* MODAL KONFIRMASI BERANGKAT (GATE OUT) */}
       {confirmGoTrip && (
@@ -613,8 +887,8 @@ export function SecurityGate({ user }: { user: Account }) {
                   <p className="text-xs text-emerald-300 font-mono">{confirmGoTrip.plate} • {confirmGoTrip.id}</p>
                 </div>
               </div>
-              <button 
-                type="button" 
+              <button
+                type="button"
                 onClick={() => setConfirmGoTrip(null)}
                 className="p-1 rounded-lg text-white/60 hover:text-white hover:bg-white/10"
               >
@@ -684,8 +958,8 @@ export function SecurityGate({ user }: { user: Account }) {
                   <p className="text-xs text-amber-300 font-mono">{confirmBackTrip.plate} • {confirmBackTrip.id}</p>
                 </div>
               </div>
-              <button 
-                type="button" 
+              <button
+                type="button"
                 onClick={() => setConfirmBackTrip(null)}
                 className="p-1 rounded-lg text-white/60 hover:text-white hover:bg-white/10"
               >
@@ -739,4 +1013,3 @@ export function SecurityGate({ user }: { user: Account }) {
     </>
   )
 }
-

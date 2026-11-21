@@ -6,7 +6,8 @@ import { BookOpen, BusFront, CalendarDays, ChevronDown, Contact, Database, FileT
 import { ROLE_LABEL, getSession, setSession, type Account, type Role } from '@/lib/accounts'
 import { YazakiBadge, YazakiEmblem } from '@/components/yazaki-logo'
 import { ProfileSettingsModal } from '@/components/profile-settings-modal'
-import { StoreProvider, useStore } from '@/lib/store'
+import { StoreProvider, useStore, ymd } from '@/lib/store'
+import { isJaiLocation } from '@/lib/geo'
 import { ToastProvider } from './ui-bits'
 import { Dashboard } from './views/dashboard'
 import { RequesterCoupons, RequesterForm } from './views/requester'
@@ -132,8 +133,15 @@ function Badge({ role, id, user }: { role: Role; id: string; user?: Account }) {
     return pending ? <span className="rounded-md bg-amber-500 px-1.5 py-0.5 text-[9px] font-bold text-black">{pending}</span> : null
   }
 
+  const today = ymd()
+  const tripTouchesJai = (t: typeof db.trips[0]) => {
+    const originJai = isJaiLocation(t.origin || 'PT. JAI')
+    const destJai = isJaiLocation(t.destination) || (Array.isArray(t.destinations) && t.destinations.some((d) => isJaiLocation(d)))
+    return originJai || destJai
+  }
+
   const n = (role === 'admin' || role === 'admin_lobby') && (id === 'scheduling' || id === 'approval') ? db.trips.filter((t) => t.status === 'WAITING_ASSIGN').length
-    : role === 'security' && id === 'gate' ? db.trips.filter((t) => t.status === 'READY' || t.status === 'ON_TRIP').length
+    : role === 'security' && id === 'gate' ? db.trips.filter((t) => ((t.status === 'READY' && (!t.date || t.date >= today)) || t.status === 'ON_TRIP') && tripTouchesJai(t)).length
     : role === 'coupon' && id === 'pending' ? db.trips.filter((t) => t.coupon === 'PR_PENDING' || t.coupon === 'PR_PROGRESS').length
     : role === 'requester' && id === 'inbox' ? db.trips.filter((t) => t.status === 'READY').length
     : 0

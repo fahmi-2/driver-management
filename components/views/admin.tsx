@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Clock3, Download, Edit3, Phone, Plus, Shield, Trash2, Truck, UserCheck, UserPlus, UserRound, X, ChevronLeft, ChevronRight, Timer, AlertCircle, Calendar } from 'lucide-react'
 import type { Account } from '@/lib/accounts'
 import { COUPON_LABEL, STATUS_LABEL, driverState, fmtDate, fmtDur, fmtTime, useStore, vehicleState, ymd, type Driver, type ShiftType, type Trip } from '@/lib/store'
@@ -64,14 +64,26 @@ export function AdminApproval() {
   )
 }
 
-function exportExcel(rows: Trip[], driverName: (id?: string) => string) {
-  const head = ['TGL', 'USER', 'TUJUAN', 'JARAK (KM)', 'TIME GO', 'TIME BACK', 'DURATION', 'DRIVER', 'NO POL', 'KUPON']
-  const lines = rows.map((t) => [t.date, t.guest, t.destination, t.distance_km ? `${t.distance_km} KM` : '—', fmtTime(t.timeGo), fmtTime(t.timeBack), fmtDur(t.durationMin), driverName(t.driverId), t.plate ?? '', COUPON_LABEL[t.coupon]])
+function exportExcel(rows: Trip[], driverName: (id?: string) => string, filenameSuffix?: string) {
+  const head = ['TGL', 'USER', 'TUJUAN', 'JARAK (KM)', 'TIME GO', 'TIME BACK', 'DURATION', 'DRIVER', 'NO POL', 'STATUS', 'KUPON']
+  const lines = rows.map((t) => [
+    t.date,
+    t.guest,
+    t.destination,
+    t.distance_km ? `${t.distance_km} KM` : '—',
+    fmtTime(t.timeGo),
+    fmtTime(t.timeBack),
+    fmtDur(t.durationMin),
+    driverName(t.driverId),
+    t.plate ?? '',
+    STATUS_LABEL[t.status] || t.status,
+    COUPON_LABEL[t.coupon],
+  ])
   const csv = [head, ...lines].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(';')).join('\r\n')
   const url = URL.createObjectURL(new Blob(['\ufeffsep=;\r\n' + csv], { type: 'text/csv;charset=utf-8' }))
   const a = document.createElement('a')
   a.href = url
-  a.download = `live-data-${new Date().toISOString().slice(0, 10)}.csv`
+  a.download = `live-data-${filenameSuffix || new Date().toISOString().slice(0, 10)}.csv`
   a.click()
   URL.revokeObjectURL(url)
 }
@@ -79,52 +91,290 @@ function exportExcel(rows: Trip[], driverName: (id?: string) => string) {
 export function AdminLiveData() {
   const { db } = useStore()
   const [q, setQ] = useState('')
+  const [periodFilter, setPeriodFilter] = useState<'PAGE_10' | 'MONTH' | 'YEAR'>('PAGE_10')
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+  })
+  const [selectedYear, setSelectedYear] = useState<string>(() => String(new Date().getFullYear()))
+  const [page, setPage] = useState(1)
+
   const dn = (id?: string) => db.drivers.find((d) => d.id === id)?.name ?? '—'
-  const rows = db.trips
-    .filter((t) => t.status !== 'WAITING_SPV' && t.status !== 'REJECTED')
-    .filter((t) => `${t.guest} ${t.destination} ${dn(t.driverId)}`.toLowerCase().includes(q.toLowerCase()))
-    .slice().sort((a, b) => (b.date + (b.timeGo ?? '')).localeCompare(a.date + (a.timeGo ?? '')))
+
+  // Kumpulkan tahun-tahun yang tersedia dari dataset trips agar selalu bertambah dinamis
+  const availableYears = useMemo(() => {
+    const currentYear = new Date().getFullYear()
+    const yearsSet = new Set<string>()
+    yearsSet.add(String(currentYear))
+    db.trips.forEach((t) => {
+      if (t.date && t.date.length >= 4) {
+        yearsSet.add(t.date.slice(0, 4))
+      }
+    })
+    return Array.from(yearsSet).sort().reverse()
+  }, [db.trips])
+
+  // 1. Filter awal berdasarkan status & search query
+  const baseRows = useMemo(() => {
+    return db.trips
+      .filter((t) => t.status !== 'WAITING_SPV' && t.status !== 'REJECTED')
+      .filter((t) => `${t.guest} ${t.destination} ${dn(t.driverId)} ${t.plate ?? ''}`.toLowerCase().includes(q.toLowerCase()))
+      .slice()
+      .sort((a, b) => (b.date + (b.timeGo ?? '')).localeCompare(a.date + (a.timeGo ?? '')))
+  }, [db.trips, q])
+
+  // 2. Filter periode (PAGE_10: semua data tapi per 10 baris, MONTH: bulanan tahun berjalan, YEAR: tahunan)
+  const filteredRows = useMemo(() => {
+    if (periodFilter === 'MONTH') {
+      return baseRows.filter((t) => t.date && t.date.startsWith(selectedMonth))
+    }
+    if (periodFilter === 'YEAR') {
+      return baseRows.filter((t) => t.date && t.date.startsWith(selectedYear))
+    }
+    return baseRows
+  }, [baseRows, periodFilter, selectedMonth, selectedYear])
+
+  // 3. Pagination 10 per page
+  const rowsPerPage = 10
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / rowsPerPage))
+  const safePage = Math.min(page, totalPages)
+  const paginatedRows = useMemo(() => {
+    const start = (safePage - 1) * rowsPerPage
+    return filteredRows.slice(start, start + rowsPerPage)
+  }, [filteredRows, safePage])
+
+  // Reset pagination saat filter berubah
+  useEffect(() => {
+    setPage(1)
+  }, [periodFilter, selectedMonth, selectedYear, q])
+
+  // Download handler sesuai opsi filter yang aktif
+  const handleExport = () => {
+    const suffix =
+      periodFilter === 'MONTH'
+        ? `bulan-${selectedMonth}`
+        : periodFilter === 'YEAR'
+        ? `tahun-${selectedYear}`
+        : `per-10-baris-hal-${safePage}`
+
+    // Jika filter PAGE_10, download data halaman saat ini (maksimal 10); jika MONTH/YEAR download seluruh data filter tersebut
+    const dataToExport = periodFilter === 'PAGE_10' ? paginatedRows : filteredRows
+    exportExcel(dataToExport, dn, suffix)
+  }
 
   return (
     <>
-      <PageHeader title="Live Data" desc="Tabel operasional otomatis dari klik Security." action={<button id="export-excel" onClick={() => exportExcel(rows, dn)} className={btnPrimary}><Download size={14} />Export to Excel</button>} />
-      <Card title="Data Operasional" subtitle={`${rows.length} baris`} action={<input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cari user / tujuan / driver…" className="h-8 w-56 rounded-lg bg-[#f5f7f5] px-3 text-[11px] outline-none" />}>
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[960px] text-left text-xs">
-            <thead className="border-b border-[#edf1ee] bg-[#f7faf8] text-[10px] font-bold uppercase tracking-wider text-[#9aa7a0]">
-              <tr>
-                {['TGL', 'USER', 'TUJUAN', 'JARAK', 'TIME GO', 'TIME BACK', 'DURATION', 'DRIVER', 'NO. POL', 'STATUS', 'KUPON'].map((h) => (
-                  <th key={h} className="px-4 py-3">{h}</th>
+      <PageHeader
+        title="Live Data Operasional"
+        desc="Pantau riwayat dan data operasional kendaraan dinas secara realtime."
+        action={
+          <button id="export-excel" onClick={handleExport} className={`${btnPrimary} shadow-md`}>
+            <Download size={14} />
+            <span>
+              Export Excel ({periodFilter === 'MONTH' ? `Bulan ${selectedMonth}` : periodFilter === 'YEAR' ? `Tahun ${selectedYear}` : `Hal ${safePage} (10 Data)`})
+            </span>
+          </button>
+        }
+      />
+
+      <Card
+        title="Data Operasional"
+        subtitle={`${filteredRows.length} total data terpilih · Menampilkan 10 per halaman`}
+        action={
+          <div className="flex flex-wrap items-center gap-2.5">
+            {/* Filter Mode Periode */}
+            <div className="flex items-center rounded-xl bg-black/40 border border-white/10 p-1 text-xs">
+              <button
+                type="button"
+                onClick={() => setPeriodFilter('PAGE_10')}
+                className={`px-3 py-1 rounded-lg font-bold transition ${
+                  periodFilter === 'PAGE_10'
+                    ? 'bg-[#a3e635] text-[#052e16] shadow-xs'
+                    : 'text-[#8fa99b] hover:text-white'
+                }`}
+              >
+                Per 10 Data
+              </button>
+              <button
+                type="button"
+                onClick={() => setPeriodFilter('MONTH')}
+                className={`px-3 py-1 rounded-lg font-bold transition ${
+                  periodFilter === 'MONTH'
+                    ? 'bg-[#a3e635] text-[#052e16] shadow-xs'
+                    : 'text-[#8fa99b] hover:text-white'
+                }`}
+              >
+                Bulanan
+              </button>
+              <button
+                type="button"
+                onClick={() => setPeriodFilter('YEAR')}
+                className={`px-3 py-1 rounded-lg font-bold transition ${
+                  periodFilter === 'YEAR'
+                    ? 'bg-[#a3e635] text-[#052e16] shadow-xs'
+                    : 'text-[#8fa99b] hover:text-white'
+                }`}
+              >
+                Tahunan
+              </button>
+            </div>
+
+            {/* Pilihan Bulan jika mode Bulanan */}
+            {periodFilter === 'MONTH' && (
+              <input
+                type="month"
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                className="h-8 rounded-xl bg-black/40 border border-white/10 px-2.5 text-xs text-white font-mono focus:outline-none focus:border-[#a3e635]"
+              />
+            )}
+
+            {/* Pilihan Tahun jika mode Tahunan */}
+            {periodFilter === 'YEAR' && (
+              <select
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(e.target.value)}
+                className="h-8 rounded-xl bg-black/40 border border-white/10 px-2.5 text-xs text-white font-mono focus:outline-none focus:border-[#a3e635]"
+              >
+                {availableYears.map((y) => (
+                  <option key={y} value={y} className="bg-[#052115] text-white">
+                    Tahun {y}
+                  </option>
                 ))}
+              </select>
+            )}
+
+            {/* Input Pencarian */}
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Cari user / tujuan / driver / plat..."
+              className="h-8 w-48 sm:w-56 rounded-xl bg-black/40 border border-white/10 px-3 text-xs text-white placeholder-white/40 focus:outline-none focus:border-[#a3e635]"
+            />
+          </div>
+        }
+      >
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[1100px] text-left text-xs">
+            <thead className="border-b border-white/10 bg-white/[0.03] text-[10px] font-black uppercase tracking-wider text-[#a3e635]">
+              <tr>
+                <th className="px-3.5 py-3 whitespace-nowrap">TGL</th>
+                <th className="px-3.5 py-3 whitespace-nowrap">USER</th>
+                <th className="px-3.5 py-3 max-w-[280px]">TUJUAN</th>
+                <th className="px-3.5 py-3 whitespace-nowrap">JARAK</th>
+                <th className="px-3.5 py-3 whitespace-nowrap">JAM KELUAR</th>
+                <th className="px-3.5 py-3 whitespace-nowrap">JAM MASUK</th>
+                <th className="px-3.5 py-3 whitespace-nowrap">DURASI</th>
+                <th className="px-3.5 py-3 whitespace-nowrap">DRIVER</th>
+                <th className="px-3.5 py-3 whitespace-nowrap">NO. POL</th>
+                <th className="px-4 py-3 min-w-[190px] whitespace-nowrap">STATUS</th>
+                <th className="px-4 py-3 min-w-[130px] whitespace-nowrap">KUPON</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#edf1ee]">
-              {rows.length === 0 ? (
+            <tbody className="divide-y divide-white/5">
+              {paginatedRows.length === 0 ? (
                 <tr>
                   <td colSpan={11} className="py-8 text-center text-[#93a097]">
-                    Tidak ada data operasional.
+                    Tidak ada data operasional yang sesuai dengan filter.
                   </td>
                 </tr>
               ) : (
-                rows.map((t) => (
-                  <tr key={t.id} className="hover:bg-[#fafcfb] transition">
-                    <td className="px-4 py-3.5 text-[#9bb7a8] whitespace-nowrap">{fmtDate(t.date)}</td>
-                    <td className="px-4 py-3.5 font-bold text-[#10251c] whitespace-nowrap">{t.guest}</td>
-                    <td className="px-4 py-3.5 text-[#ecfdf5] font-medium whitespace-nowrap">{t.destination}</td>
-                    <td className="px-4 py-3.5 font-semibold text-[#bef264] whitespace-nowrap">{t.distance_km ? `${t.distance_km} KM` : '—'}</td>
-                    <td className="px-4 py-3.5 text-[#9bb7a8] whitespace-nowrap">{fmtTime(t.timeGo)}</td>
-                    <td className="px-4 py-3.5 text-[#9bb7a8] whitespace-nowrap">{fmtTime(t.timeBack)}</td>
-                    <td className="px-4 py-3.5 font-bold text-[#bef264] whitespace-nowrap">{fmtDur(t.durationMin)}</td>
-                    <td className="px-4 py-3.5 font-medium text-[#ecfdf5] whitespace-nowrap">{dn(t.driverId)}</td>
-                    <td className="px-4 py-3.5 font-mono font-bold text-[#a3e635] whitespace-nowrap">{t.plate ?? '—'}</td>
-                    <td className="px-4 py-3.5 whitespace-nowrap"><Pill label={STATUS_LABEL[t.status]} tone={tripTone(t.status)} /></td>
-                    <td className="px-4 py-3.5 whitespace-nowrap">{t.coupon === 'NONE' ? '—' : <Pill label={COUPON_LABEL[t.coupon]} tone={couponTone(t.coupon)} />}</td>
+                paginatedRows.map((t) => (
+                  <tr key={t.id} className="hover:bg-white/[0.03] transition-colors">
+                    {/* TGL */}
+                    <td className="px-3.5 py-3.5 text-[#9bb7a8] whitespace-nowrap font-mono text-[11px]">
+                      {fmtDate(t.date)}
+                    </td>
+
+                    {/* USER */}
+                    <td className="px-3.5 py-3.5 font-bold text-white whitespace-nowrap">
+                      {t.guest}
+                    </td>
+
+                    {/* TUJUAN (Max width rapi dengan line-clamp agar tidak stretch tapi tetap terbaca) */}
+                    <td className="px-3.5 py-3.5 text-[#bef264] font-medium max-w-[280px]" title={t.destination}>
+                      <span className="line-clamp-2 leading-relaxed">{t.destination}</span>
+                    </td>
+
+                    {/* JARAK */}
+                    <td className="px-3.5 py-3.5 font-semibold text-white whitespace-nowrap">
+                      {t.distance_km ? `${t.distance_km} KM` : '—'}
+                    </td>
+
+                    {/* TIME GO */}
+                    <td className="px-3.5 py-3.5 text-[#8fa99b] whitespace-nowrap font-mono">
+                      {fmtTime(t.timeGo)}
+                    </td>
+
+                    {/* TIME BACK */}
+                    <td className="px-3.5 py-3.5 text-[#8fa99b] whitespace-nowrap font-mono">
+                      {fmtTime(t.timeBack)}
+                    </td>
+
+                    {/* DURATION */}
+                    <td className="px-3.5 py-3.5 font-bold text-[#a3e635] whitespace-nowrap">
+                      {fmtDur(t.durationMin)}
+                    </td>
+
+                    {/* DRIVER */}
+                    <td className="px-3.5 py-3.5 font-semibold text-white whitespace-nowrap">
+                      {dn(t.driverId)}
+                    </td>
+
+                    {/* NO POL */}
+                    <td className="px-3.5 py-3.5 font-mono font-bold text-[#a3e635] whitespace-nowrap">
+                      {t.plate ?? '—'}
+                    </td>
+
+                    {/* STATUS (Ruang leluasa tanpa risiko tabrakan) */}
+                    <td className="px-4 py-3.5 min-w-[190px] whitespace-nowrap">
+                      <Pill label={STATUS_LABEL[t.status]} tone={tripTone(t.status)} />
+                    </td>
+
+                    {/* KUPON */}
+                    <td className="px-4 py-3.5 min-w-[130px] whitespace-nowrap">
+                      {t.coupon === 'NONE' ? '—' : <Pill label={COUPON_LABEL[t.coupon]} tone={couponTone(t.coupon)} />}
+                    </td>
                   </tr>
                 ))
               )}
             </tbody>
           </table>
         </div>
+
+        {/* Bar Navigasi Pagination */}
+        {totalPages > 1 && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-white/10 px-4 py-3 text-xs text-[#8fa99b]">
+            <div>
+              Menampilkan <b>{(safePage - 1) * rowsPerPage + 1}</b>–
+              <b>{Math.min(safePage * rowsPerPage, filteredRows.length)}</b> dari <b>{filteredRows.length}</b> data
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                disabled={safePage <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                className="flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-white hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition"
+              >
+                <ChevronLeft size={14} /> Prev
+              </button>
+
+              <span className="px-2 font-mono text-white font-bold">
+                Hal {safePage} / {totalPages}
+              </span>
+
+              <button
+                type="button"
+                disabled={safePage >= totalPages}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                className="flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-white hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition"
+              >
+                Next <ChevronRight size={14} />
+              </button>
+            </div>
+          </div>
+        )}
       </Card>
     </>
   )
