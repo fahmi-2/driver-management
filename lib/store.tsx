@@ -235,7 +235,44 @@ export const fmtTime = (iso?: string) => {
 export const fmtDate = (s: string) =>
   new Date(s + 'T00:00:00').toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })
 export const fmtDur = (min?: number) => (min == null ? '—' : `${Math.floor(min / 60)}j ${String(min % 60).padStart(2, '0')}m`)
-export const couponFromBack = (iso: string): CouponStatus => (new Date(iso).getHours() >= NOON_HOUR ? 'CLAIMABLE' : 'VOID')
+
+/**
+ * Aturan Kupon Makan Siang:
+ * Berangkat sebelum jam makan siang (< 13:00 / < 12:00) DAN kembali setelah jam makan siang (>= 12:00 / >= 13:00).
+ * Jika berangkat lewat jam makan siang (>= 13:00) atau kembali sebelum jam makan siang (< 12:00), maka kupon VOID / tidak berhak.
+ */
+export const calculateTripCoupon = (timeGoIso?: string, timeBackIso?: string, driverOnly?: boolean): CouponStatus => {
+  if (driverOnly) return 'VOID'
+  if (!timeBackIso) return 'NONE'
+  const backDate = new Date(timeBackIso)
+  if (isNaN(backDate.getTime())) return 'VOID'
+
+  // Waktu kembali harus melewati/setelah jam makan siang (>= 12:00 WIB)
+  const backHour = backDate.getHours()
+  const backMinute = backDate.getMinutes()
+  const backTotalMins = backHour * 60 + backMinute
+  if (backTotalMins < 12 * 60) {
+    return 'VOID'
+  }
+
+  // Waktu berangkat harus sebelum jam makan siang selesai (< 13:00 WIB)
+  if (timeGoIso) {
+    const goDate = new Date(timeGoIso)
+    if (!isNaN(goDate.getTime())) {
+      const goHour = goDate.getHours()
+      const goMinute = goDate.getMinutes()
+      const goTotalMins = goHour * 60 + goMinute
+      // Jika berangkat pada atau setelah jam 13:00 WIB (lewat jam makan siang), kupon tidak berhak (VOID)
+      if (goTotalMins >= 13 * 60) {
+        return 'VOID'
+      }
+    }
+  }
+
+  return 'CLAIMABLE'
+}
+
+export const couponFromBack = (iso: string, timeGoIso?: string): CouponStatus => calculateTripCoupon(timeGoIso, iso, false)
 
 /** Helper waktu WIB (Asia/Jakarta, UTC+7) untuk absensi & lembur */
 export function getWibNow(date = new Date()) {
@@ -370,7 +407,7 @@ function seed(): DB {
       estDeparture: `${String(go[0]).padStart(2, '0')}:${String(go[1]).padStart(2, '0')}`, status: 'DONE', spvName: `SPV ${dept}`, spvAt: g,
       driverId, plate, timeGo: g, timeBack: b, securityGo: 'security', securityBack: 'security', durationMin: dur(g, b),
       distance_km: distKm, estimated_duration_minutes: estMins,
-      coupon: coupon ?? couponFromBack(b),
+      coupon: coupon ?? calculateTripCoupon(g, b, false),
     }
   }
   return {
@@ -1028,7 +1065,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     gateBack: (id, security, delayReason) =>
       patch(id, (t) => {
         const back = new Date().toISOString()
-        const finalCoupon = t.driverOnly ? 'VOID' : couponFromBack(back)
+        const finalCoupon = calculateTripCoupon(t.timeGo, back, t.driverOnly)
         return {
           status: 'DONE',
           timeBack: back,
@@ -1047,7 +1084,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     endDriverTrip: (id, delayReason) =>
       patch(id, (t) => {
         const back = new Date().toISOString()
-        const finalCoupon = t.driverOnly ? 'VOID' : couponFromBack(back)
+        const finalCoupon = calculateTripCoupon(t.timeGo, back, t.driverOnly)
         const durationMin = t.timeGo ? Math.max(0, Math.round((+new Date(back) - +new Date(t.timeGo)) / 60000)) : (t.estimated_duration_minutes || 60)
         return {
           status: 'DONE',

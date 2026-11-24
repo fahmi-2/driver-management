@@ -1,10 +1,13 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import {
   AlertCircle,
   Building,
   CheckCircle,
+  ChevronLeft,
+  ChevronRight,
+  Download,
   Edit3,
   Mail,
   MapPin,
@@ -373,8 +376,8 @@ export function RequesterForm({ user }: { user: Account }) {
               type="button"
               onClick={() => setActiveTab('form')}
               className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition-all ${activeTab === 'form'
-                  ? 'bg-[#a3e635] text-[#052e16] shadow-md shadow-[#a3e635]/25 scale-[1.02]'
-                  : 'text-[#8fa99b] hover:text-white hover:bg-white/5'
+                ? 'bg-[#a3e635] text-[#052e16] shadow-md shadow-[#a3e635]/25 scale-[1.02]'
+                : 'text-[#8fa99b] hover:text-white hover:bg-white/5'
                 }`}
             >
               <Plus size={15} />
@@ -384,16 +387,16 @@ export function RequesterForm({ user }: { user: Account }) {
               type="button"
               onClick={() => setActiveTab('history')}
               className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition-all ${activeTab === 'history'
-                  ? 'bg-[#a3e635] text-[#052e16] shadow-md shadow-[#a3e635]/25 scale-[1.02]'
-                  : 'text-[#8fa99b] hover:text-white hover:bg-white/5'
+                ? 'bg-[#a3e635] text-[#052e16] shadow-md shadow-[#a3e635]/25 scale-[1.02]'
+                : 'text-[#8fa99b] hover:text-white hover:bg-white/5'
                 }`}
             >
               <Users size={15} />
               Riwayat Pengajuan
               <span
                 className={`ml-1 rounded-full px-2 py-0.5 text-[10px] font-black ${activeTab === 'history'
-                    ? 'bg-[#052e16] text-[#bef264]'
-                    : 'bg-white/10 text-white'
+                  ? 'bg-[#052e16] text-[#bef264]'
+                  : 'bg-white/10 text-white'
                   }`}
               >
                 {mine.length}
@@ -419,8 +422,8 @@ export function RequesterForm({ user }: { user: Account }) {
                     key={c}
                     onClick={() => setF({ ...f, category: c })}
                     className={`rounded-xl border px-4 py-3 text-xs font-bold transition flex items-center justify-center gap-2 ${f.category === c
-                        ? 'border-[#a3e635] bg-[#a3e635]/20 text-white ring-1 ring-[#a3e635]/40 shadow-xs'
-                        : 'border-[#a3e635]/20 bg-white/[0.03] text-[#8fa99b] hover:bg-[#a3e635]/10'
+                      ? 'border-[#a3e635] bg-[#a3e635]/20 text-white ring-1 ring-[#a3e635]/40 shadow-xs'
+                      : 'border-[#a3e635]/20 bg-white/[0.03] text-[#8fa99b] hover:bg-[#a3e635]/10'
                       }`}
                   >
                     <span className="size-2 rounded-full bg-[#a3e635]" />
@@ -592,8 +595,8 @@ export function RequesterForm({ user }: { user: Account }) {
               {/* Opsi "Hanya Driver" (Kirim Barang / Dokumen tanpa penumpang) */}
               <div
                 className={`rounded-xl border p-3.5 transition ${f.driverOnly
-                    ? 'border-amber-400/40 bg-amber-500/10 text-amber-200 ring-1 ring-amber-400/30'
-                    : 'border-white/10 bg-white/[0.02] text-[#8fa99b] hover:bg-white/[0.04]'
+                  ? 'border-amber-400/40 bg-amber-500/10 text-amber-200 ring-1 ring-amber-400/30'
+                  : 'border-white/10 bg-white/[0.02] text-[#8fa99b] hover:bg-white/[0.04]'
                   }`}
               >
                 <label className="flex items-start gap-3 cursor-pointer select-none">
@@ -618,8 +621,8 @@ export function RequesterForm({ user }: { user: Account }) {
                       </span>
                       <span
                         className={`rounded px-1.5 py-0.2 text-[9px] font-black uppercase tracking-wider ${f.driverOnly
-                            ? 'bg-amber-400/20 text-amber-300 border border-amber-400/40'
-                            : 'bg-white/10 text-[#8fa99b]'
+                          ? 'bg-amber-400/20 text-amber-300 border border-amber-400/40'
+                          : 'bg-white/10 text-[#8fa99b]'
                           }`}
                       >
                         {f.driverOnly ? 'Kupon Makan VOID / Hangus' : 'Kupon Normal'}
@@ -1019,18 +1022,132 @@ export function RequesterCoupons({ user }: { user: Account }) {
   const { db, claimCoupon } = useStore()
   const notify = useToast()
   const [selectedTicket, setSelectedTicket] = useState<Trip | null>(null)
+  const [q, setQ] = useState('')
+  const [periodFilter, setPeriodFilter] = useState<'PAGE_10' | 'MONTH' | 'YEAR'>('PAGE_10')
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+  })
+  const [selectedYear, setSelectedYear] = useState<string>(() => String(new Date().getFullYear()))
+  const [page, setPage] = useState(1)
+
+  const dn = (id?: string) => db.drivers.find((d) => d.id === id)?.name ?? '—'
+
+  const userDept = user.dept || 'ALL'
 
   // Filter trips for this requester's department that are DONE and coupon is eligible/processed
-  const rows = db.trips.filter((t) => t.dept === user.dept && t.status === 'DONE' && t.coupon !== 'NONE')
-  const claimable = rows.filter((t) => t.coupon === 'CLAIMABLE')
-  const inProgress = rows.filter((t) => t.coupon === 'PR_PENDING' || t.coupon === 'PR_PROGRESS')
-  const created = rows.filter((t) => t.coupon === 'PAID')
+  const allDeptRows = useMemo(() => {
+    return db.trips
+      .filter((t) => (!user.dept || t.dept === user.dept) && t.status === 'DONE' && t.coupon !== 'NONE')
+      .slice()
+      .sort((a, b) => (b.date + (b.timeGo ?? '')).localeCompare(a.date + (a.timeGo ?? '')))
+  }, [db.trips, user.dept])
+
+  // Summary counts berdasarkan seluruh kupon departemen
+  const claimable = allDeptRows.filter((t) => t.coupon === 'CLAIMABLE')
+  const inProgress = allDeptRows.filter((t) => t.coupon === 'PR_PENDING' || t.coupon === 'PR_PROGRESS')
+  const created = allDeptRows.filter((t) => t.coupon === 'PAID')
+
+  // Kumpulkan tahun-tahun yang tersedia dari dataset kupon agar selalu bertambah dinamis
+  const availableYears = useMemo(() => {
+    const currentYear = new Date().getFullYear()
+    const yearsSet = new Set<string>()
+    yearsSet.add(String(currentYear))
+    allDeptRows.forEach((t) => {
+      if (t.date && t.date.length >= 4) {
+        yearsSet.add(t.date.slice(0, 4))
+      }
+    })
+    return Array.from(yearsSet).sort().reverse()
+  }, [allDeptRows])
+
+  // 1. Filter awal berdasarkan search query
+  const searchedRows = useMemo(() => {
+    if (!q.trim()) return allDeptRows
+    const lowerQ = q.toLowerCase()
+    return allDeptRows.filter((t) => {
+      const matchDest = (t.destination || '').toLowerCase().includes(lowerQ)
+      const matchUser = `${t.requesterName || ''} ${t.requesterNik || ''} ${t.guest || ''}`.toLowerCase().includes(lowerQ)
+      const matchDriver = dn(t.driverId).toLowerCase().includes(lowerQ)
+      const matchPlate = (t.plate || '').toLowerCase().includes(lowerQ)
+      const matchPR = (t.prNumber || '').toLowerCase().includes(lowerQ)
+      const matchId = (t.id || '').toLowerCase().includes(lowerQ)
+      return matchDest || matchUser || matchDriver || matchPlate || matchPR || matchId
+    })
+  }, [allDeptRows, q])
+
+  // 2. Filter periode (PAGE_10: semua data tapi per 10 baris, MONTH: bulanan, YEAR: tahunan)
+  const filteredRows = useMemo(() => {
+    if (periodFilter === 'MONTH') {
+      return searchedRows.filter((t) => t.date && t.date.startsWith(selectedMonth))
+    }
+    if (periodFilter === 'YEAR') {
+      return searchedRows.filter((t) => t.date && t.date.startsWith(selectedYear))
+    }
+    return searchedRows
+  }, [searchedRows, periodFilter, selectedMonth, selectedYear])
+
+  // 3. Pagination 10 per page
+  const rowsPerPage = 10
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / rowsPerPage))
+  const safePage = Math.min(page, totalPages)
+  const paginatedRows = useMemo(() => {
+    const start = (safePage - 1) * rowsPerPage
+    return filteredRows.slice(start, start + rowsPerPage)
+  }, [filteredRows, safePage])
+
+  // Reset pagination saat filter atau pencarian berubah
+  useEffect(() => {
+    setPage(1)
+  }, [periodFilter, selectedMonth, selectedYear, q])
+
+  // Download handler CSV sesuai opsi filter yang aktif
+  const handleExport = () => {
+    const suffix =
+      periodFilter === 'MONTH'
+        ? `bulan-${selectedMonth}`
+        : periodFilter === 'YEAR'
+          ? `tahun-${selectedYear}`
+          : `per-10-baris-hal-${safePage}`
+
+    const dataToExport = periodFilter === 'PAGE_10' ? paginatedRows : filteredRows
+    const head = ['TGL TRIP', 'TIKET ID', 'PEMOHON', 'NIK', 'DEPARTEMEN', 'TUJUAN', 'DRIVER', 'NO POL', 'JAM BERANGKAT', 'JAM KEMBALI', 'STATUS KUPON', 'NOMOR PR']
+    const lines = dataToExport.map((t) => [
+      t.date,
+      t.id,
+      t.requesterName || t.guest,
+      t.requesterNik || '',
+      t.dept,
+      t.destination,
+      dn(t.driverId),
+      t.plate ?? '',
+      fmtTime(t.timeGo),
+      fmtTime(t.timeBack),
+      COUPON_LABEL[t.coupon],
+      t.prNumber ?? '',
+    ])
+    const csv = [head, ...lines].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(';')).join('\r\n')
+    const url = URL.createObjectURL(new Blob(['\ufeffsep=;\r\n' + csv], { type: 'text/csv;charset=utf-8' }))
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `kupon-${userDept.toLowerCase()}-${suffix}-${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
 
   return (
     <>
       <PageHeader
         title="Panel Kupon & Pencairan Makan Siang"
-        desc="Pelacakan real-time klaim kupon makan siang driver/pemohon · Waktu kembali (Time Back) ≥ 12:00 WIB berhak atas kupon."
+        desc={`Pelacakan real-time klaim kupon makan siang driver/pemohon Departemen ${userDept} · Berhak kupon jika berangkat sebelum makan siang (< 13:00 WIB) dan kembali setelah makan siang (≥ 12:00 WIB).`}
+        action={
+          <button onClick={handleExport} className={`${btnPrimary} shadow-md`}>
+            <Download size={14} />
+            <span>
+              Export Excel ({periodFilter === 'MONTH' ? `Bulan ${selectedMonth}` : periodFilter === 'YEAR' ? `Tahun ${selectedYear}` : `Hal ${safePage} (10 Data)`})
+            </span>
+          </button>
+        }
       />
 
       {/* Panel Pelacakan Requester (Summary Card) */}
@@ -1069,41 +1186,141 @@ export function RequesterCoupons({ user }: { user: Account }) {
         </div>
       </div>
 
-      <Card title="Daftar Kupon & Status Pencairan" subtitle={`${rows.length} total riwayat perjalanan berkupon`}>
-        {rows.length === 0 ? (
-          <Empty text="Belum ada perjalanan selesai dengan hak kupon makan." />
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[760px] text-left">
-              <thead className="bg-[#f7faf8]">
+      <Card
+        title="Daftar Kupon & Status Pencairan"
+        subtitle={`${filteredRows.length} data kupon terpilih · Menampilkan 10 per halaman`}
+        action={
+          <div className="flex flex-wrap items-center gap-2.5">
+            {/* Filter Mode Periode */}
+            <div className="flex items-center rounded-xl bg-black/40 border border-white/10 p-1 text-xs">
+              <button
+                type="button"
+                onClick={() => setPeriodFilter('PAGE_10')}
+                className={`px-3 py-1 rounded-lg font-bold transition ${periodFilter === 'PAGE_10'
+                  ? 'bg-[#a3e635] text-[#052e16] shadow-xs'
+                  : 'text-[#8fa99b] hover:text-white'
+                  }`}
+              >
+                Per 10 Data
+              </button>
+              <button
+                type="button"
+                onClick={() => setPeriodFilter('MONTH')}
+                className={`px-3 py-1 rounded-lg font-bold transition ${periodFilter === 'MONTH'
+                  ? 'bg-[#a3e635] text-[#052e16] shadow-xs'
+                  : 'text-[#8fa99b] hover:text-white'
+                  }`}
+              >
+                Bulanan
+              </button>
+              <button
+                type="button"
+                onClick={() => setPeriodFilter('YEAR')}
+                className={`px-3 py-1 rounded-lg font-bold transition ${periodFilter === 'YEAR'
+                  ? 'bg-[#a3e635] text-[#052e16] shadow-xs'
+                  : 'text-[#8fa99b] hover:text-white'
+                  }`}
+              >
+                Tahunan
+              </button>
+            </div>
+
+            {/* Pilihan Bulan jika mode Bulanan */}
+            {periodFilter === 'MONTH' && (
+              <input
+                type="month"
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                className="h-8 rounded-xl bg-black/40 border border-white/10 px-2.5 text-xs text-white font-mono focus:outline-none focus:border-[#a3e635]"
+              />
+            )}
+
+            {/* Pilihan Tahun jika mode Tahunan */}
+            {periodFilter === 'YEAR' && (
+              <select
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(e.target.value)}
+                className="h-8 rounded-xl bg-black/40 border border-white/10 px-2.5 text-xs text-white font-mono focus:outline-none focus:border-[#a3e635]"
+              >
+                {availableYears.map((y) => (
+                  <option key={y} value={y} className="bg-[#052115] text-white">
+                    Tahun {y}
+                  </option>
+                ))}
+              </select>
+            )}
+
+            {/* Input Pencarian */}
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Cari pemohon / NIK / tujuan / driver..."
+              className="h-8 w-48 sm:w-56 rounded-xl bg-black/40 border border-white/10 px-3 text-xs text-white placeholder-white/40 focus:outline-none focus:border-[#a3e635]"
+            />
+          </div>
+        }
+      >
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[950px] text-left text-xs">
+            <thead className="border-b border-white/10 bg-white/[0.03] text-[10px] font-black uppercase tracking-wider text-[#a3e635]">
+              <tr>
+                <th className="px-3.5 py-3 whitespace-nowrap">TGL TRIP</th>
+                <th className="px-3.5 py-3 max-w-[260px]">TUJUAN</th>
+                <th className="px-3.5 py-3 whitespace-nowrap">PEMOHON / NIK</th>
+                <th className="px-3.5 py-3 whitespace-nowrap">DRIVER</th>
+                <th className="px-3.5 py-3 whitespace-nowrap">JAM BERANGKAT</th>
+                <th className="px-3.5 py-3 whitespace-nowrap">JAM KEMBALI</th>
+                <th className="px-4 py-3 min-w-[150px] whitespace-nowrap">STATUS KUPON</th>
+                <th className="px-4 py-3 text-right whitespace-nowrap">AKSI / DETAIL</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5">
+              {paginatedRows.length === 0 ? (
                 <tr>
-                  {['Tgl Trip', 'Tujuan', 'Pemohon / NIK', 'Driver', 'Jam Berangkat', 'Jam Kembali', 'Status Kupon', 'Aksi / Detail'].map(
-                    (h) => (
-                      <th key={h} className={thCls}>
-                        {h}
-                      </th>
-                    )
-                  )}
+                  <td colSpan={8} className="py-8 text-center text-[#93a097]">
+                    Tidak ada riwayat kupon yang sesuai dengan filter atau pencarian.
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {rows.map((t) => {
-                  const driverName = db.drivers.find((d) => d.id === t.driverId)?.name ?? '—'
+              ) : (
+                paginatedRows.map((t) => {
+                  const driverName = dn(t.driverId)
                   return (
-                    <tr key={t.id} className="border-t border-[#edf1ee]">
-                      <td className={tdCls}>{fmtDate(t.date)}</td>
-                      <td className={tdCls}>
-                        <div className="font-semibold text-white">{t.destination}</div>
-                        <div className="text-[10px] text-[#8fa99b] font-mono">{t.id}</div>
+                    <tr key={t.id} className="hover:bg-white/[0.03] transition-colors">
+                      {/* TGL TRIP */}
+                      <td className="px-3.5 py-3.5 text-[#9bb7a8] whitespace-nowrap font-mono text-[11px]">
+                        {fmtDate(t.date)}
                       </td>
-                      <td className={tdCls}>
-                        <div className="font-medium text-white">{t.requesterName}</div>
+
+                      {/* TUJUAN (Max width rapi dengan line-clamp agar tidak stretch) */}
+                      <td className="px-3.5 py-3.5 text-[#bef264] font-medium max-w-[260px]" title={t.destination}>
+                        <span className="line-clamp-2 leading-relaxed">{t.destination}</span>
+                        <span className="text-[10px] text-[#8fa99b] font-mono block mt-0.5">{t.id}</span>
+                      </td>
+
+                      {/* PEMOHON / NIK */}
+                      <td className="px-3.5 py-3.5 whitespace-nowrap">
+                        <div className="font-bold text-white">{t.requesterName || t.guest}</div>
                         <div className="text-[10px] text-[#8fa99b] font-mono">NIK: {t.requesterNik || '—'}</div>
                       </td>
-                      <td className={tdCls}>{driverName}</td>
-                      <td className={tdCls}>{fmtTime(t.timeGo)} WIB</td>
-                      <td className={`${tdCls} font-bold text-[#bef264]`}>{fmtTime(t.timeBack)} WIB</td>
-                      <td className={tdCls}>
+
+                      {/* DRIVER */}
+                      <td className="px-3.5 py-3.5 font-semibold text-white whitespace-nowrap">
+                        <div>{driverName}</div>
+                        {t.plate && <div className="text-[10px] font-mono text-[#a3e635]">{t.plate}</div>}
+                      </td>
+
+                      {/* JAM BERANGKAT */}
+                      <td className="px-3.5 py-3.5 text-[#8fa99b] whitespace-nowrap font-mono">
+                        {fmtTime(t.timeGo)} WIB
+                      </td>
+
+                      {/* JAM KEMBALI */}
+                      <td className="px-3.5 py-3.5 font-bold text-[#bef264] whitespace-nowrap font-mono">
+                        {fmtTime(t.timeBack)} WIB
+                      </td>
+
+                      {/* STATUS KUPON */}
+                      <td className="px-4 py-3.5 min-w-[150px] whitespace-nowrap">
                         <div className="space-y-1">
                           <Pill label={COUPON_LABEL[t.coupon]} tone={couponTone(t.coupon)} />
                           {t.prNumber && (
@@ -1113,8 +1330,10 @@ export function RequesterCoupons({ user }: { user: Account }) {
                           )}
                         </div>
                       </td>
-                      <td className={tdCls}>
-                        <div className="flex items-center gap-2">
+
+                      {/* AKSI / DETAIL */}
+                      <td className="px-4 py-3.5 text-right whitespace-nowrap">
+                        <div className="flex items-center justify-end gap-2">
                           {t.coupon === 'CLAIMABLE' && (
                             <button
                               onClick={() => {
@@ -1137,9 +1356,43 @@ export function RequesterCoupons({ user }: { user: Account }) {
                       </td>
                     </tr>
                   )
-                })}
-              </tbody>
-            </table>
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Bar Navigasi Pagination */}
+        {totalPages > 1 && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-white/10 px-4 py-3 text-xs text-[#8fa99b]">
+            <div>
+              Menampilkan <b>{(safePage - 1) * rowsPerPage + 1}</b>–
+              <b>{Math.min(safePage * rowsPerPage, filteredRows.length)}</b> dari <b>{filteredRows.length}</b> data
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                disabled={safePage <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                className="flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-white hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition"
+              >
+                <ChevronLeft size={14} /> Prev
+              </button>
+
+              <span className="px-2 font-mono text-white font-bold">
+                Hal {safePage} / {totalPages}
+              </span>
+
+              <button
+                type="button"
+                disabled={safePage >= totalPages}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                className="flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-white hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition"
+              >
+                Next <ChevronRight size={14} />
+              </button>
+            </div>
           </div>
         )}
       </Card>
