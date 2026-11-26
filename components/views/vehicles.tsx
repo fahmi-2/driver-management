@@ -106,22 +106,22 @@ export function AdminVehicles() {
   }
 
   const handleDelete = async (plate: string) => {
-    // Check if vehicle has any active trips
-    const hasActiveTrip = db.trips.some(
-      (t) => t.plate === plate && (t.status === 'READY' || t.status === 'ON_TRIP')
-    )
-    if (hasActiveTrip) {
-      alert(`Kendaraan ${plate} tidak dapat dihapus karena sedang dalam tugas (READY / ON_TRIP)!`)
-      return
-    }
-    if (confirm(`Yakin ingin menghapus armada ${plate} dari database?`)) {
-      const res = await removeVehicle(plate)
-      if (!res.success) {
-        alert(`Gagal menghapus kendaraan dari database: ${res.error || 'Terjadi kesalahan'}`)
+    const targetVehicle = db.vehicles.find((v) => v.plate === plate)
+    const isRental = targetVehicle?.category === 'Mobil Sewa'
+
+    // Khusus Mobil Sewa: langsung hapus tanpa validasi status READY/ON_TRIP atau konfirmasi
+    if (!isRental) {
+      if (!confirm(`Apakah Anda yakin ingin menghapus armada ${plate} dari database?`)) {
         return
       }
-      notify(`Armada ${plate} berhasil dihapus.`)
     }
+
+    const res = await removeVehicle(plate)
+    if (!res.success) {
+      alert(`Gagal menghapus kendaraan dari database: ${res.error || 'Terjadi kesalahan'}`)
+      return
+    }
+    notify(`Armada ${plate} berhasil dihapus.`)
   }
 
   useEffect(() => {

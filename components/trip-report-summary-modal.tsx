@@ -22,7 +22,7 @@ import {
   ExternalLink,
   Loader2,
 } from 'lucide-react'
-import { Trip, STATUS_LABEL, fmtDate } from '@/lib/store'
+import { Trip, STATUS_LABEL, fmtDate, useStore } from '@/lib/store'
 import { TripRouteMap } from './route-map'
 import { ModalPortal } from './modal-portal'
 
@@ -33,6 +33,10 @@ interface TripReportSummaryModalProps {
 }
 
 export function TripReportSummaryModal({ trip, isOpen, onClose }: TripReportSummaryModalProps) {
+  const { db } = useStore()
+  const driverName = trip?.driverId
+    ? db.drivers.find((d) => d.id === trip.driverId)?.name || trip.driverId
+    : null
   const [spvQrCodeUrl, setSpvQrCodeUrl] = useState<string>('')
   const [poolQrCodeUrl, setPoolQrCodeUrl] = useState<string>('')
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false)
@@ -432,7 +436,7 @@ export function TripReportSummaryModal({ trip, isOpen, onClose }: TripReportSumm
               <span class="label">Alokasi Armada & Sopir:</span>
               <div style="border: 1px solid #000; padding: 4px;">
                 <span class="val" style="display: block;">${trip.plate || 'Belum Ditugaskan'}</span>
-                <span style="font-size: 9px; font-weight: bold;">${trip.driverId ? `Driver: ${trip.driverId}` : 'Pool GA'}</span>
+                <span style="font-size: 9px; font-weight: bold;">${driverName ? `Driver: ${driverName}` : 'Pool GA'}</span>
               </div>
             </td>
           </tr>
@@ -857,7 +861,7 @@ export function TripReportSummaryModal({ trip, isOpen, onClose }: TripReportSumm
                         {trip.plate || 'Belum Ditugaskan (Menunggu Verifikasi)'}
                       </span>
                       <span className="rounded bg-black/40 px-2 py-0.5 text-[10px] font-mono font-bold text-white border border-white/10">
-                        {trip.driverId ? `Driver: ${trip.driverId}` : 'Pool GA'}
+                        {driverName ? `Driver: ${driverName}` : 'Pool GA'}
                       </span>
                     </div>
                   </div>
